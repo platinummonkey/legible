@@ -89,6 +89,41 @@ The final step adds value to the synchronized documents by:
 4. **Flexible**: Optional label-based filtering for selective sync
 5. **Non-destructive**: Original documents remain unchanged; enhanced versions are new files
 
+## Test Data
+
+### Example reMarkable Document
+
+The `example/` directory contains a real reMarkable document for testing and development:
+
+- **Test.rmdoc** - A zipped reMarkable document (29KB, 2 pages)
+  - Document ID: `b68e57f6-4fc9-4a71-b300-e0fa100ef8d7`
+  - Title: "Test"
+  - 2 blank pages with handwritten content
+
+**Unzipped structure:**
+```
+example/
+├── Test.rmdoc                                          # Original ZIP file
+├── b68e57f6-4fc9-4a71-b300-e0fa100ef8d7.metadata      # Document metadata (JSON)
+├── b68e57f6-4fc9-4a71-b300-e0fa100ef8d7.content       # Content/page information (JSON)
+└── b68e57f6-4fc9-4a71-b300-e0fa100ef8d7/              # Page data directory
+    ├── aefd8acc-a17d-4e24-a76c-66a3ee15b4ba.rm        # Page 1 rendering data (19KB)
+    └── 7ac5c320-e3e5-4c6c-8adc-204662ee929a.rm        # Page 2 rendering data (4.4KB)
+```
+
+**Using the test data:**
+- Use `Test.rmdoc` to test the PDF conversion pipeline
+- Use the unzipped structure to understand the .rmdoc format
+- The `.rm` files contain binary vector rendering data for each page
+- The `.metadata` file contains document properties (title, timestamps, parent folder)
+- The `.content` file contains page ordering, templates, and settings
+
+**When implementing components:**
+- **Converter** (`internal/converter`): Use `Test.rmdoc` to validate ZIP extraction and .rm parsing
+- **OCR** (`internal/ocr`): Render the .rm files to images for OCR testing
+- **PDF Enhancer** (`internal/pdfenhancer`): Use the converted PDF to test text layer addition
+- **Integration tests**: Use as a known-good fixture for end-to-end workflow validation
+
 ## Future Considerations
 
 - Incremental sync with change detection
