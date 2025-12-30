@@ -1,0 +1,259 @@
+# GoReleaser Pro configuration for remarkable-sync
+# https://goreleaser.com/pro
+#
+# NOTE: This build requires Tesseract OCR and Leptonica to be installed
+# on the build system due to gosseract CGO dependencies.
+# The GitHub Actions workflow installs these automatically.
+
+version: 2
+
+project_name: remarkable-sync
+
+before:
+  hooks:
+    # Ensure dependencies are up to date
+    - go mod tidy
+    # Run tests (no-ocr variant for CI environment without Tesseract)
+    - make test-no-ocr
+
+builds:
+  - id: remarkable-sync
+    main: ./cmd/remarkable-sync
+    binary: remarkable-sync
+
+    # Build for multiple platforms
+    goos:
+      - linux
+      - darwin
+      - windows
+
+    goarch:
+      - amd64
+      - arm64
+
+    # Exclude invalid combinations
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+    # Inject version information
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Version}}
+      - -X main.GitCommit={{.ShortCommit}}
+      - -X main.BuildDate={{.Date}}
+
+    env:
+      - CGO_ENABLED=1
+
+    # Build flags
+    flags:
+      - -trimpath
+
+    # Modify binary name for Windows
+    hooks:
+      post:
+        - cmd: echo "Built {{.Path}} for {{.Os}}/{{.Arch}}"
+
+archives:
+  - id: default
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+
+    # Files to include in archives
+    files:
+      - LICENSE*
+      - README*
+      - CHANGELOG*
+      - FAQ.md
+      - CONTRIBUTING.md
+      - examples/**/*
+      - src: "docs/**/*"
+        dst: docs
+        strip_parent: true
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - 'merge conflict'
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+  groups:
+    - title: 'New Features'
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: 'Bug Fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: 'Performance Improvements'
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: 'Refactors'
+      regexp: '^.*?refactor(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: 'Documentation Updates'
+      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
+      order: 4
+    - title: 'Build & CI'
+      regexp: '^.*?build(\([[:word:]]+\))??!?:.+$'
+      order: 5
+    - title: 'Other Changes'
+      order: 999
+
+release:
+  github:
+    owner: platinummonkey
+    name: remarkable-sync
+
+  # Create release draft for review
+  draft: false
+
+  # Mark as prerelease for v0.x versions
+  prerelease: auto
+
+  # Release name template
+  name_template: "{{.ProjectName}} v{{.Version}}"
+
+  # Release notes
+  header: |
+    ## reMarkable Sync {{.Version}}
+
+    Thank you for using reMarkable Sync! This release includes the following changes:
+
+  footer: |
+    ## Installation
+
+    ### Binary Installation
+
+    Download the appropriate binary for your platform from the assets below.
+
+    **Linux / macOS:**
+    ```bash
+    # Download and extract (replace VERSION and OS/ARCH with your values)
+    curl -L https://github.com/platinummonkey/remarkable-sync/releases/download/v{{.Version}}/remarkable-sync_{{.Version}}_OS_ARCH.tar.gz | tar xz
+
+    # Make executable and move to PATH
+    chmod +x remarkable-sync
+    sudo mv remarkable-sync /usr/local/bin/
+    ```
+
+    **Windows:**
+    Download the `.zip` file, extract it, and add the executable to your PATH.
+
+    ### Homebrew (macOS)
+    ```bash
+    brew tap platinummonkey/remarkable-sync
+    brew install remarkable-sync
+    ```
+
+    ### From Source
+    ```bash
+    go install github.com/platinummonkey/remarkable-sync/cmd/remarkable-sync@v{{.Version}}
+    ```
+
+    ## Documentation
+
+    - [README](https://github.com/platinummonkey/remarkable-sync/blob/v{{.Version}}/README.md)
+    - [FAQ](https://github.com/platinummonkey/remarkable-sync/blob/v{{.Version}}/FAQ.md)
+    - [Contributing](https://github.com/platinummonkey/remarkable-sync/blob/v{{.Version}}/CONTRIBUTING.md)
+
+    ---
+
+    **Full Changelog**: https://github.com/platinummonkey/remarkable-sync/compare/{{.PreviousTag}}...v{{.Version}}
+
+# GoReleaser Pro features
+# Sign releases with GoReleaser Pro signing
+signs:
+  - cmd: gpg
+    args:
+      - "--batch"
+      - "--local-user"
+      - "{{ .Env.GPG_FINGERPRINT }}"
+      - "--output"
+      - "${signature}"
+      - "--detach-sign"
+      - "${artifact}"
+    artifacts: checksum
+    signature: "${artifact}.sig"
+
+# Homebrew tap (optional - uncomment to enable)
+# brews:
+#   - name: remarkable-sync
+#     repository:
+#       owner: platinummonkey
+#       name: homebrew-remarkable-sync
+#       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+#
+#     folder: Formula
+#
+#     homepage: "https://github.com/platinummonkey/remarkable-sync"
+#     description: "Sync documents from reMarkable tablet with OCR text layer generation"
+#
+#     license: "MIT"
+#
+#     dependencies:
+#       - name: tesseract
+#         type: optional
+#
+#     test: |
+#       system "#{bin}/remarkable-sync", "version"
+#
+#     install: |
+#       bin.install "remarkable-sync"
+#
+#       # Install examples
+#       (share/"remarkable-sync").install "examples"
+#
+#       # Install documentation
+#       doc.install "README.md", "FAQ.md", "CONTRIBUTING.md"
+
+# Announce releases (optional - uncomment to enable)
+# announce:
+#   slack:
+#     enabled: true
+#     channel: '#releases'
+#     message_template: 'reMarkable Sync {{.Tag}} is out! Check it out at {{ .ReleaseURL }}'
+
+# Metadata for GoReleaser Pro
+metadata:
+  mod_timestamp: '{{ .CommitTimestamp }}'
+
+# Docker images (optional - uncomment to enable)
+# dockers:
+#   - image_templates:
+#       - "ghcr.io/platinummonkey/remarkable-sync:{{ .Tag }}"
+#       - "ghcr.io/platinummonkey/remarkable-sync:v{{ .Major }}"
+#       - "ghcr.io/platinummonkey/remarkable-sync:v{{ .Major }}.{{ .Minor }}"
+#       - "ghcr.io/platinummonkey/remarkable-sync:latest"
+#
+#     dockerfile: Dockerfile
+#
+#     build_flag_templates:
+#       - "--pull"
+#       - "--label=org.opencontainers.image.created={{.Date}}"
+#       - "--label=org.opencontainers.image.title={{.ProjectName}}"
+#       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+#       - "--label=org.opencontainers.image.version={{.Version}}"
+#
+#     extra_files:
+#       - examples/
+#       - README.md
