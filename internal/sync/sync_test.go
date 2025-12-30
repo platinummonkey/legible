@@ -13,7 +13,6 @@ import (
 	"github.com/platinummonkey/remarkable-sync/internal/pdfenhancer"
 	"github.com/platinummonkey/remarkable-sync/internal/rmclient"
 	"github.com/platinummonkey/remarkable-sync/internal/state"
-	"github.com/platinummonkey/remarkable-sync/internal/types"
 )
 
 func TestNew(t *testing.T) {
@@ -121,7 +120,7 @@ func TestFilterDocumentsByLabels(t *testing.T) {
 		logger: logger.Get(),
 	}
 
-	docs := []types.Document{
+	docs := []rmclient.Document{
 		{ID: "1", Title: "Work Doc", Labels: []string{"work"}},
 		{ID: "2", Title: "Personal Doc", Labels: []string{"personal"}},
 		{ID: "3", Title: "Project Doc", Labels: []string{"project"}},
@@ -160,7 +159,7 @@ func TestFilterDocumentsByLabels_NoFilter(t *testing.T) {
 		logger: logger.Get(),
 	}
 
-	docs := []types.Document{
+	docs := []rmclient.Document{
 		{ID: "1", Title: "Doc 1"},
 		{ID: "2", Title: "Doc 2"},
 		{ID: "3", Title: "Doc 3"},
@@ -185,12 +184,12 @@ func TestIdentifyDocumentsToSync(t *testing.T) {
 
 	// Create state with one existing document
 	currentState := state.NewSyncState()
-	currentState.Documents["1"] = types.DocumentState{
+	currentState.AddDocument(&state.DocumentState{
 		ID:      "1",
 		Version: 1,
-	}
+	})
 
-	docs := []types.Document{
+	docs := []rmclient.Document{
 		{ID: "1", Version: 1}, // Unchanged
 		{ID: "2", Version: 1}, // New
 		{ID: "3", Version: 2}, // New

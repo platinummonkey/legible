@@ -14,7 +14,6 @@ import (
 	"github.com/platinummonkey/remarkable-sync/internal/pdfenhancer"
 	"github.com/platinummonkey/remarkable-sync/internal/rmclient"
 	"github.com/platinummonkey/remarkable-sync/internal/state"
-	"github.com/platinummonkey/remarkable-sync/internal/types"
 )
 
 // Orchestrator coordinates the complete sync workflow
@@ -134,15 +133,15 @@ func (o *Orchestrator) Sync(ctx context.Context) (*SyncResult, error) {
 		result.AddSuccess(docResult)
 
 		// Update state incrementally (don't lose progress on failures)
-		docState := &types.DocumentState{
-			ID:              doc.ID,
-			Version:         doc.Version,
-			ModifiedTime:    doc.ModifiedTime,
-			LastSyncTime:    time.Now(),
-			LocalPath:       docResult.OutputPath,
-			ConversionState: "completed",
+		docState := &state.DocumentState{
+			ID:             doc.ID,
+			Version:        doc.Version,
+			ModifiedClient: doc.ModifiedTime,
+			LastSynced:     time.Now(),
+			LocalPath:      docResult.OutputPath,
 		}
-		currentState.UpdateDocument(*docState)
+		docState.SetConversionStatus(state.ConversionStatusCompleted)
+		currentState.AddDocument(docState)
 
 		// Save state after each document
 		if err := o.stateStore.Save(currentState); err != nil {
@@ -167,7 +166,7 @@ func (o *Orchestrator) Sync(ctx context.Context) (*SyncResult, error) {
 }
 
 // filterDocumentsByLabels filters documents by configured labels
-func (o *Orchestrator) filterDocumentsByLabels(docs []types.Document) []types.Document {
+func (o *Orchestrator) filterDocumentsByLabels(docs []rmclient.Document) []rmclient.Document {
 	// If no label filters configured, return all documents
 	if len(o.config.Labels) == 0 {
 		return docs
@@ -180,7 +179,7 @@ func (o *Orchestrator) filterDocumentsByLabels(docs []types.Document) []types.Do
 	}
 
 	// Filter documents
-	var filtered []types.Document
+	var filtered []rmclient.Document
 	for _, doc := range docs {
 		// Check if document has any matching labels
 		hasMatchingLabel := false
@@ -200,15 +199,15 @@ func (o *Orchestrator) filterDocumentsByLabels(docs []types.Document) []types.Do
 }
 
 // identifyDocumentsToSync compares API documents with state to find new/changed documents
-func (o *Orchestrator) identifyDocumentsToSync(docs []types.Document, currentState *types.SyncState) []types.Document {
-	var toSync []types.Document
+func (o *Orchestrator) identifyDocumentsToSync(docs []rmclient.Document, currentState *state.SyncState) []rmclient.Document {
+	var toSync []rmclient.Document
 
 	for _, doc := range docs {
 		// Check if document exists in state
-		docState, exists := currentState.Documents[doc.ID]
+		docState := currentState.GetDocument(doc.ID)
 
 		// Sync if document is new or version changed
-		if !exists || docState.Version != doc.Version {
+		if docState == nil || docState.Version != doc.Version {
 			toSync = append(toSync, doc)
 		}
 	}
@@ -217,7 +216,7 @@ func (o *Orchestrator) identifyDocumentsToSync(docs []types.Document, currentSta
 }
 
 // processDocument processes a single document through the complete pipeline
-func (o *Orchestrator) processDocument(ctx context.Context, doc types.Document, docNum, totalDocs int) (*DocumentResult, error) {
+func (o *Orchestrator) processDocument(ctx context.Context, doc rmclient.Document, docNum, totalDocs int) (*DocumentResult, error) {
 	result := &DocumentResult{
 		DocumentID: doc.ID,
 		Title:      doc.Title,
