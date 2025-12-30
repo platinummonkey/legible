@@ -99,6 +99,7 @@ The `example/` directory contains a real reMarkable document for testing and dev
   - Document ID: `b68e57f6-4fc9-4a71-b300-e0fa100ef8d7`
   - Title: "Test"
   - 2 blank pages with handwritten content
+  - File Version: V6 format
 
 **Unzipped structure:**
 ```
