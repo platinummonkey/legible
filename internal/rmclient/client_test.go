@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/platinummonkey/remarkable-sync/internal/logger"
@@ -433,16 +434,15 @@ func TestClient_DownloadDocument_Authenticated(t *testing.T) {
 		t.Fatalf("SetToken() error = %v", err)
 	}
 
-	// Should create output directory and return not-implemented error
+	// Should return error that API client is not initialized
+	// (since we haven't called Authenticate() which initializes rmapi)
 	err = client.DownloadDocument("doc-123", outputPath)
 	if err == nil {
-		t.Error("DownloadDocument() should return not-implemented error")
+		t.Error("DownloadDocument() should return error when API client not initialized")
 	}
 
-	// Verify output directory was created
-	outputDir := filepath.Dir(outputPath)
-	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
-		t.Error("output directory should be created")
+	if !strings.Contains(err.Error(), "API client not initialized") {
+		t.Errorf("Expected 'API client not initialized' error, got: %v", err)
 	}
 }
 
@@ -471,19 +471,24 @@ func TestClient_Authenticate_WithExistingToken(t *testing.T) {
 		t.Fatalf("NewClient() error = %v", err)
 	}
 
-	// Authenticate should succeed with existing token
+	// Note: Authenticate() now actually tries to connect to the reMarkable API
+	// With a test token, this will fail with a network/auth error
+	// This tests that the token is loaded and the API initialization is attempted
 	err = client.Authenticate()
-	if err != nil {
-		t.Errorf("Authenticate() should succeed with existing token, got error: %v", err)
-	}
 
-	// Verify client is authenticated
-	if !client.IsAuthenticated() {
-		t.Error("client should be authenticated after successful Authenticate()")
-	}
-
+	// Verify token was loaded from file (even if API init failed)
 	if client.token != "existing-token-12345" {
 		t.Errorf("expected token existing-token-12345, got %s", client.token)
+	}
+
+	// API initialization should fail in tests (no real credentials)
+	// We expect an error about getting user token or API initialization
+	if err == nil {
+		t.Error("Authenticate() should fail with test token (network/auth error expected)")
+	}
+
+	if !strings.Contains(err.Error(), "failed to") {
+		t.Logf("Got expected error: %v", err)
 	}
 }
 

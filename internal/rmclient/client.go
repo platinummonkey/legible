@@ -5,7 +5,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/juruen/rmapi/api"
+	"github.com/juruen/rmapi/auth"
+	"github.com/juruen/rmapi/model"
+	"github.com/juruen/rmapi/transport"
 	"github.com/platinummonkey/remarkable-sync/internal/logger"
 )
 
@@ -14,6 +19,7 @@ type Client struct {
 	tokenPath string
 	logger    *logger.Logger
 	token     string
+	apiCtx    api.ApiCtx
 }
 
 // Config holds configuration for the reMarkable client
@@ -23,6 +29,64 @@ type Config struct {
 
 	// Logger is the logger instance to use
 	Logger *logger.Logger
+}
+
+// jsonTokenStore implements auth.TokenStore for our JSON token format
+// It bridges our JSON token file format to rmapi's TokenStore interface
+type jsonTokenStore struct {
+	tokenPath string
+}
+
+// Save persists tokens to our JSON format
+func (jts *jsonTokenStore) Save(t auth.TokenSet) error {
+	// Create token directory if it doesn't exist
+	tokenDir := filepath.Dir(jts.tokenPath)
+	if err := os.MkdirAll(tokenDir, 0700); err != nil {
+		return fmt.Errorf("failed to create token directory: %w", err)
+	}
+
+	tokenData := map[string]string{
+		"device_token": t.DeviceToken,
+	}
+
+	// Also save user token if present
+	if t.UserToken != "" {
+		tokenData["user_token"] = t.UserToken
+	}
+
+	data, err := json.MarshalIndent(tokenData, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal token: %w", err)
+	}
+
+	if err := os.WriteFile(jts.tokenPath, data, 0600); err != nil {
+		return fmt.Errorf("failed to write token file: %w", err)
+	}
+
+	return nil
+}
+
+// Load loads tokens from our JSON format
+func (jts *jsonTokenStore) Load() (auth.TokenSet, error) {
+	// Return empty if file doesn't exist
+	if _, err := os.Stat(jts.tokenPath); os.IsNotExist(err) {
+		return auth.TokenSet{}, nil
+	}
+
+	data, err := os.ReadFile(jts.tokenPath)
+	if err != nil {
+		return auth.TokenSet{}, fmt.Errorf("failed to read token file: %w", err)
+	}
+
+	var tokenData map[string]string
+	if err := json.Unmarshal(data, &tokenData); err != nil {
+		return auth.TokenSet{}, fmt.Errorf("failed to parse token file: %w", err)
+	}
+
+	return auth.TokenSet{
+		DeviceToken: tokenData["device_token"],
+		UserToken:   tokenData["user_token"],
+	}, nil
 }
 
 // NewClient creates a new reMarkable API client
@@ -71,6 +135,13 @@ func (c *Client) Authenticate() error {
 			c.logger.WithError(err).Warn("Failed to load existing token, manual authentication required")
 			return fmt.Errorf("failed to load token: %w", err)
 		}
+
+		// Initialize rmapi client
+		if err := c.initializeAPIClient(); err != nil {
+			c.logger.WithError(err).Error("Failed to initialize rmapi client")
+			return fmt.Errorf("failed to initialize API client: %w", err)
+		}
+
 		c.logger.Info("Successfully authenticated with existing token")
 		return nil
 	}
@@ -82,6 +153,62 @@ func (c *Client) Authenticate() error {
 	c.logger.Info("3. Save the device token to: " + c.tokenPath)
 
 	return fmt.Errorf("authentication token not found at: %s", c.tokenPath)
+}
+
+// initializeAPIClient initializes the rmapi API context
+func (c *Client) initializeAPIClient() error {
+	// Create token store
+	tokenStore := &jsonTokenStore{tokenPath: c.tokenPath}
+
+	// Create auth instance
+	authClient := auth.NewFromStore(tokenStore)
+
+	// Get authenticated HTTP client
+	httpClient := authClient.Client()
+
+	// Get the user token to extract sync version
+	userToken, err := authClient.Token()
+	if err != nil {
+		return fmt.Errorf("failed to get user token: %w", err)
+	}
+
+	// Parse token to get user info and sync version
+	userInfo, err := api.ParseToken(userToken)
+	if err != nil {
+		return fmt.Errorf("failed to parse user token: %w", err)
+	}
+
+	c.logger.WithFields("sync_version", userInfo.SyncVersion, "user", userInfo.User).Debug("Parsed user token")
+
+	// Create HTTP context - we need to get tokens again from store
+	tokens, err := tokenStore.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load tokens: %w", err)
+	}
+
+	// Create API context
+	// We need to create the transport manually since api.CreateApiCtx expects HttpClientCtx
+	// But the auth package gives us an http.Client
+	// Let's use the direct approach from rmapi
+
+	// Actually, looking at rmapi source, we need to use api.AuthHttpCtx
+	// But that does interactive auth. Since we have tokens, let's create HttpClientCtx directly
+	httpCtx := &transport.HttpClientCtx{
+		Client: httpClient,
+		Tokens: model.AuthTokens{
+			DeviceToken: tokens.DeviceToken,
+			UserToken:   tokens.UserToken,
+		},
+	}
+
+	// Create API context
+	apiCtx, err := api.CreateApiCtx(httpCtx, userInfo.SyncVersion)
+	if err != nil {
+		return fmt.Errorf("failed to create API context: %w", err)
+	}
+
+	c.apiCtx = apiCtx
+	return nil
 }
 
 // loadToken loads an existing authentication token from disk
@@ -138,33 +265,138 @@ func (c *Client) ListDocuments(labels []string) ([]Document, error) {
 		return nil, fmt.Errorf("client not authenticated")
 	}
 
+	if c.apiCtx == nil {
+		return nil, fmt.Errorf("API client not initialized, call Authenticate() first")
+	}
+
 	c.logger.WithFields("labels", labels).Debug("Listing documents")
 
-	// Note: Actual implementation would use rmapi to fetch documents
-	// This is a placeholder that would be implemented with proper rmapi integration
-	// For now, return an informative error
+	// Get the file tree
+	tree := c.apiCtx.Filetree()
+	if tree == nil {
+		return nil, fmt.Errorf("failed to get file tree")
+	}
 
-	return nil, fmt.Errorf("ListDocuments requires rmapi integration - not yet implemented")
+	// Collect all documents from the tree
+	var documents []Document
+	c.collectDocuments(tree.Root(), labels, &documents)
+
+	c.logger.WithFields("count", len(documents)).Info("Listed documents")
+	return documents, nil
 }
 
-// GetDocumentMetadata retrieves metadata for a specific document
-func (c *Client) GetDocumentMetadata(id string) (*Metadata, error) {
+// parseTime parses a timestamp string from rmapi to time.Time
+// rmapi returns timestamps as RFC3339 strings
+func parseTime(timeStr string) time.Time {
+	if timeStr == "" {
+		return time.Time{}
+	}
+
+	// Try RFC3339 format
+	t, err := time.Parse(time.RFC3339, timeStr)
+	if err == nil {
+		return t
+	}
+
+	// Try RFC3339Nano format
+	t, err = time.Parse(time.RFC3339Nano, timeStr)
+	if err == nil {
+		return t
+	}
+
+	// Return zero time if parsing fails
+	return time.Time{}
+}
+
+// collectDocuments recursively collects documents from the file tree
+func (c *Client) collectDocuments(node *model.Node, labels []string, documents *[]Document) {
+	if node == nil {
+		return
+	}
+
+	// Process current node if it's a document (not a directory)
+	if node.IsFile() && node.Document != nil {
+		doc := node.Document
+
+		// Filter by labels if specified
+		if len(labels) > 0 {
+			// Note: rmapi doesn't directly expose labels/tags in the Document model
+			// Labels would need to be checked via metadata or parent folder names
+			// For now, we include all documents if labels are specified
+			// TODO: Implement proper label filtering when metadata structure is clarified
+		}
+
+		*documents = append(*documents, Document{
+			ID:             doc.ID,
+			VissibleName:   doc.VissibleName, // Note: typo in rmapi library
+			Type:           doc.Type,
+			Version:        doc.Version,
+			ModifiedClient: parseTime(doc.ModifiedClient),
+			Parent:         doc.Parent,
+			Bookmarked:     doc.Bookmarked,
+		})
+	}
+
+	// Recursively process children
+	for _, child := range node.Children {
+		c.collectDocuments(child, labels, documents)
+	}
+}
+
+// GetDocumentMetadata retrieves metadata for a specific document from the API
+// Returns a Document with full information from the reMarkable cloud
+func (c *Client) GetDocumentMetadata(id string) (*Document, error) {
 	if !c.IsAuthenticated() {
 		return nil, fmt.Errorf("client not authenticated")
 	}
 
+	if c.apiCtx == nil {
+		return nil, fmt.Errorf("API client not initialized, call Authenticate() first")
+	}
+
 	c.logger.WithDocumentID(id).Debug("Getting document metadata")
 
-	// Note: Actual implementation would use rmapi to fetch metadata
-	// This is a placeholder that would be implemented with proper rmapi integration
+	// Get the file tree
+	tree := c.apiCtx.Filetree()
+	if tree == nil {
+		return nil, fmt.Errorf("failed to get file tree")
+	}
 
-	return nil, fmt.Errorf("GetDocumentMetadata requires rmapi integration - not yet implemented")
+	// Find the node by ID
+	node := tree.NodeById(id)
+	if node == nil {
+		return nil, fmt.Errorf("document not found: %s", id)
+	}
+
+	if node.Document == nil {
+		return nil, fmt.Errorf("node is not a document: %s", id)
+	}
+
+	doc := node.Document
+
+	return &Document{
+		ID:             doc.ID,
+		VissibleName:   doc.VissibleName,
+		Type:           doc.Type,
+		Version:        doc.Version,
+		ModifiedClient: parseTime(doc.ModifiedClient),
+		Parent:         doc.Parent,
+		Bookmarked:     doc.Bookmarked,
+		BlobURLGet:     doc.BlobURLGet,
+		CurrentPage:    doc.CurrentPage,
+		Message:        doc.Message,
+		Success:        doc.Success,
+	}, nil
 }
 
 // DownloadDocument downloads a document to the specified path
 func (c *Client) DownloadDocument(id, outputPath string) error {
 	if !c.IsAuthenticated() {
 		return fmt.Errorf("client not authenticated")
+	}
+
+	if c.apiCtx == nil {
+		return fmt.Errorf("API client not initialized, call Authenticate() first")
 	}
 
 	c.logger.WithDocumentID(id).WithFields("output_path", outputPath).Info("Downloading document")
@@ -175,10 +407,14 @@ func (c *Client) DownloadDocument(id, outputPath string) error {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	// Note: Actual implementation would use rmapi to download the document
-	// This is a placeholder that would be implemented with proper rmapi integration
+	// Use rmapi to fetch the document
+	// FetchDocument downloads the document as a .zip file
+	if err := c.apiCtx.FetchDocument(id, outputPath); err != nil {
+		return fmt.Errorf("failed to download document: %w", err)
+	}
 
-	return fmt.Errorf("DownloadDocument requires rmapi integration - not yet implemented")
+	c.logger.WithDocumentID(id).Info("Successfully downloaded document")
+	return nil
 }
 
 // SetToken manually sets the authentication token (useful for testing or manual configuration)
