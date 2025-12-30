@@ -1,0 +1,345 @@
+package sync
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"time"
+
+	"github.com/platinummonkey/remarkable-sync/internal/config"
+	"github.com/platinummonkey/remarkable-sync/internal/converter"
+	"github.com/platinummonkey/remarkable-sync/internal/logger"
+	"github.com/platinummonkey/remarkable-sync/internal/ocr"
+	"github.com/platinummonkey/remarkable-sync/internal/pdfenhancer"
+	"github.com/platinummonkey/remarkable-sync/internal/rmclient"
+	"github.com/platinummonkey/remarkable-sync/internal/state"
+	"github.com/platinummonkey/remarkable-sync/internal/types"
+)
+
+// Orchestrator coordinates the complete sync workflow
+type Orchestrator struct {
+	config      *config.Config
+	logger      *logger.Logger
+	rmClient    *rmclient.Client
+	stateStore  *state.Store
+	converter   *converter.Converter
+	ocrProc     *ocr.Processor
+	pdfEnhancer *pdfenhancer.PDFEnhancer
+}
+
+// Config holds configuration for the sync orchestrator
+type Config struct {
+	Config       *config.Config
+	Logger       *logger.Logger
+	RMClient     *rmclient.Client
+	StateStore   *state.Store
+	Converter    *converter.Converter
+	OCRProcessor *ocr.Processor
+	PDFEnhancer  *pdfenhancer.PDFEnhancer
+}
+
+// New creates a new sync orchestrator
+func New(cfg *Config) (*Orchestrator, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("config cannot be nil")
+	}
+
+	// Use provided logger or get default
+	log := cfg.Logger
+	if log == nil {
+		log = logger.Get()
+	}
+
+	// Validate required dependencies
+	if cfg.Config == nil {
+		return nil, fmt.Errorf("config.Config is required")
+	}
+	if cfg.RMClient == nil {
+		return nil, fmt.Errorf("RMClient is required")
+	}
+	if cfg.StateStore == nil {
+		return nil, fmt.Errorf("StateStore is required")
+	}
+	if cfg.Converter == nil {
+		return nil, fmt.Errorf("Converter is required")
+	}
+	if cfg.PDFEnhancer == nil {
+		return nil, fmt.Errorf("PDFEnhancer is required")
+	}
+
+	return &Orchestrator{
+		config:      cfg.Config,
+		logger:      log,
+		rmClient:    cfg.RMClient,
+		stateStore:  cfg.StateStore,
+		converter:   cfg.Converter,
+		ocrProc:     cfg.OCRProcessor,
+		pdfEnhancer: cfg.PDFEnhancer,
+	}, nil
+}
+
+// Sync performs a complete synchronization workflow
+func (o *Orchestrator) Sync(ctx context.Context) (*SyncResult, error) {
+	o.logger.Info("Starting sync workflow")
+	startTime := time.Now()
+
+	result := NewSyncResult()
+
+	// Step 1: List documents from API
+	o.logger.Info("Listing documents from reMarkable API")
+	docs, err := o.rmClient.ListDocuments(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list documents: %w", err)
+	}
+	o.logger.WithFields("count", len(docs)).Info("Retrieved documents from API")
+
+	// Step 2: Filter by labels if configured
+	filteredDocs := o.filterDocumentsByLabels(docs)
+	o.logger.WithFields("original", len(docs), "filtered", len(filteredDocs)).
+		Info("Filtered documents by labels")
+
+	// Step 3: Load current sync state
+	currentState, err := o.stateStore.Load()
+	if err != nil {
+		o.logger.WithFields("error", err).Warn("Failed to load state, starting fresh")
+		currentState = state.NewSyncState()
+	}
+
+	// Step 4: Identify new/changed documents
+	docsToSync := o.identifyDocumentsToSync(filteredDocs, currentState)
+	o.logger.WithFields("count", len(docsToSync)).Info("Identified documents to sync")
+
+	// Step 5: Process each document
+	for i, doc := range docsToSync {
+		docNum := i + 1
+		totalDocs := len(docsToSync)
+
+		o.logger.WithFields(
+			"document", docNum,
+			"total", totalDocs,
+			"id", doc.ID,
+			"title", doc.Title,
+		).Info("Processing document")
+
+		// Process document through pipeline
+		docResult, err := o.processDocument(ctx, doc, docNum, totalDocs)
+		if err != nil {
+			o.logger.WithFields("id", doc.ID, "error", err).Error("Document processing failed")
+			result.AddError(doc.ID, doc.Title, err)
+			continue
+		}
+
+		// Update result
+		result.AddSuccess(docResult)
+
+		// Update state incrementally (don't lose progress on failures)
+		docState := &types.DocumentState{
+			ID:              doc.ID,
+			Version:         doc.Version,
+			ModifiedTime:    doc.ModifiedTime,
+			LastSyncTime:    time.Now(),
+			LocalPath:       docResult.OutputPath,
+			ConversionState: "completed",
+		}
+		currentState.UpdateDocument(*docState)
+
+		// Save state after each document
+		if err := o.stateStore.Save(currentState); err != nil {
+			o.logger.WithFields("error", err).Warn("Failed to save state")
+		}
+	}
+
+	// Step 6: Finalize result
+	result.Duration = time.Since(startTime)
+	result.TotalDocuments = len(filteredDocs)
+	result.ProcessedDocuments = len(docsToSync)
+
+	o.logger.WithFields(
+		"total", result.TotalDocuments,
+		"processed", result.ProcessedDocuments,
+		"successful", result.SuccessCount,
+		"failed", result.FailureCount,
+		"duration", result.Duration,
+	).Info("Sync workflow completed")
+
+	return result, nil
+}
+
+// filterDocumentsByLabels filters documents by configured labels
+func (o *Orchestrator) filterDocumentsByLabels(docs []types.Document) []types.Document {
+	// If no label filters configured, return all documents
+	if len(o.config.Labels) == 0 {
+		return docs
+	}
+
+	// Build label filter map for fast lookup
+	labelFilter := make(map[string]bool)
+	for _, label := range o.config.Labels {
+		labelFilter[label] = true
+	}
+
+	// Filter documents
+	var filtered []types.Document
+	for _, doc := range docs {
+		// Check if document has any matching labels
+		hasMatchingLabel := false
+		for _, docLabel := range doc.Labels {
+			if labelFilter[docLabel] {
+				hasMatchingLabel = true
+				break
+			}
+		}
+
+		if hasMatchingLabel {
+			filtered = append(filtered, doc)
+		}
+	}
+
+	return filtered
+}
+
+// identifyDocumentsToSync compares API documents with state to find new/changed documents
+func (o *Orchestrator) identifyDocumentsToSync(docs []types.Document, currentState *types.SyncState) []types.Document {
+	var toSync []types.Document
+
+	for _, doc := range docs {
+		// Check if document exists in state
+		docState, exists := currentState.Documents[doc.ID]
+
+		// Sync if document is new or version changed
+		if !exists || docState.Version != doc.Version {
+			toSync = append(toSync, doc)
+		}
+	}
+
+	return toSync
+}
+
+// processDocument processes a single document through the complete pipeline
+func (o *Orchestrator) processDocument(ctx context.Context, doc types.Document, docNum, totalDocs int) (*DocumentResult, error) {
+	result := &DocumentResult{
+		DocumentID: doc.ID,
+		Title:      doc.Title,
+		StartTime:  time.Now(),
+	}
+
+	// Create temporary directory for processing
+	tmpDir, err := os.MkdirTemp("", fmt.Sprintf("rmsync-%s-*", doc.ID))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create temp directory: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	// Stage 1: Download .rmdoc file
+	o.logger.WithFields("document", docNum, "total", totalDocs).
+		Info("Downloading document")
+
+	rmdocPath := filepath.Join(tmpDir, fmt.Sprintf("%s.rmdoc", doc.ID))
+	if err := o.rmClient.DownloadDocument(ctx, doc.ID, rmdocPath); err != nil {
+		return nil, fmt.Errorf("download failed: %w", err)
+	}
+
+	// Stage 2: Convert .rmdoc to PDF
+	o.logger.WithFields("document", docNum, "total", totalDocs).
+		Info("Converting to PDF")
+
+	pdfPath := filepath.Join(tmpDir, fmt.Sprintf("%s.pdf", doc.ID))
+	convResult, err := o.converter.ConvertRmdoc(rmdocPath, pdfPath)
+	if err != nil {
+		return nil, fmt.Errorf("conversion failed: %w", err)
+	}
+	result.PageCount = convResult.PageCount
+
+	// Stage 3: OCR processing (if enabled and OCR processor available)
+	var ocrResults *ocr.DocumentOCR
+	if o.config.OCREnabled && o.ocrProc != nil {
+		o.logger.WithFields("document", docNum, "total", totalDocs).
+			Info("Performing OCR")
+
+		// TODO: Implement PDF-to-image rendering for OCR
+		// For now, we skip OCR and log a warning
+		o.logger.Warn("OCR requested but PDF-to-image rendering not yet implemented")
+	}
+
+	// Stage 4: Add text layer (if OCR was performed)
+	finalPath := pdfPath
+	if ocrResults != nil && len(ocrResults.Pages) > 0 {
+		o.logger.WithFields("document", docNum, "total", totalDocs).
+			Info("Adding OCR text layer")
+
+		enhancedPath := filepath.Join(tmpDir, fmt.Sprintf("%s_ocr.pdf", doc.ID))
+		if err := o.pdfEnhancer.AddTextLayer(pdfPath, enhancedPath, ocrResults); err != nil {
+			o.logger.WithFields("error", err).Warn("Failed to add text layer, using original PDF")
+		} else {
+			finalPath = enhancedPath
+		}
+	}
+
+	// Stage 5: Move to output directory
+	outputFilename := fmt.Sprintf("%s.pdf", sanitizeFilename(doc.Title))
+	outputPath := filepath.Join(o.config.OutputDir, outputFilename)
+
+	// Ensure output directory exists
+	if err := os.MkdirAll(o.config.OutputDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create output directory: %w", err)
+	}
+
+	// Copy final PDF to output location
+	if err := copyFile(finalPath, outputPath); err != nil {
+		return nil, fmt.Errorf("failed to copy to output directory: %w", err)
+	}
+
+	result.OutputPath = outputPath
+	result.Duration = time.Since(result.StartTime)
+
+	o.logger.WithFields(
+		"document", docNum,
+		"total", totalDocs,
+		"output", outputPath,
+		"duration", result.Duration,
+	).Info("Document processing completed")
+
+	return result, nil
+}
+
+// sanitizeFilename removes or replaces characters that are invalid in filenames
+func sanitizeFilename(name string) string {
+	// Replace common problematic characters
+	replacements := map[rune]string{
+		'/':  "-",
+		'\\': "-",
+		':':  "-",
+		'*':  "_",
+		'?':  "_",
+		'"':  "'",
+		'<':  "_",
+		'>':  "_",
+		'|':  "-",
+	}
+
+	result := ""
+	for _, ch := range name {
+		if replacement, found := replacements[ch]; found {
+			result += replacement
+		} else {
+			result += string(ch)
+		}
+	}
+
+	return result
+}
+
+// copyFile copies a file from src to dst
+func copyFile(src, dst string) error {
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("failed to read source file: %w", err)
+	}
+
+	if err := os.WriteFile(dst, data, 0644); err != nil {
+		return fmt.Errorf("failed to write destination file: %w", err)
+	}
+
+	return nil
+}
