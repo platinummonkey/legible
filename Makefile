@@ -1,10 +1,11 @@
-.PHONY: all build test lint clean install help
+.PHONY: all build build-all test test-coverage lint fmt vet tidy install clean deps verify run dev version help
 
 # Binary name
 BINARY_NAME=remarkable-sync
 VERSION?=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
-BUILD_TIME=$(shell date -u '+%Y-%m-%d_%H:%M:%S')
-LDFLAGS=-ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
+GIT_COMMIT?=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+LDFLAGS=-ldflags "-X main.Version=$(VERSION) -X main.GitCommit=$(GIT_COMMIT) -X main.BuildDate=$(BUILD_DATE)"
 
 # Go parameters
 GOCMD=go
@@ -88,3 +89,8 @@ run: build ## Build and run the binary
 dev: ## Run in development mode
 	@echo "Running in development mode..."
 	$(GOCMD) run ./cmd/$(BINARY_NAME)
+
+version: ## Display version information
+	@echo "Version: $(VERSION)"
+	@echo "Git Commit: $(GIT_COMMIT)"
+	@echo "Build Date: $(BUILD_DATE)"

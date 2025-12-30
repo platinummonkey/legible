@@ -5,10 +5,14 @@ Sync documents from your reMarkable tablet and add OCR text layers to make handw
 ## Features
 
 - 📥 Download documents from reMarkable cloud
+- 📄 Convert .rmdoc files to standard PDF format
 - 🏷️ Optional label-based filtering
-- 🔍 OCR processing with Tesseract
-- 📄 Add hidden searchable text layer to PDFs
-- 🔄 Incremental sync support
+- 🔍 OCR processing with Tesseract (optional)
+- 📝 Add hidden searchable text layer to PDFs
+- 🔄 Incremental sync with state tracking
+- ⚙️ Daemon mode for continuous background sync
+- 🏥 Health check endpoints for monitoring
+- 📋 Comprehensive logging and error handling
 
 ## Prerequisites
 
@@ -34,7 +38,7 @@ Download from [GitHub releases](https://github.com/UB-Mannheim/tesseract/wiki)
 ## Installation
 
 ```bash
-go install github.com/platinummonkey/remarkable-sync@latest
+go install github.com/platinummonkey/remarkable-sync/cmd/remarkable-sync@latest
 ```
 
 Or build from source:
@@ -42,8 +46,10 @@ Or build from source:
 ```bash
 git clone https://github.com/platinummonkey/remarkable-sync.git
 cd remarkable-sync
-go build -o remarkable-sync
+make build
 ```
+
+The binary will be available at `bin/remarkable-sync`.
 
 ## Configuration
 
@@ -75,17 +81,47 @@ remarkable-sync sync --labels "work,personal"
 remarkable-sync sync --output ./my-remarkable-docs
 ```
 
+### Run in daemon mode
+
+For continuous background synchronization:
+
+```bash
+remarkable-sync daemon --interval 10m --health-addr :8080
+```
+
 ### Full command options
 
+**Sync command:**
 ```bash
 remarkable-sync sync [flags]
 
 Flags:
-  -h, --help              Help for sync
-  -l, --labels strings    Filter by labels (comma-separated)
-  -o, --output string     Output directory (default: "./remarkable-docs")
-      --no-ocr           Skip OCR processing
-      --force            Force re-sync all documents
+  --output string      Output directory (default: ~/ReMarkable)
+  --labels strings     Filter by labels (comma-separated)
+  --no-ocr            Skip OCR processing
+  --force             Force re-sync all documents
+  --log-level string  Log level: debug, info, warn, error (default: info)
+  --config string     Config file (default: ~/.remarkable-sync.yaml)
+```
+
+**Daemon command:**
+```bash
+remarkable-sync daemon [flags]
+
+Flags:
+  --interval duration   Sync interval (default: 5m)
+  --health-addr string  Health check HTTP address (e.g., :8080)
+  --pid-file string     PID file path
+  --output string       Output directory
+  --labels strings      Filter by labels
+  --no-ocr             Skip OCR processing
+```
+
+**Other commands:**
+```bash
+remarkable-sync auth      # Authenticate with reMarkable API
+remarkable-sync version   # Display version information
+remarkable-sync help      # Display help
 ```
 
 ## How It Works
@@ -125,17 +161,41 @@ languages:
 
 ## Development
 
-### Running tests
-
-```bash
-go test ./...
-```
-
 ### Building
 
 ```bash
-go build -o remarkable-sync
+make build          # Build binary to bin/remarkable-sync
+make build-all      # Build for multiple platforms
+make install        # Install to $GOPATH/bin
 ```
+
+### Running tests
+
+```bash
+make test           # Run all tests
+make test-coverage  # Run tests with coverage report
+```
+
+### Code quality
+
+```bash
+make lint           # Run linter (golangci-lint)
+make fmt            # Format code
+make vet            # Run go vet
+make tidy           # Tidy go modules
+```
+
+### Development workflow
+
+```bash
+make dev            # Run in development mode
+make run            # Build and run
+make clean          # Clean build artifacts
+```
+
+### Available Make targets
+
+Run `make help` to see all available targets.
 
 ## Project Structure
 
@@ -143,17 +203,26 @@ See [AGENTS.md](./AGENTS.md) for detailed architecture and design documentation.
 
 ## Troubleshooting
 
-**"Tesseract not found"**
+**"Tesseract not found" or build errors**
 - Ensure Tesseract is installed and in your PATH
 - Verify installation: `tesseract --version`
+- Install development libraries:
+  - macOS: `brew install tesseract leptonica`
+  - Ubuntu: `sudo apt-get install tesseract-ocr libtesseract-dev libleptonica-dev`
 
 **Authentication fails**
 - Ensure your reMarkable has cloud sync enabled
-- Try re-authenticating: `remarkable-sync auth --reset`
+- Clear credentials and re-authenticate: `rm ~/.rmapi && remarkable-sync auth`
 
 **OCR quality is poor**
 - Check Tesseract language data is installed
-- Consider training Tesseract for your handwriting style
+- Use `--no-ocr` flag to skip OCR if not needed
+- Install additional language data: `brew install tesseract-lang` (macOS)
+
+**Daemon won't start**
+- Check logs: `remarkable-sync daemon --log-level debug`
+- Verify port isn't in use (if using --health-addr)
+- Check file permissions for PID file location
 
 ## Contributing
 
