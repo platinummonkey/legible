@@ -1,0 +1,32 @@
+[
+  {
+    "ID": "b68e57f6-4fc9-4a71-b300-e0fa100ef8d7",
+    "Version": 1,
+    "ModifiedClient": "2023-12-01T10:30:00Z",
+    "Type": "DocumentType",
+    "VissibleName": "Test Document",
+    "CurrentPage": 0,
+    "Bookmarked": false,
+    "Parent": ""
+  },
+  {
+    "ID": "a1234567-89ab-cdef-0123-456789abcdef",
+    "Version": 2,
+    "ModifiedClient": "2023-12-15T14:20:00Z",
+    "Type": "DocumentType",
+    "VissibleName": "Work Notes",
+    "CurrentPage": 5,
+    "Bookmarked": true,
+    "Parent": ""
+  },
+  {
+    "ID": "c9876543-21ba-fedc-3210-fedcba987654",
+    "Version": 1,
+    "ModifiedClient": "2023-11-20T09:15:00Z",
+    "Type": "CollectionType",
+    "VissibleName": "Projects",
+    "CurrentPage": 0,
+    "Bookmarked": false,
+    "Parent": ""
+  }
+]
