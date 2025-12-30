@@ -3,7 +3,7 @@ module github.com/platinummonkey/remarkable-sync
 go 1.24.0
 
 require (
-	github.com/juruen/rmapi v0.0.25
+	github.com/juruen/rmapi v0.0.32
 	github.com/otiai10/gosseract/v2 v2.4.1
 	github.com/pdfcpu/pdfcpu v0.11.1
 	github.com/signintech/gopdf v0.34.0
@@ -60,3 +60,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+// Use active fork maintained by ddvk instead of archived upstream
+replace github.com/juruen/rmapi => github.com/ddvk/rmapi v0.0.32

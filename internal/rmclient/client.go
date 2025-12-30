@@ -328,12 +328,12 @@ func (c *Client) collectDocuments(node *model.Node, labels []string, documents *
 
 		*documents = append(*documents, Document{
 			ID:             doc.ID,
-			VissibleName:   doc.VissibleName, // Note: typo in rmapi library
+			Name:           doc.Name,
 			Type:           doc.Type,
 			Version:        doc.Version,
 			ModifiedClient: parseTime(doc.ModifiedClient),
 			Parent:         doc.Parent,
-			Bookmarked:     doc.Bookmarked,
+			CurrentPage:    doc.CurrentPage,
 		})
 	}
 
@@ -376,16 +376,12 @@ func (c *Client) GetDocumentMetadata(id string) (*Document, error) {
 
 	return &Document{
 		ID:             doc.ID,
-		VissibleName:   doc.VissibleName,
+		Name:           doc.Name,
 		Type:           doc.Type,
 		Version:        doc.Version,
 		ModifiedClient: parseTime(doc.ModifiedClient),
 		Parent:         doc.Parent,
-		Bookmarked:     doc.Bookmarked,
-		BlobURLGet:     doc.BlobURLGet,
 		CurrentPage:    doc.CurrentPage,
-		Message:        doc.Message,
-		Success:        doc.Success,
 	}, nil
 }
 

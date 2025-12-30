@@ -10,17 +10,8 @@ type Document struct {
 	// Version is the document version number
 	Version int
 
-	// Message is a version message or description
-	Message string
-
-	// Success indicates if the document was successfully retrieved
-	Success bool
-
-	// BlobURLGet is the URL to download the document content
-	BlobURLGet string
-
-	// BlobURLGetExpires is when the download URL expires
-	BlobURLGetExpires time.Time
+	// Name is the user-visible name of the document
+	Name string
 
 	// ModifiedClient is when the document was last modified on the client
 	ModifiedClient time.Time
@@ -28,14 +19,8 @@ type Document struct {
 	// Type is the document type (DocumentType or CollectionType)
 	Type string
 
-	// VissibleName is the user-visible name of the document
-	VissibleName string
-
 	// CurrentPage is the currently viewed page (for documents)
 	CurrentPage int
-
-	// Bookmarked indicates if the document is bookmarked
-	Bookmarked bool
 
 	// Parent is the ID of the parent collection (empty string for root)
 	Parent string
@@ -76,8 +61,8 @@ type Metadata struct {
 	// Version is the metadata version
 	Version int `json:"version"`
 
-	// VissibleName is the user-visible name
-	VissibleName string `json:"visibleName"`
+	// VisibleName is the user-visible name
+	VisibleName string `json:"visibleName"`
 }
 
 // Collection represents a reMarkable collection (folder)

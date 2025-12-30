@@ -75,11 +75,11 @@ func (p *Parser) parseHeader(reader io.Reader) (Version, error) {
 
 // parseV3 parses a version 3 .rm file
 //
-// Version 3 format is documented and can use juruen/rmapi/encoding/rm
+// Version 3 format is documented and can use ddvk/rmapi/encoding/rm
 // as a reference implementation.
 func (p *Parser) parseV3(reader io.Reader) (*Document, error) {
 	// TODO: Implement v3 parsing
-	// Can reference juruen/rmapi/encoding/rm for implementation
+	// Can reference ddvk/rmapi/encoding/rm for implementation
 	return nil, fmt.Errorf("version 3 parsing not yet implemented")
 }
 

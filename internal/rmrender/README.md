@@ -10,7 +10,7 @@ This package handles parsing and rendering of reMarkable .lines files (`.rm` for
 
 The .rm format is a binary format that stores drawing data. As of 2025, there are multiple versions:
 
-- **Version 3**: Original format, documented and supported by juruen/rmapi/encoding/rm
+- **Version 3**: Original format, documented and supported by ddvk/rmapi/encoding/rm
 - **Version 6**: Current format used by reMarkable tablet (as of Dec 2025)
 
 ### Version 6 Format Structure
@@ -122,7 +122,7 @@ os.WriteFile("output.pdf", pdfData, 0644)
 - [rmscene](https://github.com/ricklupton/rmscene) - Python library for v6 format
 
 ### Related Projects
-- [juruen/rmapi](https://github.com/juruen/rmapi) - Go client with v3 encoder
+- [ddvk/rmapi](https://github.com/ddvk/rmapi) - Active fork of rmapi Go client with v3 encoder
 - [go-remarkable2pdf](https://github.com/poundifdef/go-remarkable2pdf) - Alternative Go renderer
 - [lines-are-beautiful](https://github.com/ax3l/lines-are-beautiful) - C++ implementation
 
@@ -130,7 +130,7 @@ os.WriteFile("output.pdf", pdfData, 0644)
 
 ### Version 6 Parsing Challenge
 
-The current `juruen/rmapi/encoding/rm` package only supports version 3 format. Our test files use version 6. Options:
+The current `ddvk/rmapi/encoding/rm` package only supports version 3 format. Our test files use version 6. Options:
 
 1. **Implement v6 parser from scratch** - Most control, significant work
 2. **Adapt existing v3 parser** - May not support all v6 features

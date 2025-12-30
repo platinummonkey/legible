@@ -4,9 +4,8 @@
     "Version": 1,
     "ModifiedClient": "2023-12-01T10:30:00Z",
     "Type": "DocumentType",
-    "VissibleName": "Test Document",
+    "Name": "Test Document",
     "CurrentPage": 0,
-    "Bookmarked": false,
     "Parent": ""
   },
   {
@@ -14,9 +13,8 @@
     "Version": 2,
     "ModifiedClient": "2023-12-15T14:20:00Z",
     "Type": "DocumentType",
-    "VissibleName": "Work Notes",
+    "Name": "Work Notes",
     "CurrentPage": 5,
-    "Bookmarked": true,
     "Parent": ""
   },
   {
@@ -24,9 +22,8 @@
     "Version": 1,
     "ModifiedClient": "2023-11-20T09:15:00Z",
     "Type": "CollectionType",
-    "VissibleName": "Projects",
+    "Name": "Projects",
     "CurrentPage": 0,
-    "Bookmarked": false,
     "Parent": ""
   }
 ]
