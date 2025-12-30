@@ -1,3 +1,4 @@
+// Package rmclient provides a client for interacting with the reMarkable cloud API.
 package rmclient
 
 import (
@@ -318,13 +319,11 @@ func (c *Client) collectDocuments(node *model.Node, labels []string, documents *
 	if node.IsFile() && node.Document != nil {
 		doc := node.Document
 
-		// Filter by labels if specified
-		if len(labels) > 0 {
-			// Note: rmapi doesn't directly expose labels/tags in the Document model
-			// Labels would need to be checked via metadata or parent folder names
-			// For now, we include all documents if labels are specified
-			// TODO: Implement proper label filtering when metadata structure is clarified
-		}
+		// Note: Label filtering not yet implemented.
+		// rmapi doesn't directly expose labels/tags in the Document model.
+		// Labels would need to be checked via metadata or parent folder names.
+		// TODO: Implement proper label filtering when metadata structure is clarified.
+		_ = labels // Avoid unused parameter warning for now
 
 		*documents = append(*documents, Document{
 			ID:             doc.ID,

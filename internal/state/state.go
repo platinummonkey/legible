@@ -1,3 +1,4 @@
+// Package state manages synchronization state for document tracking.
 package state
 
 import (
@@ -82,7 +83,7 @@ func (m *Manager) Save() error {
 
 	// Atomic rename
 	if err := os.Rename(tmpFile, m.filePath); err != nil {
-		os.Remove(tmpFile) // Clean up temp file on error
+		_ = os.Remove(tmpFile) // Clean up temp file on error
 		return fmt.Errorf("failed to rename temp state file: %w", err)
 	}
 

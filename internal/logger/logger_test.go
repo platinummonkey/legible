@@ -317,10 +317,10 @@ func TestLogLevels(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	tests := []struct {
-		name          string
-		logLevel      string
-		logMessage    func(*Logger)
-		shouldAppear  bool
+		name         string
+		logLevel     string
+		logMessage   func(*Logger)
+		shouldAppear bool
 	}{
 		{
 			name:     "debug level logs debug",
@@ -397,7 +397,7 @@ func TestLogLevels(t *testing.T) {
 			}
 
 			tt.logMessage(logger)
-			logger.Sync()
+			_ = logger.Sync()
 
 			content, err := os.ReadFile(testLogFile)
 			if err != nil {

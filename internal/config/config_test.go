@@ -256,8 +256,8 @@ func TestValidate_HomeDirectoryExpansion(t *testing.T) {
 	}
 
 	// Clean up created test directories
-	os.RemoveAll(cfg.OutputDir)
-	os.Remove(cfg.StateFile)
+	_ = os.RemoveAll(cfg.OutputDir)
+	_ = os.Remove(cfg.StateFile)
 }
 
 func TestString_RedactsToken(t *testing.T) {

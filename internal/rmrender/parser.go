@@ -1,3 +1,4 @@
+// Package rmrender provides parsing and rendering of reMarkable .rm binary files to PDF.
 package rmrender
 
 import (
@@ -77,14 +78,14 @@ func (p *Parser) parseHeader(reader io.Reader) (Version, error) {
 //
 // Version 3 format is documented and can use ddvk/rmapi/encoding/rm
 // as a reference implementation.
-func (p *Parser) parseV3(reader io.Reader) (*Document, error) {
+func (p *Parser) parseV3(_ io.Reader) (*Document, error) {
 	// TODO: Implement v3 parsing
 	// Can reference ddvk/rmapi/encoding/rm for implementation
 	return nil, fmt.Errorf("version 3 parsing not yet implemented")
 }
 
 // parseV5 parses a version 5 .rm file
-func (p *Parser) parseV5(reader io.Reader) (*Document, error) {
+func (p *Parser) parseV5(_ io.Reader) (*Document, error) {
 	// TODO: Implement v5 parsing
 	// Format is similar to v6 but with some differences
 	return nil, fmt.Errorf("version 5 parsing not yet implemented")
@@ -185,8 +186,8 @@ func (p *Parser) parseV6(reader io.Reader) (*Document, error) {
 			if len(points) >= 2 {
 				line := Line{
 					BrushType: BrushBallpoint, // Default brush
-					Color:     ColorBlack,      // Default color
-					BrushSize: 2.0,             // Default size
+					Color:     ColorBlack,     // Default color
+					BrushSize: 2.0,            // Default size
 					Points:    points,
 				}
 				layer.Lines = append(layer.Lines, line)
@@ -348,8 +349,8 @@ func (p *Parser) parseV6Line(body []byte) (Line, string, error) {
 			}
 			if end > i {
 				layerID = string(body[i:end])
-				// Seek past this string
-				reader.Seek(int64(end+1), io.SeekStart)
+				// Seek past this string (best effort)
+				_, _ = reader.Seek(int64(end+1), io.SeekStart)
 				break
 			}
 		}
@@ -399,7 +400,7 @@ func (p *Parser) parseV6Line(body []byte) (Line, string, error) {
 			pressure, _ := readUint8(reader)
 
 			// Skip padding (2 bytes)
-			reader.Seek(2, io.SeekCurrent)
+			_, _ = reader.Seek(2, io.SeekCurrent)
 
 			point.X = x
 			point.Y = y

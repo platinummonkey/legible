@@ -1,3 +1,4 @@
+// Package converter handles conversion of reMarkable .rmdoc files to PDF format.
 package converter
 
 import (
@@ -48,11 +49,11 @@ type DocumentMetadata struct {
 
 // ContentFile represents the .content JSON file from a .rmdoc
 type ContentFile struct {
-	FileType      string  `json:"fileType"`
-	PageCount     int     `json:"pageCount"`
-	Orientation   string  `json:"orientation"`
-	FormatVersion int     `json:"formatVersion"`
-	CPages        CPages  `json:"cPages"`
+	FileType      string `json:"fileType"`
+	PageCount     int    `json:"pageCount"`
+	Orientation   string `json:"orientation"`
+	FormatVersion int    `json:"formatVersion"`
+	CPages        CPages `json:"cPages"`
 }
 
 // CPages represents the pages section of content file
@@ -81,7 +82,7 @@ func (c *Converter) ConvertRmdoc(rmdocPath, outputPath string) (*ConversionResul
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	if err := c.extractRmdoc(rmdocPath, tmpDir); err != nil {
 		return nil, fmt.Errorf("failed to extract .rmdoc: %w", err)
@@ -130,7 +131,7 @@ func (c *Converter) extractRmdoc(rmdocPath, destDir string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open ZIP: %w", err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	for _, f := range r.File {
 		fpath := filepath.Join(destDir, f.Name)
@@ -160,13 +161,13 @@ func (c *Converter) extractRmdoc(rmdocPath, destDir string) error {
 
 		rc, err := f.Open()
 		if err != nil {
-			outFile.Close()
+			_ = outFile.Close()
 			return fmt.Errorf("failed to open file in archive: %w", err)
 		}
 
 		_, err = io.Copy(outFile, rc)
-		outFile.Close()
-		rc.Close()
+		_ = outFile.Close()
+		_ = rc.Close()
 
 		if err != nil {
 			return fmt.Errorf("failed to extract file: %w", err)
@@ -357,6 +358,8 @@ func parseTimestamp(ts string) time.Time {
 
 	// reMarkable timestamps are in milliseconds
 	var ms int64
-	fmt.Sscanf(ts, "%d", &ms)
+	if _, err := fmt.Sscanf(ts, "%d", &ms); err != nil {
+		return time.Time{}
+	}
 	return time.Unix(ms/1000, (ms%1000)*1000000)
 }

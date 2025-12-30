@@ -247,12 +247,12 @@ func (c Color) String() string {
 
 // ParseResult contains metadata about the parsing operation
 type ParseResult struct {
-	Version      Version
-	LayerCount   int
-	StrokeCount  int
-	PointCount   int
-	ParsedAt     time.Time
-	ParseError   error
+	Version     Version
+	LayerCount  int
+	StrokeCount int
+	PointCount  int
+	ParsedAt    time.Time
+	ParseError  error
 }
 
 // RenderOptions configures the rendering process

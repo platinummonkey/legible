@@ -1,3 +1,4 @@
+// Package logger provides structured logging functionality using zap.
 package logger
 
 import (
@@ -131,7 +132,7 @@ func Get() *Logger {
 // WithFields returns a logger with the specified fields attached for structured logging
 func (l *Logger) WithFields(fields ...interface{}) *Logger {
 	return &Logger{
-		SugaredLogger: l.SugaredLogger.With(fields...),
+		SugaredLogger: l.With(fields...),
 		config:        l.config,
 	}
 }

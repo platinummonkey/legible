@@ -1,3 +1,4 @@
+// Package config provides configuration management for the remarkable-sync application.
 package config
 
 import (

@@ -83,7 +83,7 @@ func (r *Renderer) RenderToPDF(doc *Document) ([]byte, error) {
 
 	// Get PDF bytes
 	var buf bytes.Buffer
-	if err := pdf.Write(&buf); err != nil {
+	if _, err := pdf.WriteTo(&buf); err != nil {
 		return nil, fmt.Errorf("failed to write PDF: %w", err)
 	}
 
@@ -93,7 +93,7 @@ func (r *Renderer) RenderToPDF(doc *Document) ([]byte, error) {
 // RenderPage renders a single page with the given strokes
 //
 // This is useful for multi-page documents where each .rm file represents one page.
-func (r *Renderer) RenderPage(doc *Document, pageIndex int) ([]byte, error) {
+func (r *Renderer) RenderPage(doc *Document, _ int) ([]byte, error) {
 	// For single-page documents, just render the whole document
 	return r.RenderToPDF(doc)
 }
@@ -191,7 +191,7 @@ func (r *Renderer) renderStrokeToPDF(pdf *gopdf.GoPdf, stroke Line) error {
 //
 // Eraser strokes need special handling as they remove underlying content
 // rather than adding new content.
-func (r *Renderer) renderEraser(pdf *gopdf.GoPdf, stroke Line) error {
+func (r *Renderer) renderEraser(_ *gopdf.GoPdf, _ Line) error {
 	// TODO: Implement eraser logic
 	// Options:
 	// 1. Use white ink on white background
@@ -217,7 +217,7 @@ func (r *Renderer) applyBrushStyle(brushType BrushType, color Color) (red, green
 
 // renderBackground renders the page background
 // This is now handled directly in RenderToPDF
-func (r *Renderer) renderBackground(pdf *gopdf.GoPdf) error {
+func (r *Renderer) renderBackground(_ *gopdf.GoPdf) error {
 	// Background is rendered in RenderToPDF
 	return nil
 }
@@ -225,7 +225,7 @@ func (r *Renderer) renderBackground(pdf *gopdf.GoPdf) error {
 // RenderWithTemplate renders a document with a template background
 //
 // Templates include: Blank, Lined, Grid, Dots, etc.
-func (r *Renderer) RenderWithTemplate(doc *Document, template string) ([]byte, error) {
+func (r *Renderer) RenderWithTemplate(_ *Document, _ string) ([]byte, error) {
 	// TODO: Implement template rendering
 	// Templates need to be:
 	// 1. Generated programmatically (preferred)

@@ -118,10 +118,10 @@ func TestConversionResult_SetSuccess(t *testing.T) {
 
 func TestPaperSize_Dimensions(t *testing.T) {
 	tests := []struct {
-		name        string
-		paperSize   PaperSize
-		wantWidth   int
-		wantHeight  int
+		name       string
+		paperSize  PaperSize
+		wantWidth  int
+		wantHeight int
 	}{
 		{
 			name:       "A4",
