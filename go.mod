@@ -17,6 +17,7 @@ require (
 	github.com/hhrutter/tiff v1.0.2 // indirect
 	github.com/jung-kurt/gofpdf v1.16.2 // indirect
 	github.com/mattn/go-runewidth v0.0.19 // indirect
+	github.com/otiai10/gosseract/v2 v2.4.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/poundifdef/go-remarkable2pdf v0.2.0 // indirect
