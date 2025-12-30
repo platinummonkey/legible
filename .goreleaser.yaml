@@ -161,8 +161,7 @@ release:
 
     ### Homebrew (macOS)
     ```bash
-    brew tap platinummonkey/remarkable-sync
-    brew install remarkable-sync
+    brew install platinummonkey/tap/remarkable-sync
     ```
 
     ### From Source
@@ -195,36 +194,48 @@ signs:
     artifacts: checksum
     signature: "${artifact}.sig"
 
-# Homebrew tap (optional - uncomment to enable)
-# brews:
-#   - name: remarkable-sync
-#     repository:
-#       owner: platinummonkey
-#       name: homebrew-remarkable-sync
-#       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-#
-#     folder: Formula
-#
-#     homepage: "https://github.com/platinummonkey/remarkable-sync"
-#     description: "Sync documents from reMarkable tablet with OCR text layer generation"
-#
-#     license: "MIT"
-#
-#     dependencies:
-#       - name: tesseract
-#         type: optional
-#
-#     test: |
-#       system "#{bin}/remarkable-sync", "version"
-#
-#     install: |
-#       bin.install "remarkable-sync"
-#
-#       # Install examples
-#       (share/"remarkable-sync").install "examples"
-#
-#       # Install documentation
-#       doc.install "README.md", "FAQ.md", "CONTRIBUTING.md"
+# Homebrew tap - automatically updates platinummonkey/homebrew-tap
+brews:
+  - name: remarkable-sync
+    repository:
+      owner: platinummonkey
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+
+    directory: Formula
+
+    homepage: "https://github.com/platinummonkey/remarkable-sync"
+    description: "Sync documents from reMarkable tablet with OCR text layer generation"
+
+    license: "MIT"
+
+    dependencies:
+      - name: tesseract
+        type: optional
+
+    test: |
+      system "#{bin}/remarkable-sync", "version"
+
+    install: |
+      bin.install "remarkable-sync"
+
+      # Install examples
+      (share/"remarkable-sync").install "examples"
+
+      # Install documentation
+      doc.install "README.md", "FAQ.md", "CONTRIBUTING.md"
+
+    caveats: |
+      reMarkable Sync requires a reMarkable tablet with cloud sync enabled.
+
+      Optional: Install Tesseract OCR for searchable PDF generation:
+        brew install tesseract
+
+      Get started:
+        1. Authenticate: remarkable-sync auth
+        2. Sync documents: remarkable-sync sync
+
+      Documentation: https://github.com/platinummonkey/remarkable-sync
 
 # Announce releases (optional - uncomment to enable)
 # announce:

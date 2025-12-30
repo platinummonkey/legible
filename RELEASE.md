@@ -12,7 +12,7 @@ Releases are automated using [GoReleaser Pro](https://goreleaser.com/pro) and Gi
 4. Generates changelog from commits
 5. Signs artifacts (optional)
 6. Publishes GitHub release
-7. Updates Homebrew tap (optional)
+7. Updates Homebrew tap at platinummonkey/homebrew-tap
 
 ## Prerequisites
 
@@ -20,11 +20,11 @@ Releases are automated using [GoReleaser Pro](https://goreleaser.com/pro) and Gi
 
 - **GoReleaser Pro license**: Set `GORELEASER_KEY` secret in GitHub repository
 - **GitHub token**: Automatically provided by GitHub Actions
+- **Homebrew tap token**: Required for tap updates at platinummonkey/homebrew-tap
+  - Set `HOMEBREW_TAP_GITHUB_TOKEN` secret (see [Homebrew Tap](#homebrew-tap) section)
 - **GPG key** (optional): For signing releases
   - Set `GPG_PRIVATE_KEY` secret (base64-encoded private key)
   - Set `GPG_PASSPHRASE` secret
-- **Homebrew tap token** (optional): For automatic tap updates
-  - Set `HOMEBREW_TAP_GITHUB_TOKEN` secret
 
 ### For Local Testing
 
@@ -235,23 +235,48 @@ Ensure commits follow conventional commit format and tags are properly created:
 git log --oneline v1.2.2..v1.2.3
 ```
 
-## Advanced: Homebrew Tap
+## Homebrew Tap
 
-To enable automatic Homebrew tap updates:
+Homebrew tap is **enabled by default**. GoReleaser automatically updates the formula at `platinummonkey/homebrew-tap` when a release is published.
 
-1. **Create tap repository**: `github.com/platinummonkey/homebrew-remarkable-sync`
+### Setup Requirements
 
-2. **Generate GitHub token** with `repo` scope
+1. **Tap repository**: `github.com/platinummonkey/homebrew-tap` (must exist)
 
-3. **Add secret** `HOMEBREW_TAP_GITHUB_TOKEN` to main repository
+2. **GitHub token**: Generate a token with `repo` scope
+   - Go to GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)
+   - Click "Generate new token (classic)"
+   - Select scopes: `repo` (Full control of private repositories)
+   - Generate and copy the token
 
-4. **Uncomment** `brews` section in `.goreleaser.yaml`
+3. **Add secret**: Add `HOMEBREW_TAP_GITHUB_TOKEN` to the main repository
+   - Go to repository Settings → Secrets and variables → Actions
+   - Click "New repository secret"
+   - Name: `HOMEBREW_TAP_GITHUB_TOKEN`
+   - Value: paste the token
+   - Click "Add secret"
 
-5. **Test installation:**
-   ```bash
-   brew tap platinummonkey/remarkable-sync
-   brew install remarkable-sync
-   ```
+### Installation
+
+Users can install via Homebrew:
+```bash
+# Direct install from tap
+brew install platinummonkey/tap/remarkable-sync
+
+# Or tap first, then install
+brew tap platinummonkey/tap
+brew install remarkable-sync
+```
+
+### Formula Location
+
+The formula is automatically maintained at:
+- Repository: `github.com/platinummonkey/homebrew-tap`
+- Path: `Formula/remarkable-sync.rb`
+
+### Disabling Homebrew Tap
+
+To disable automatic Homebrew updates, comment out the `brews` section in `.goreleaser.yaml`.
 
 ## Resources
 
