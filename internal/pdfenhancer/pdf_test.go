@@ -1,6 +1,7 @@
 package pdfenhancer
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -399,4 +400,254 @@ func TestPDFEnhancer_CompareCoordinateSystems(t *testing.T) {
 
 func contains(s, substr string) bool {
 	return len(s) > 0 && len(substr) > 0 && (s == substr || len(s) >= len(substr) && (s[:len(substr)] == substr || contains(s[1:], substr)))
+}
+
+func TestPDFEnhancer_EscapePDFString(t *testing.T) {
+	enhancer := New(&Config{})
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "simple text",
+			input: "hello",
+			want:  "hello",
+		},
+		{
+			name:  "parentheses",
+			input: "hello (world)",
+			want:  "hello \\(world\\)",
+		},
+		{
+			name:  "backslash",
+			input: "path\\to\\file",
+			want:  "path\\\\to\\\\file",
+		},
+		{
+			name:  "mixed special chars",
+			input: "test (a\\b) end",
+			want:  "test \\(a\\\\b\\) end",
+		},
+		{
+			name:  "newline and tab",
+			input: "line1\nline2\ttab",
+			want:  "line1\\nline2\\ttab",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := enhancer.escapePDFString(tt.input)
+			if got != tt.want {
+				t.Errorf("escapePDFString() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPDFEnhancer_CreateTextContentStream(t *testing.T) {
+	enhancer := New(&Config{})
+
+	// Create page OCR with test words
+	pageOCR := ocr.NewPageOCR(1, 612, 792, "eng")
+	pageOCR.AddWord(ocr.NewWord("Hello", ocr.NewRectangle(100, 100, 50, 20), 95.0))
+	pageOCR.AddWord(ocr.NewWord("World", ocr.NewRectangle(160, 100, 50, 20), 92.0))
+
+	stream, err := enhancer.createTextContentStream(pageOCR, 792.0)
+	if err != nil {
+		t.Fatalf("createTextContentStream() error = %v", err)
+	}
+
+	streamStr := string(stream)
+
+	// Check for required PDF operators
+	requiredOps := []string{
+		"q",           // graphics state save
+		"BT",          // begin text
+		"/Helvetica",  // font
+		"3 Tr",        // invisible text rendering mode
+		"Tm",          // text matrix (position)
+		"Tj",          // show text
+		"ET",          // end text
+		"Q",           // graphics state restore
+		"(Hello)",     // first word
+		"(World)",     // second word
+	}
+
+	for _, op := range requiredOps {
+		if !contains(streamStr, op) {
+			t.Errorf("content stream should contain %q", op)
+		}
+	}
+}
+
+func TestPDFEnhancer_CreateTextContentStream_EmptyWords(t *testing.T) {
+	enhancer := New(&Config{})
+
+	// Create page OCR with empty and whitespace words
+	pageOCR := ocr.NewPageOCR(1, 612, 792, "eng")
+	pageOCR.AddWord(ocr.NewWord("", ocr.NewRectangle(100, 100, 50, 20), 95.0))
+	pageOCR.AddWord(ocr.NewWord("   ", ocr.NewRectangle(160, 100, 50, 20), 92.0))
+	pageOCR.AddWord(ocr.NewWord("Valid", ocr.NewRectangle(220, 100, 50, 20), 90.0))
+
+	stream, err := enhancer.createTextContentStream(pageOCR, 792.0)
+	if err != nil {
+		t.Fatalf("createTextContentStream() error = %v", err)
+	}
+
+	streamStr := string(stream)
+
+	// Should contain "Valid" but not empty words
+	if !contains(streamStr, "(Valid)") {
+		t.Error("content stream should contain valid word")
+	}
+
+	// Should not have multiple consecutive Tj operators for empty words
+	// (empty words should be skipped)
+	tjCount := 0
+	for i := 0; i < len(streamStr)-1; i++ {
+		if streamStr[i:i+2] == "Tj" {
+			tjCount++
+		}
+	}
+
+	if tjCount != 1 {
+		t.Errorf("expected 1 Tj operator (for Valid word), got %d", tjCount)
+	}
+}
+
+func TestPDFEnhancer_CreateTextContentStream_CoordinateConversion(t *testing.T) {
+	enhancer := New(&Config{})
+
+	// Create word at specific OCR coordinates
+	// OCR: top-left origin, Y increases downward
+	// PDF: bottom-left origin, Y increases upward
+	pageHeight := 792.0
+	ocrX := 100
+	ocrY := 100
+	ocrHeight := 20
+
+	pageOCR := ocr.NewPageOCR(1, 612, int(pageHeight), "eng")
+	pageOCR.AddWord(ocr.NewWord("Test", ocr.NewRectangle(ocrX, ocrY, 50, ocrHeight), 95.0))
+
+	stream, err := enhancer.createTextContentStream(pageOCR, pageHeight)
+	if err != nil {
+		t.Fatalf("createTextContentStream() error = %v", err)
+	}
+
+	// Expected PDF Y coordinate: pageHeight - ocrY - ocrHeight = 792 - 100 - 20 = 672
+	expectedPDFY := pageHeight - float64(ocrY) - float64(ocrHeight)
+	expectedPDFX := float64(ocrX)
+
+	streamStr := string(stream)
+
+	// Look for text matrix operator with expected coordinates
+	// Format: "1 0 0 1 100.00 672.00 Tm"
+	expectedMatrix := fmt.Sprintf("1 0 0 1 %.2f %.2f Tm", expectedPDFX, expectedPDFY)
+	if !contains(streamStr, expectedMatrix) {
+		t.Errorf("content stream should contain matrix %q, got stream:\n%s", expectedMatrix, streamStr)
+	}
+}
+
+func TestPDFEnhancer_AddTextLayer_MultipleWords(t *testing.T) {
+	tmpDir := t.TempDir()
+	inputPath := filepath.Join(tmpDir, "input.pdf")
+	outputPath := filepath.Join(tmpDir, "output.pdf")
+
+	createTestPDF(t, inputPath, 1)
+
+	// Create OCR results with multiple words
+	ocrResults := ocr.NewDocumentOCR("test-doc", "eng")
+	page := ocr.NewPageOCR(1, 612, 792, "eng")
+
+	// Add several words at different positions
+	page.AddWord(ocr.NewWord("The", ocr.NewRectangle(100, 100, 30, 15), 95.0))
+	page.AddWord(ocr.NewWord("quick", ocr.NewRectangle(140, 100, 40, 15), 93.0))
+	page.AddWord(ocr.NewWord("brown", ocr.NewRectangle(190, 100, 45, 15), 92.0))
+	page.AddWord(ocr.NewWord("fox", ocr.NewRectangle(245, 100, 30, 15), 94.0))
+
+	page.BuildText()
+	page.CalculateConfidence()
+	ocrResults.AddPage(*page)
+	ocrResults.Finalize()
+
+	enhancer := New(&Config{})
+	err := enhancer.AddTextLayer(inputPath, outputPath, ocrResults)
+
+	if err != nil {
+		t.Fatalf("AddTextLayer() error = %v", err)
+	}
+
+	// Verify output file exists and is valid
+	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
+		t.Error("output PDF should exist")
+	}
+
+	// Verify it's still a valid PDF
+	if err := enhancer.ValidatePDF(outputPath); err != nil {
+		t.Errorf("output PDF should be valid: %v", err)
+	}
+}
+
+func TestPDFEnhancer_AddTextLayer_SpecialCharacters(t *testing.T) {
+	tmpDir := t.TempDir()
+	inputPath := filepath.Join(tmpDir, "input.pdf")
+	outputPath := filepath.Join(tmpDir, "output.pdf")
+
+	createTestPDF(t, inputPath, 1)
+
+	// Create OCR results with special characters
+	ocrResults := ocr.NewDocumentOCR("test-doc", "eng")
+	page := ocr.NewPageOCR(1, 612, 792, "eng")
+
+	// Add words with special characters that need escaping
+	page.AddWord(ocr.NewWord("test(value)", ocr.NewRectangle(100, 100, 80, 15), 95.0))
+	page.AddWord(ocr.NewWord("path\\file", ocr.NewRectangle(200, 100, 70, 15), 93.0))
+
+	page.BuildText()
+	page.CalculateConfidence()
+	ocrResults.AddPage(*page)
+	ocrResults.Finalize()
+
+	enhancer := New(&Config{})
+	err := enhancer.AddTextLayer(inputPath, outputPath, ocrResults)
+
+	if err != nil {
+		t.Fatalf("AddTextLayer() error = %v", err)
+	}
+
+	// Verify output is valid
+	if err := enhancer.ValidatePDF(outputPath); err != nil {
+		t.Errorf("output PDF should be valid even with special chars: %v", err)
+	}
+}
+
+func TestPDFEnhancer_AddTextLayer_NoOCRWords(t *testing.T) {
+	tmpDir := t.TempDir()
+	inputPath := filepath.Join(tmpDir, "input.pdf")
+	outputPath := filepath.Join(tmpDir, "output.pdf")
+
+	createTestPDF(t, inputPath, 1)
+
+	// Create OCR results with no words
+	ocrResults := ocr.NewDocumentOCR("test-doc", "eng")
+	page := ocr.NewPageOCR(1, 612, 792, "eng")
+	page.BuildText()
+	page.CalculateConfidence()
+	ocrResults.AddPage(*page)
+	ocrResults.Finalize()
+
+	enhancer := New(&Config{})
+	err := enhancer.AddTextLayer(inputPath, outputPath, ocrResults)
+
+	if err != nil {
+		t.Fatalf("AddTextLayer() should not error with empty OCR results: %v", err)
+	}
+
+	// Verify output is valid
+	if err := enhancer.ValidatePDF(outputPath); err != nil {
+		t.Errorf("output PDF should be valid: %v", err)
+	}
 }

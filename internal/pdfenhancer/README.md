@@ -33,38 +33,46 @@ The current implementation provides:
 - ✅ PDF optimization
 - ✅ PDF merging and splitting
 - ✅ Page dimension extraction
-- ⚠️  **Text layer addition (placeholder)**: The AddTextLayer method currently has placeholder logic
+- ✅ **Text layer addition**: Fully implemented with invisible OCR text overlay
 
-### Text Layer Addition - Future Work
+### Text Layer Addition - Implementation Details
 
-Adding an invisible OCR text layer to PDFs requires low-level PDF content stream manipulation. The full implementation requires:
+The package adds an invisible OCR text layer to PDFs using low-level PDF content stream manipulation. This makes PDFs searchable while preserving their original visual appearance.
+
+**Key Features:**
 
 1. **PDF Content Stream Creation**
-   ```
-   Create new content stream with text operators:
-   - BT/ET (Begin/End Text)
-   - Tf (Set Font)
-   - Tm (Text Matrix for positioning)
-   - Tr 3 (Set text rendering mode to invisible)
-   - Tj/TJ (Show text operators)
-   ```
+   - Creates new content streams with proper PDF text operators
+   - Uses BT/ET (Begin/End Text) to define text objects
+   - Sets font with Tf operator (Helvetica 10pt)
+   - Sets text rendering mode to invisible with `Tr 3` (no fill, no stroke)
+   - Positions text using Tm operator (text matrix)
+   - Renders text with Tj operator (show text string)
 
 2. **Coordinate System Conversion**
-   - OCR: Top-left origin (0,0), Y increases downward
-   - PDF: Bottom-left origin (0,0), Y increases upward
-   - Conversion: `PDF_Y = PageHeight - OCR_Y - TextHeight`
+   - Automatically converts OCR coordinates (top-left origin) to PDF coordinates (bottom-left origin)
+   - OCR: (0,0) is top-left, Y increases downward
+   - PDF: (0,0) is bottom-left, Y increases upward
+   - Conversion formula: `PDF_Y = PageHeight - OCR_Y - OCR_Height`
 
-3. **Font Embedding and Text Encoding**
-   - Embed standard font (e.g., Helvetica)
-   - Handle text encoding (PDFDocEncoding or UTF-16BE)
-   - Set appropriate font size for bounding box coverage
+3. **Text Encoding and Escaping**
+   - Properly escapes special characters in PDF strings
+   - Handles parentheses, backslashes, newlines, tabs, carriage returns
+   - Uses standard Helvetica font (no embedding needed)
+   - Compatible with PDF string encoding requirements
 
-4. **Text Positioning and Scaling**
-   - Position text at OCR bounding box coordinates
-   - Scale text to match bounding box dimensions
-   - Ensure text matches searchable content
+4. **Content Stream Integration**
+   - Appends new content streams to existing page contents
+   - Handles both single content stream and content array cases
+   - Preserves existing page content and appearance
+   - Uses proper PDF indirect reference management
 
-**Reference Implementation:** The addTextToPage method (pdf.go:111-146) contains detailed comments outlining these requirements.
+**Implementation Methods:**
+- `AddTextLayer()`: Main entry point, processes all pages (pdf.go:72-108)
+- `addTextToPage()`: Adds text to a single page (pdf.go:113-152)
+- `createTextContentStream()`: Generates PDF content stream with text operators (pdf.go:154-201)
+- `escapePDFString()`: Escapes special characters for PDF strings (pdf.go:203-213)
+- `appendContentStream()`: Adds content stream to page dictionary (pdf.go:215-258)
 
 ### Usage Example
 
@@ -93,15 +101,26 @@ err = enhancer.AddTextLayer("input.pdf", "output.pdf", ocrResults)
 
 ### Testing
 
-The package includes comprehensive tests (83.2% coverage) covering:
+The package includes comprehensive tests with high coverage:
+
+**Test Coverage:**
 - PDF validation (valid and invalid files)
 - Page counting and extraction
 - PDF information retrieval
 - Optimization operations
 - Merging and splitting
-- Text layer addition structure
+- Text layer addition with OCR data
+- Content stream generation and text positioning
+- Coordinate system conversion
+- Special character escaping
+- Empty OCR handling
+- Multiple words positioning
 
-Test PDFs are generated programmatically using minimal valid PDF syntax to avoid external dependencies.
+**Test Approach:**
+- Test PDFs are generated programmatically using minimal valid PDF syntax
+- Mock OCR data used to test text layer addition without Tesseract dependency
+- Edge cases tested: empty text, special characters, multiple words, no OCR data
+- Integration tests verify generated PDFs are valid and can be read
 
 ### Coordinate System Reference
 
@@ -109,8 +128,28 @@ Use `CompareCoordinateSystems(pageHeight)` to get detailed information about the
 
 ## Future Enhancements
 
-1. Complete text layer addition implementation with content stream manipulation
-2. Support for different text rendering modes (visible, invisible, outline)
-3. Advanced font handling (custom fonts, Unicode support)
-4. Batch processing optimizations
-5. Progress reporting for long operations
+1. **Advanced Text Rendering**
+   - Support for different text rendering modes (visible, invisible, outline)
+   - Text sizing to exactly match bounding box dimensions
+   - Rotated text support for angled words
+
+2. **Font Handling**
+   - Custom font embedding for better Unicode support
+   - Font subsetting for reduced file size
+   - Multi-language font support
+
+3. **Performance Optimizations**
+   - Batch processing for multiple PDFs
+   - Parallel page processing
+   - Streaming for large files
+   - Memory-efficient content stream building
+
+4. **Quality Improvements**
+   - Confidence-based text filtering (only add high-confidence words)
+   - Text layer validation and verification
+   - OCR accuracy metrics in output
+
+5. **Monitoring and Progress**
+   - Progress callbacks for long operations
+   - Detailed logging of text addition statistics
+   - Performance profiling and metrics

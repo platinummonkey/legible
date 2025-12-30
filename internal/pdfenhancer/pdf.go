@@ -1,11 +1,14 @@
 package pdfenhancer
 
 import (
+	"bytes"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
 	"github.com/platinummonkey/remarkable-sync/internal/logger"
 	"github.com/platinummonkey/remarkable-sync/internal/ocr"
 )
@@ -109,8 +112,8 @@ func (pe *PDFEnhancer) AddTextLayer(inputPath, outputPath string, ocrResults *oc
 
 // addTextToPage adds OCR text to a specific page
 func (pe *PDFEnhancer) addTextToPage(ctx *model.Context, pageNum int, pageOCR *ocr.PageOCR) error {
-	// Get the page dictionary
-	pageDict, _, _, err := ctx.PageDict(pageNum, false)
+	// Get the page dictionary and inherited attributes
+	pageDict, _, inheritedAttrs, err := ctx.PageDict(pageNum, false)
 	if err != nil {
 		return fmt.Errorf("failed to get page dictionary: %w", err)
 	}
@@ -119,28 +122,137 @@ func (pe *PDFEnhancer) addTextToPage(ctx *model.Context, pageNum int, pageOCR *o
 		return fmt.Errorf("page dictionary is nil")
 	}
 
-	// Note: Adding actual text content to PDF pages requires manipulating
-	// PDF content streams, which is complex. pdfcpu provides low-level access
-	// but doesn't have high-level text addition APIs.
-	//
-	// For production use, this would need to:
-	// 1. Create a new content stream with text operators
-	// 2. Position text using PDF coordinates (bottom-left origin)
-	// 3. Set text rendering mode to invisible (Tr 3)
-	// 4. Add the text at appropriate positions from OCR bounding boxes
-	//
-	// This is placeholder logic that demonstrates the structure.
-	// Full implementation would require:
-	// - PDF content stream manipulation
-	// - Coordinate system conversion (OCR uses top-left, PDF uses bottom-left)
-	// - Font embedding and text encoding
-	// - Text positioning and scaling
+	// Get page dimensions for coordinate conversion
+	if inheritedAttrs == nil || inheritedAttrs.MediaBox == nil {
+		return fmt.Errorf("page has no media box")
+	}
+	pageHeight := inheritedAttrs.MediaBox.Height()
+
+	// Skip if no words to add
+	if len(pageOCR.Words) == 0 {
+		pe.logger.WithFields("page", pageNum).Debug("No OCR words to add, skipping")
+		return nil
+	}
+
+	// Create content stream with invisible text
+	contentStream, err := pe.createTextContentStream(pageOCR, pageHeight)
+	if err != nil {
+		return fmt.Errorf("failed to create content stream: %w", err)
+	}
+
+	// Add content stream to page
+	if err := pe.appendContentStream(ctx, pageDict, contentStream); err != nil {
+		return fmt.Errorf("failed to append content stream: %w", err)
+	}
 
 	pe.logger.WithFields("page", pageNum, "word_count", len(pageOCR.Words)).
-		Debug("Text layer addition (placeholder)")
+		Debug("Successfully added text layer")
 
-	// For now, we just log that we would add the text
-	// Actual implementation would manipulate pageDict content streams here
+	return nil
+}
+
+// createTextContentStream generates a PDF content stream with invisible text
+func (pe *PDFEnhancer) createTextContentStream(pageOCR *ocr.PageOCR, pageHeight float64) ([]byte, error) {
+	var buf bytes.Buffer
+
+	// Start with graphics state save
+	buf.WriteString("q\n")
+
+	// Begin text object
+	buf.WriteString("BT\n")
+
+	// Set font (Helvetica, 10pt) - standard PDF font, no embedding needed
+	buf.WriteString("/Helvetica 10 Tf\n")
+
+	// Set text rendering mode to invisible (Tr 3 = no fill, no stroke)
+	buf.WriteString("3 Tr\n")
+
+	// Add each word with its position
+	for _, word := range pageOCR.Words {
+		// Skip empty words
+		if strings.TrimSpace(word.Text) == "" {
+			continue
+		}
+
+		// Convert OCR coordinates (top-left origin) to PDF coordinates (bottom-left origin)
+		// OCR: (0,0) is top-left, Y increases downward
+		// PDF: (0,0) is bottom-left, Y increases upward
+		pdfX := float64(word.BoundingBox.X)
+		pdfY := pageHeight - float64(word.BoundingBox.Y) - float64(word.BoundingBox.Height)
+
+		// Escape text for PDF string
+		escapedText := pe.escapePDFString(word.Text)
+
+		// Position text using Tm (text matrix) operator
+		// [a b c d e f] Tm - we use simple translation: [1 0 0 1 x y]
+		buf.WriteString(fmt.Sprintf("1 0 0 1 %.2f %.2f Tm\n", pdfX, pdfY))
+
+		// Show text using Tj operator
+		buf.WriteString(fmt.Sprintf("(%s) Tj\n", escapedText))
+	}
+
+	// End text object
+	buf.WriteString("ET\n")
+
+	// Restore graphics state
+	buf.WriteString("Q\n")
+
+	return buf.Bytes(), nil
+}
+
+// escapePDFString escapes special characters in a PDF string literal
+func (pe *PDFEnhancer) escapePDFString(s string) string {
+	// Escape backslash, parentheses, and other special characters
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "(", "\\(")
+	s = strings.ReplaceAll(s, ")", "\\)")
+	s = strings.ReplaceAll(s, "\n", "\\n")
+	s = strings.ReplaceAll(s, "\r", "\\r")
+	s = strings.ReplaceAll(s, "\t", "\\t")
+	return s
+}
+
+// appendContentStream adds a content stream to an existing page
+func (pe *PDFEnhancer) appendContentStream(ctx *model.Context, pageDict types.Dict, contentData []byte) error {
+	// Create a new stream dictionary for our content
+	streamDict := types.NewDict()
+	streamDict.Insert("Length", types.Integer(len(contentData)))
+
+	// Create stream object
+	sd := &types.StreamDict{
+		Dict:    streamDict,
+		Content: contentData,
+	}
+
+	// Add stream to context and get indirect reference
+	indRef, err := ctx.IndRefForNewObject(*sd)
+	if err != nil {
+		return fmt.Errorf("failed to create indirect reference: %w", err)
+	}
+
+	// Get existing Contents entry
+	contentsEntry := pageDict.Entry("Contents")
+	if contentsEntry == nil {
+		// No existing contents, set our stream as the only content
+		pageDict.Update("Contents", *indRef)
+		return nil
+	}
+
+	// Handle existing contents
+	switch contents := contentsEntry.(type) {
+	case types.IndirectRef:
+		// Single content stream - convert to array and append
+		arr := types.Array{contents, *indRef}
+		pageDict.Update("Contents", arr)
+
+	case types.Array:
+		// Multiple content streams - append to array
+		contents = append(contents, *indRef)
+		pageDict.Update("Contents", contents)
+
+	default:
+		return fmt.Errorf("unexpected Contents type: %T", contents)
+	}
 
 	return nil
 }
