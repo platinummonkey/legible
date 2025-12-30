@@ -1,10 +1,11 @@
 package rmrender
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/pdfcpu/pdfcpu/pkg/api"
-	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
+	"github.com/signintech/gopdf"
 )
 
 // Renderer handles rendering of parsed .rm documents to PDF
@@ -35,18 +36,58 @@ func (r *Renderer) RenderToPDF(doc *Document) ([]byte, error) {
 		return nil, fmt.Errorf("document cannot be nil")
 	}
 
-	// TODO: Implement PDF rendering
-	// Steps:
-	// 1. Create new PDF page with correct dimensions
-	// 2. For each layer (if enabled in options):
-	//    a. For each stroke:
-	//       - Transform coordinates from reMarkable to PDF coordinate system
-	//       - Render stroke based on brush type
-	//       - Apply color and width
-	//       - Handle pressure sensitivity if enabled
-	// 3. Return PDF as bytes
+	// Create new PDF with reMarkable dimensions
+	// Convert pixels to points: pixels * 72 / DPI
+	widthPt := float64(Width) * 72.0 / float64(DPI)
+	heightPt := float64(Height) * 72.0 / float64(DPI)
 
-	return nil, fmt.Errorf("PDF rendering not yet implemented - foundation in place")
+	pdf := gopdf.GoPdf{}
+	pdf.Start(gopdf.Config{
+		PageSize: gopdf.Rect{
+			W: widthPt,
+			H: heightPt,
+		},
+	})
+
+	pdf.AddPage()
+
+	// Render background
+	red, green, blue := r.options.BackgroundColor.RGB()
+	pdf.SetFillColor(red, green, blue)
+	pdf.RectFromUpperLeftWithStyle(0, 0, widthPt, heightPt, "F")
+
+	// Render each layer
+	for layerIdx, layer := range doc.Layers {
+		// Check if we should render this layer
+		if r.options.RenderLayers != nil {
+			found := false
+			for _, idx := range r.options.RenderLayers {
+				if idx == layerIdx {
+					found = true
+					break
+				}
+			}
+			if !found {
+				continue
+			}
+		}
+
+		// Render strokes in this layer
+		for _, stroke := range layer.Lines {
+			if err := r.renderStrokeToPDF(&pdf, stroke); err != nil {
+				// Log error but continue with other strokes
+				continue
+			}
+		}
+	}
+
+	// Get PDF bytes
+	var buf bytes.Buffer
+	if err := pdf.Write(&buf); err != nil {
+		return nil, fmt.Errorf("failed to write PDF: %w", err)
+	}
+
+	return buf.Bytes(), nil
 }
 
 // RenderPage renders a single page with the given strokes
@@ -60,12 +101,21 @@ func (r *Renderer) RenderPage(doc *Document, pageIndex int) ([]byte, error) {
 // transformCoordinate converts reMarkable coordinates to PDF coordinates
 //
 // reMarkable: Origin at top-left, Y increases downward
-// PDF: Origin at bottom-left, Y increases upward
+// PDF: Origin at bottom-left, Y increases upward (but gopdf uses top-left)
 func (r *Renderer) transformCoordinate(x, y float32) (float32, float32) {
-	// PDF coordinate system has origin at bottom-left
-	// reMarkable has origin at top-left
+	// gopdf uses top-left origin like reMarkable, so no Y inversion needed
+	// But we need to convert from pixels to points
 	pdfX := x
-	pdfY := float32(Height) - y
+	pdfY := y
+	return pdfX, pdfY
+}
+
+// transformCoordinateToPDF converts reMarkable pixel coordinates to PDF points
+// gopdf uses top-left origin, same as reMarkable
+func (r *Renderer) transformCoordinateToPDF(x, y float32) (float64, float64) {
+	// Convert pixels to points: pixels * 72 / DPI
+	pdfX := float64(x) * 72.0 / float64(DPI)
+	pdfY := float64(y) * 72.0 / float64(DPI)
 	return pdfX, pdfY
 }
 
@@ -101,28 +151,47 @@ func (r *Renderer) calculateStrokeWidth(point Point, baseBrushSize float32, brus
 	return width
 }
 
-// renderStroke renders a single stroke to the PDF page
-func (r *Renderer) renderStroke(page *model.Page, stroke Line) error {
+// renderStrokeToPDF renders a single stroke to the PDF
+func (r *Renderer) renderStrokeToPDF(pdf *gopdf.GoPdf, stroke Line) error {
 	if len(stroke.Points) < 2 {
 		// Need at least 2 points to draw a line
 		return nil
 	}
 
-	// TODO: Implement stroke rendering
-	// For each pair of points:
-	// 1. Transform coordinates
-	// 2. Calculate stroke width based on pressure
-	// 3. Draw line segment with appropriate style
-	// 4. Handle brush-specific rendering (e.g., transparency for highlighter)
+	// Get color for this brush/color combination
+	red, green, blue, _ := r.applyBrushStyle(stroke.BrushType, stroke.Color)
+	// Note: gopdf doesn't support alpha, so we ignore it
 
-	return fmt.Errorf("stroke rendering not yet implemented")
+	// Set stroke color
+	pdf.SetStrokeColor(red, green, blue)
+
+	// Draw lines connecting consecutive points
+	for i := 0; i < len(stroke.Points)-1; i++ {
+		p1 := stroke.Points[i]
+		p2 := stroke.Points[i+1]
+
+		// Transform coordinates to PDF space
+		x1, y1 := r.transformCoordinateToPDF(p1.X, p1.Y)
+		x2, y2 := r.transformCoordinateToPDF(p2.X, p2.Y)
+
+		// Calculate stroke width based on pressure if enabled
+		width := r.calculateStrokeWidth(p1, stroke.BrushSize, stroke.BrushType)
+
+		// Set line width
+		pdf.SetLineWidth(float64(width))
+
+		// Draw line
+		pdf.Line(x1, y1, x2, y2)
+	}
+
+	return nil
 }
 
 // renderEraser processes eraser strokes
 //
 // Eraser strokes need special handling as they remove underlying content
 // rather than adding new content.
-func (r *Renderer) renderEraser(page *model.Page, stroke Line) error {
+func (r *Renderer) renderEraser(pdf *gopdf.GoPdf, stroke Line) error {
 	// TODO: Implement eraser logic
 	// Options:
 	// 1. Use white ink on white background
@@ -147,14 +216,9 @@ func (r *Renderer) applyBrushStyle(brushType BrushType, color Color) (red, green
 }
 
 // renderBackground renders the page background
-func (r *Renderer) renderBackground(page *model.Page) error {
-	// Fill page with background color
-	red, green, blue := r.options.BackgroundColor.RGB()
-	_ = red
-	_ = green
-	_ = blue
-
-	// TODO: Implement background rendering
+// This is now handled directly in RenderToPDF
+func (r *Renderer) renderBackground(pdf *gopdf.GoPdf) error {
+	// Background is rendered in RenderToPDF
 	return nil
 }
 
@@ -169,18 +233,13 @@ func (r *Renderer) RenderWithTemplate(doc *Document, template string) ([]byte, e
 	return nil, fmt.Errorf("template rendering not yet implemented")
 }
 
-// Helper function to create a new PDF page with reMarkable dimensions
-func createRemarkablePage() (*model.Page, error) {
+// Helper function to get reMarkable page dimensions in points
+func getRemarkablePageDimensions() (width, height float64) {
 	// reMarkable dimensions: 1404x1872 pixels at 226 DPI
 	// Convert to points (PDF unit): pixels * 72 / DPI
-	widthPt := float32(Width) * 72.0 / float32(DPI)
-	heightPt := float32(Height) * 72.0 / float32(DPI)
-
-	_ = widthPt
-	_ = heightPt
-
-	// TODO: Create PDF page with pdfcpu
-	return nil, fmt.Errorf("page creation not yet implemented")
+	width = float64(Width) * 72.0 / float64(DPI)
+	height = float64(Height) * 72.0 / float64(DPI)
+	return width, height
 }
 
 // RenderLayers renders only specific layers from a document
