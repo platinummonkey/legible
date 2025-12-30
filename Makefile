@@ -1,4 +1,4 @@
-.PHONY: all build build-all test test-coverage lint fmt vet tidy install clean deps verify run dev version help
+.PHONY: all build build-all test test-no-ocr test-coverage test-coverage-no-ocr lint fmt vet tidy install clean deps verify run dev version help
 
 # Binary name
 BINARY_NAME=remarkable-sync
@@ -38,14 +38,24 @@ build-all: ## Build for all platforms
 	GOOS=darwin GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/$(BINARY_NAME)
 	GOOS=windows GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/$(BINARY_NAME)
 
-test: ## Run tests
-	@echo "Running tests..."
+test: ## Run all tests (requires Tesseract OCR installed)
+	@echo "Running all tests..."
+	@echo "Note: This requires Tesseract OCR to be installed. Use 'make test-no-ocr' if Tesseract is not available."
 	$(GOTEST) -v -race -coverprofile=coverage.out ./...
 
-test-coverage: test ## Run tests with coverage report
+test-no-ocr: ## Run tests without OCR dependencies (no Tesseract required)
+	@echo "Running tests (excluding OCR-dependent packages)..."
+	$(GOTEST) -v -race -coverprofile=coverage-no-ocr.out ./internal/config ./internal/converter ./internal/logger ./internal/rmclient ./internal/state
+
+test-coverage: test ## Run all tests with coverage report (requires Tesseract)
 	@echo "Generating coverage report..."
 	$(GOCMD) tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
+
+test-coverage-no-ocr: test-no-ocr ## Run tests with coverage report (no Tesseract required)
+	@echo "Generating coverage report (no OCR)..."
+	$(GOCMD) tool cover -html=coverage-no-ocr.out -o coverage-no-ocr.html
+	@echo "Coverage report generated: coverage-no-ocr.html"
 
 lint: ## Run linter
 	@echo "Running linter..."
@@ -72,7 +82,7 @@ clean: ## Clean build artifacts
 	@echo "Cleaning..."
 	$(GOCLEAN)
 	rm -rf $(BUILD_DIR)
-	rm -f coverage.out coverage.html
+	rm -f coverage.out coverage.html coverage-no-ocr.out coverage-no-ocr.html
 
 deps: ## Download dependencies
 	@echo "Downloading dependencies..."

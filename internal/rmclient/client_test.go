@@ -413,3 +413,233 @@ func TestClient_DownloadDocument_NotAuthenticated(t *testing.T) {
 		t.Error("DownloadDocument() should error when not authenticated")
 	}
 }
+
+func TestClient_DownloadDocument_Authenticated(t *testing.T) {
+	tmpDir := t.TempDir()
+	tokenPath := filepath.Join(tmpDir, "token.json")
+	outputPath := filepath.Join(tmpDir, "output", "subdir", "doc.zip")
+
+	cfg := &Config{
+		TokenPath: tokenPath,
+	}
+
+	client, err := NewClient(cfg)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+
+	// Set authentication token
+	if err := client.SetToken("test-token"); err != nil {
+		t.Fatalf("SetToken() error = %v", err)
+	}
+
+	// Should create output directory and return not-implemented error
+	err = client.DownloadDocument("doc-123", outputPath)
+	if err == nil {
+		t.Error("DownloadDocument() should return not-implemented error")
+	}
+
+	// Verify output directory was created
+	outputDir := filepath.Dir(outputPath)
+	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
+		t.Error("output directory should be created")
+	}
+}
+
+func TestClient_Authenticate_WithExistingToken(t *testing.T) {
+	tmpDir := t.TempDir()
+	tokenPath := filepath.Join(tmpDir, "token.json")
+
+	// Create a valid token file
+	token := map[string]string{
+		"device_token": "existing-token-12345",
+	}
+	data, err := json.MarshalIndent(token, "", "  ")
+	if err != nil {
+		t.Fatalf("failed to marshal token: %v", err)
+	}
+	if err := os.WriteFile(tokenPath, data, 0600); err != nil {
+		t.Fatalf("failed to write token file: %v", err)
+	}
+
+	cfg := &Config{
+		TokenPath: tokenPath,
+	}
+
+	client, err := NewClient(cfg)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+
+	// Authenticate should succeed with existing token
+	err = client.Authenticate()
+	if err != nil {
+		t.Errorf("Authenticate() should succeed with existing token, got error: %v", err)
+	}
+
+	// Verify client is authenticated
+	if !client.IsAuthenticated() {
+		t.Error("client should be authenticated after successful Authenticate()")
+	}
+
+	if client.token != "existing-token-12345" {
+		t.Errorf("expected token existing-token-12345, got %s", client.token)
+	}
+}
+
+func TestClient_Authenticate_NoToken(t *testing.T) {
+	tmpDir := t.TempDir()
+	tokenPath := filepath.Join(tmpDir, "token.json")
+
+	cfg := &Config{
+		TokenPath: tokenPath,
+	}
+
+	client, err := NewClient(cfg)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+
+	// Authenticate should fail when no token exists
+	err = client.Authenticate()
+	if err == nil {
+		t.Error("Authenticate() should error when no token exists")
+	}
+
+	// Verify client is not authenticated
+	if client.IsAuthenticated() {
+		t.Error("client should not be authenticated when Authenticate() fails")
+	}
+}
+
+func TestClient_Authenticate_InvalidToken(t *testing.T) {
+	tmpDir := t.TempDir()
+	tokenPath := filepath.Join(tmpDir, "token.json")
+
+	// Create an invalid token file (invalid JSON)
+	if err := os.WriteFile(tokenPath, []byte("not valid json"), 0600); err != nil {
+		t.Fatalf("failed to write token file: %v", err)
+	}
+
+	cfg := &Config{
+		TokenPath: tokenPath,
+	}
+
+	client, err := NewClient(cfg)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+
+	// Authenticate should fail with invalid token
+	err = client.Authenticate()
+	if err == nil {
+		t.Error("Authenticate() should error with invalid token")
+	}
+
+	// Verify client is not authenticated
+	if client.IsAuthenticated() {
+		t.Error("client should not be authenticated when token is invalid")
+	}
+}
+
+func TestClient_Authenticate_CreatesDirectory(t *testing.T) {
+	tmpDir := t.TempDir()
+	tokenDir := filepath.Join(tmpDir, "subdir", "auth")
+	tokenPath := filepath.Join(tokenDir, "token.json")
+
+	cfg := &Config{
+		TokenPath: tokenPath,
+	}
+
+	client, err := NewClient(cfg)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+
+	// Authenticate should create the directory
+	_ = client.Authenticate() // Will fail due to no token, but should create dir
+
+	// Verify directory was created
+	if _, err := os.Stat(tokenDir); os.IsNotExist(err) {
+		t.Error("token directory should be created by Authenticate()")
+	}
+}
+
+func TestClient_ListDocuments_Authenticated(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := &Config{
+		TokenPath: filepath.Join(tmpDir, "token.json"),
+	}
+
+	client, err := NewClient(cfg)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+
+	// Set authentication token
+	if err := client.SetToken("test-token"); err != nil {
+		t.Fatalf("SetToken() error = %v", err)
+	}
+
+	// Should return not-implemented error when authenticated
+	_, err = client.ListDocuments([]string{"label1", "label2"})
+	if err == nil {
+		t.Error("ListDocuments() should return not-implemented error")
+	}
+}
+
+func TestClient_GetDocumentMetadata_Authenticated(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := &Config{
+		TokenPath: filepath.Join(tmpDir, "token.json"),
+	}
+
+	client, err := NewClient(cfg)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+
+	// Set authentication token
+	if err := client.SetToken("test-token"); err != nil {
+		t.Fatalf("SetToken() error = %v", err)
+	}
+
+	// Should return not-implemented error when authenticated
+	_, err = client.GetDocumentMetadata("doc-456")
+	if err == nil {
+		t.Error("GetDocumentMetadata() should return not-implemented error")
+	}
+}
+
+func TestClient_LoadToken_EmptyDeviceToken(t *testing.T) {
+	tmpDir := t.TempDir()
+	tokenPath := filepath.Join(tmpDir, "token.json")
+
+	// Create token file with empty device_token
+	token := map[string]string{
+		"device_token": "",
+	}
+	data, err := json.MarshalIndent(token, "", "  ")
+	if err != nil {
+		t.Fatalf("failed to marshal token: %v", err)
+	}
+	if err := os.WriteFile(tokenPath, data, 0600); err != nil {
+		t.Fatalf("failed to write token file: %v", err)
+	}
+
+	cfg := &Config{
+		TokenPath: tokenPath,
+	}
+
+	client, err := NewClient(cfg)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+
+	err = client.loadToken()
+	if err == nil {
+		t.Error("loadToken() should error when device_token is empty")
+	}
+}
