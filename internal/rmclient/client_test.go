@@ -766,6 +766,21 @@ func TestSanitizeFolderName(t *testing.T) {
 			input:    "",
 			expected: "",
 		},
+		{
+			name:     "leading and trailing whitespace",
+			input:    "  MyFolder  ",
+			expected: "MyFolder",
+		},
+		{
+			name:     "whitespace only",
+			input:    "   ",
+			expected: "",
+		},
+		{
+			name:     "single slash becomes dash",
+			input:    "/",
+			expected: "-",
+		},
 	}
 
 	for _, tt := range tests {
@@ -773,6 +788,74 @@ func TestSanitizeFolderName(t *testing.T) {
 			result := sanitizeFolderName(tt.input)
 			if result != tt.expected {
 				t.Errorf("sanitizeFolderName(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestIsValidFolderName(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{
+			name:  "valid folder name",
+			input: "MyFolder",
+			want:  true,
+		},
+		{
+			name:  "valid with spaces",
+			input: "My Folder",
+			want:  true,
+		},
+		{
+			name:  "valid with numbers",
+			input: "Folder123",
+			want:  true,
+		},
+		{
+			name:  "empty string is invalid",
+			input: "",
+			want:  false,
+		},
+		{
+			name:  "single dash is invalid",
+			input: "-",
+			want:  false,
+		},
+		{
+			name:  "single underscore is invalid",
+			input: "_",
+			want:  false,
+		},
+		{
+			name:  "single dot is invalid",
+			input: ".",
+			want:  false,
+		},
+		{
+			name:  "double dot is invalid",
+			input: "..",
+			want:  false,
+		},
+		{
+			name:  "dash with text is valid",
+			input: "My-Folder",
+			want:  true,
+		},
+		{
+			name:  "underscore with text is valid",
+			input: "My_Folder",
+			want:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isValidFolderName(tt.input)
+			if result != tt.want {
+				t.Errorf("isValidFolderName(%q) = %v, want %v", tt.input, result, tt.want)
 			}
 		})
 	}

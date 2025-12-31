@@ -706,8 +706,12 @@ func (c *Client) GetFolderPath(documentID string) (string, error) {
 
 		// Add parent folder name to path (if it's a collection)
 		if parentNode.Document != nil && parentNode.Document.Type == CollectionType {
-			// Prepend to build path from root to document
-			pathParts = append([]string{sanitizeFolderName(parentNode.Document.Name)}, pathParts...)
+			sanitized := sanitizeFolderName(parentNode.Document.Name)
+			// Only add if the folder name is valid (not empty and not just special chars)
+			if isValidFolderName(sanitized) {
+				// Prepend to build path from root to document
+				pathParts = append([]string{sanitized}, pathParts...)
+			}
 		}
 
 		currentNode = parentNode
@@ -719,6 +723,9 @@ func (c *Client) GetFolderPath(documentID string) (string, error) {
 
 // sanitizeFolderName removes or replaces characters that are invalid in folder names
 func sanitizeFolderName(name string) string {
+	// Trim whitespace first
+	name = strings.TrimSpace(name)
+
 	// Replace common problematic characters
 	replacements := map[rune]string{
 		'/':  "-",
@@ -741,7 +748,26 @@ func sanitizeFolderName(name string) string {
 		}
 	}
 
-	return result
+	return strings.TrimSpace(result)
+}
+
+// isValidFolderName checks if a sanitized folder name is valid for use in paths
+func isValidFolderName(name string) bool {
+	// Empty names are invalid
+	if name == "" {
+		return false
+	}
+
+	// Names consisting only of special characters are invalid
+	// Common cases after sanitization: "-", "_", ".", etc.
+	invalidNames := map[string]bool{
+		"-":  true,
+		"_":  true,
+		".":  true,
+		"..": true,
+	}
+
+	return !invalidNames[name]
 }
 
 // Close closes the client and cleans up resources
