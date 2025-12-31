@@ -3,6 +3,7 @@ package converter
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -251,35 +252,8 @@ func TestCreatePlaceholderPDF(t *testing.T) {
 		t.Error("PDF file too short")
 	}
 
-	if string(data[0:8]) != "%PDF-1.4" {
-		t.Error("PDF should start with %PDF-1.4 header")
-	}
-}
-
-func TestBuildPageRefs(t *testing.T) {
-	tests := []struct {
-		name      string
-		pageCount int
-		want      string
-	}{
-		{
-			name:      "single page",
-			pageCount: 1,
-			want:      "3 0 R",
-		},
-		{
-			name:      "three pages",
-			pageCount: 3,
-			want:      "3 0 R 4 0 R 5 0 R",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := buildPageRefs(tt.pageCount)
-			if got != tt.want {
-				t.Errorf("buildPageRefs() = %v, want %v", got, tt.want)
-			}
-		})
+	// Check for valid PDF header (should start with %PDF-)
+	if !strings.HasPrefix(string(data), "%PDF-") {
+		t.Error("PDF should start with %PDF- header")
 	}
 }

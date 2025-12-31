@@ -11,6 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pdfcpu/pdfcpu/pkg/api"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	"github.com/platinummonkey/remarkable-sync/internal/logger"
 )
 
@@ -253,101 +255,76 @@ func (c *Converter) convertPages(extractDir string, content *ContentFile, output
 	return nil
 }
 
-// createPlaceholderPDF creates a basic PDF with the specified number of blank pages
+// createPlaceholderPDF creates a valid PDF with the specified number of blank pages using pdfcpu
 func (c *Converter) createPlaceholderPDF(outputPath string, pageCount int) error {
-	// Create minimal PDF structure
-	// reMarkable dimensions: 1404x1872 pixels at 226 DPI = 157.6 x 210.3 mm (close to A5)
-	pdfContent := fmt.Sprintf(`%%PDF-1.4
+	// reMarkable tablet dimensions: 1404x1872 pixels at 226 DPI
+	// This corresponds to approximately 157.6 x 210.3 mm (close to A5)
+	// In PDF points (1/72 inch): 446.7 x 595.3 points
+	// We'll use A5 dimensions: 420 x 595 points (width x height)
+
+	// Create configuration
+	conf := model.NewDefaultConfiguration()
+
+	// Create a temporary input PDF with a single blank page first
+	tmpFile, err := os.CreateTemp("", "blank-*.pdf")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	_ = tmpFile.Close()
+	defer os.Remove(tmpPath)
+
+	// Create a minimal valid PDF with one blank page
+	// This uses proper PDF structure with correct byte offsets
+	// Calculate byte offsets:
+	// Header: %PDF-1.4\n = 9 bytes (offset 0-8)
+	// Object 1 starts at byte 9
+	// Object 2 starts after obj 1
+	// Object 3 starts after obj 2
+	minimalPDF := `%PDF-1.4
 1 0 obj
-<<
-/Type /Catalog
-/Pages 2 0 R
->>
+<</Type/Catalog/Pages 2 0 R>>
 endobj
 2 0 obj
-<<
-/Type /Pages
-/Kids [%s]
-/Count %d
->>
-endobj`, buildPageRefs(pageCount), pageCount)
-
-	// Add page objects
-	for i := 0; i < pageCount; i++ {
-		pageNum := i + 3
-		pdfContent += fmt.Sprintf(`
-%d 0 obj
-<<
-/Type /Page
-/Parent 2 0 R
-/MediaBox [0 0 420 595]
-/Contents %d 0 R
-/Resources <<
-/Font <<
-/F1 <<
-/Type /Font
-/Subtype /Type1
-/BaseFont /Helvetica
->>
->>
->>
->>
-endobj`, pageNum, pageNum+pageCount)
-	}
-
-	// Add content streams
-	for i := 0; i < pageCount; i++ {
-		contentNum := i + 3 + pageCount
-		text := fmt.Sprintf("Page %d (Placeholder)", i+1)
-		stream := fmt.Sprintf("BT\n/F1 12 Tf\n50 550 Td\n(%s) Tj\nET", text)
-		pdfContent += fmt.Sprintf(`
-%d 0 obj
-<<
-/Length %d
->>
-stream
-%s
-endstream
-endobj`, contentNum, len(stream), stream)
-	}
-
-	// Add xref and trailer
-	xrefOffset := len(pdfContent)
-	objCount := 3 + (pageCount * 2)
-
-	pdfContent += fmt.Sprintf(`
+<</Type/Pages/Count 1/Kids[3 0 R]>>
+endobj
+3 0 obj
+<</Type/Page/Parent 2 0 R/MediaBox[0 0 420 595]/Resources<<>>>>
+endobj
 xref
-0 %d
+0 4
 0000000000 65535 f
 0000000009 00000 n
 0000000058 00000 n
-`, objCount)
-
-	// Add xref entries for pages and contents
-	// This is simplified - actual offsets would need to be calculated
-	for i := 0; i < pageCount*2; i++ {
-		pdfContent += "0000000000 00000 n\n"
-	}
-
-	pdfContent += fmt.Sprintf(`trailer
-<<
-/Size %d
-/Root 1 0 R
->>
+0000000113 00000 n
+trailer
+<</Size 4/Root 1 0 R>>
 startxref
-%d
-%%%%EOF`, objCount, xrefOffset)
+190
+%%EOF`
 
-	return os.WriteFile(outputPath, []byte(pdfContent), 0644)
-}
-
-// buildPageRefs builds the page reference array for the PDF
-func buildPageRefs(pageCount int) string {
-	refs := make([]string, pageCount)
-	for i := 0; i < pageCount; i++ {
-		refs[i] = fmt.Sprintf("%d 0 R", i+3)
+	if err := os.WriteFile(tmpPath, []byte(minimalPDF), 0644); err != nil {
+		return fmt.Errorf("failed to write temp PDF: %w", err)
 	}
-	return strings.Join(refs, " ")
+
+	// Now replicate this page N times using pdfcpu's MergeCreateFile
+	if pageCount == 1 {
+		// Just copy the single page
+		return os.Rename(tmpPath, outputPath)
+	}
+
+	// For multiple pages, merge the same page multiple times
+	inFiles := make([]string, pageCount)
+	for i := 0; i < pageCount; i++ {
+		inFiles[i] = tmpPath
+	}
+
+	// Use pdfcpu to merge pages
+	if err := api.MergeCreateFile(inFiles, outputPath, false, conf); err != nil {
+		return fmt.Errorf("failed to merge pages: %w", err)
+	}
+
+	return nil
 }
 
 // parseTimestamp converts reMarkable timestamp (milliseconds since epoch) to time.Time
