@@ -109,12 +109,14 @@ jobs:
           echo "CGO_LDFLAGS=$(pkg-config --libs tesseract lept)" >> $GITHUB_ENV
 
       # Run goreleaser in snapshot mode (build only, no release)
+      # Use --single-target to only build for the host platform (linux/amd64)
+      # since we can't cross-compile CGO code without proper toolchains
       - name: Run GoReleaser build
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: latest
-          args: build --snapshot --clean
+          args: build --snapshot --clean --single-target
         env:
           CGO_ENABLED: 1
 
