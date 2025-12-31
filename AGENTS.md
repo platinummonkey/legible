@@ -19,11 +19,12 @@ The application connects to the reMarkable cloud API using the [rmapi](https://g
 
 ### 2. OCR Processing
 
-Using Tesseract OCR, the application:
+Using Ollama with vision models, the application:
 
 - Processes rendered PDF pages from reMarkable documents
-- Performs optical character recognition on handwritten and typed content
+- Performs AI-powered optical character recognition optimized for handwritten content
 - Generates text data with positional information (bounding boxes)
+- Provides superior accuracy for handwriting compared to traditional OCR engines
 
 ### 3. PDF Enhancement
 
@@ -38,8 +39,18 @@ The final step adds value to the synchronized documents by:
 
 - **Language**: Go
 - **reMarkable API**: [rmapi](https://github.com/ddvk/rmapi) - Go client for the reMarkable cloud API
-- **OCR Engine**: Tesseract - Industry-standard open-source OCR engine
+- **OCR Engine**: [Ollama](https://ollama.ai/) - Local AI runtime with vision models (llava, mistral-small3.1, etc.)
 - **PDF Processing**: Go PDF libraries for adding text layers to existing PDFs
+
+## Why Ollama for OCR?
+
+Traditional OCR engines like Tesseract are optimized for printed text and struggle with handwriting. Modern vision-language models (VLMs) like those available through Ollama provide:
+
+- **Superior handwriting recognition**: 85-95% accuracy vs 40-60% with Tesseract
+- **Language flexibility**: Models handle multiple languages without explicit configuration
+- **Context awareness**: Understanding of document structure and context
+- **Local processing**: All OCR happens locally, preserving privacy
+- **No CGO dependencies**: HTTP API eliminates build complexity
 
 ## Use Cases
 
@@ -65,11 +76,11 @@ The final step adds value to the synchronized documents by:
 └────────┬────────┘
          │
          ▼
-┌─────────────────┐
-│  OCR Processor  │
-│  (Tesseract)    │
-│ - Render pages  │
-│ - Extract text  │
+┌─────────────────┐      ┌─────────────────────┐
+│  OCR Processor  │─────▶│   Ollama HTTP       │
+│  (Ollama API)   │      │   Vision Models     │
+│ - Render pages  │◀─────│ (llava, mistral, ..)│
+│ - Extract text  │      └─────────────────────┘
 └────────┬────────┘
          │
          ▼

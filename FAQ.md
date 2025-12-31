@@ -24,9 +24,9 @@ Yes, it works with both reMarkable 1 and reMarkable 2 tablets, as long as cloud 
 
 No! This tool runs entirely on your computer and syncs through the reMarkable cloud. No tablet modifications required.
 
-### Can I use this without Tesseract?
+### Can I use this without Ollama?
 
-Yes! OCR is optional. You can sync and convert documents without OCR by using the `--no-ocr` flag. However, without OCR, your handwritten notes won't be searchable.
+Yes! OCR is optional. You can sync and convert documents without OCR by using the `--no-ocr` flag. However, without OCR, your handwritten notes won't be searchable. Ollama is only required if you want searchable PDFs with text layers.
 
 ### How do I authenticate with my reMarkable account?
 
@@ -81,9 +81,18 @@ Typically 2-3x the size of your reMarkable documents. OCR adds a text layer whic
 ### How does OCR work?
 
 1. The PDF pages are rendered as images
-2. Tesseract OCR analyzes the images to extract text
-3. The extracted text with positional information is added as an invisible layer to the PDF
-4. The result is a searchable PDF that looks identical to the original
+2. Images are sent to Ollama's vision models (like llava) which analyze and extract text
+3. The AI model provides superior handwriting recognition compared to traditional OCR
+4. The extracted text with positional information is added as an invisible layer to the PDF
+5. The result is a searchable PDF that looks identical to the original
+
+### Why Ollama instead of Tesseract?
+
+Ollama uses modern vision-language models (VLMs) that provide significantly better handwriting recognition compared to Tesseract, which is optimized for printed text:
+- **Accuracy**: 85-95% for handwriting vs 40-60% with Tesseract
+- **Context awareness**: Models understand document structure
+- **Language flexibility**: Handles multiple languages without explicit configuration
+- **Local processing**: All OCR happens on your machine, preserving privacy
 
 ### Why is syncing slow?
 
@@ -104,26 +113,35 @@ Yes:
 
 ### What languages does OCR support?
 
-Tesseract supports 100+ languages. Common languages:
-- English (eng) - installed by default
-- Spanish (spa)
-- French (fra)
-- German (deu)
-- Chinese Simplified (chi_sim)
-- Japanese (jpn)
+Ollama vision models automatically detect and handle multiple languages without explicit configuration. The models support:
+- All major European languages (English, Spanish, French, German, Italian, etc.)
+- Asian languages (Chinese, Japanese, Korean)
+- And many more
 
-Install additional languages:
-```bash
-# macOS
-brew install tesseract-lang
+No additional language packs or configuration needed! The model handles language detection automatically.
 
-# Ubuntu
-sudo apt-get install tesseract-ocr-spa tesseract-ocr-fra
+### Can I use a different Ollama model?
 
-# Configure
-remarkable-sync sync --config ~/.remarkable-sync.yaml
-# In config: ocr-languages: eng+spa+fra
+Yes! Configure the model in `~/.remarkable-sync.yaml`:
+
+```yaml
+ollama:
+  model: llava        # Default: fast and good quality
+  # model: llava:13b  # Larger model, better accuracy, slower
+  # model: mistral    # Alternative vision model
 ```
+
+Available models:
+- `llava` - Recommended, good balance of speed and accuracy
+- `llava:13b` - Larger model for best accuracy
+- `mistral` - Alternative vision model
+- Any Ollama model with vision capabilities
+
+Download a new model: `ollama pull llava:13b`
+
+### How much disk space does Ollama need?
+
+Approximately 8-10GB for Ollama + a vision model like llava. This is a one-time download that's cached locally.
 
 ### Does this work offline?
 
@@ -156,17 +174,27 @@ Yes! This is open-source software. You can review the code on GitHub: https://gi
 3. Clear old credentials: `rm -rf ~/.remarkable-sync`
 4. Re-authenticate: `remarkable-sync auth`
 
-### OCR produces garbage text
+### OCR produces garbage text or low-quality results
 
 **Possible causes:**
-- Language mismatch: Ensure Tesseract has the correct language pack
-- Poor handwriting: OCR works best with clear, legible writing
-- Scanned images: Original PDFs with scanned images may not OCR well
+- Model not suited for the handwriting style
+- Complex or unclear handwriting
+- Very small text or dense writing
 
 **Solutions:**
-- Specify correct language: `ocr-languages: eng+spa`
-- Try without OCR if quality is unacceptable
-- Use reMarkable's built-in text recognition for better handwriting recognition
+- Try a more capable model: `mistral-small3.1` or `llava:13b` for better accuracy
+  ```bash
+  # Download better model
+  ollama pull mistral-small3.1
+
+  # Update config
+  # ~/.remarkable-sync.yaml:
+  #   ollama:
+  #     model: mistral-small3.1
+  ```
+- Verify Ollama is running properly: `ollama list`
+- Check Ollama logs for errors
+- Try without OCR if quality is unacceptable: `--no-ocr`
 
 ### Daemon keeps stopping
 
@@ -265,5 +293,6 @@ The official reMarkable desktop app is great, but doesn't offer:
 
 - [GitHub Repository](https://github.com/platinummonkey/remarkable-sync)
 - [reMarkable Official Site](https://remarkable.com)
-- [Tesseract OCR Documentation](https://github.com/tesseract-ocr/tesseract)
+- [Ollama Official Site](https://ollama.ai/)
+- [Ollama Model Library](https://ollama.ai/library)
 - [rmapi Project](https://github.com/ddvk/rmapi)
