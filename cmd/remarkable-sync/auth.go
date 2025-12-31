@@ -1,3 +1,4 @@
+// Package main provides the reMarkable Sync CLI application.
 package main
 
 import (
@@ -31,7 +32,7 @@ func init() {
 	rootCmd.AddCommand(authCmd)
 }
 
-func runAuth(cmd *cobra.Command, args []string) error {
+func runAuth(_ *cobra.Command, _ []string) error {
 	// Initialize logger
 	log, err := logger.New(&logger.Config{
 		Level:  viper.GetString("log_level"),

@@ -7,11 +7,11 @@ import (
 	"time"
 )
 
-func TestNewSyncResult(t *testing.T) {
-	result := NewSyncResult()
+func TestNewResult(t *testing.T) {
+	result := NewResult()
 
 	if result == nil {
-		t.Fatal("NewSyncResult() returned nil")
+		t.Fatal("NewResult() returned nil")
 	}
 
 	if result.Successes == nil {
@@ -31,8 +31,8 @@ func TestNewSyncResult(t *testing.T) {
 	}
 }
 
-func TestSyncResult_AddSuccess(t *testing.T) {
-	result := NewSyncResult()
+func TestResult_AddSuccess(t *testing.T) {
+	result := NewResult()
 
 	docResult := &DocumentResult{
 		DocumentID: "test-123",
@@ -57,8 +57,8 @@ func TestSyncResult_AddSuccess(t *testing.T) {
 	}
 }
 
-func TestSyncResult_AddError(t *testing.T) {
-	result := NewSyncResult()
+func TestResult_AddError(t *testing.T) {
+	result := NewResult()
 
 	err := fmt.Errorf("test error")
 	result.AddError("test-456", "Failed Doc", err)
@@ -85,8 +85,8 @@ func TestSyncResult_AddError(t *testing.T) {
 	}
 }
 
-func TestSyncResult_HasFailures(t *testing.T) {
-	result := NewSyncResult()
+func TestResult_HasFailures(t *testing.T) {
+	result := NewResult()
 
 	if result.HasFailures() {
 		t.Error("HasFailures() should be false initially")
@@ -99,8 +99,8 @@ func TestSyncResult_HasFailures(t *testing.T) {
 	}
 }
 
-func TestSyncResult_Summary(t *testing.T) {
-	result := NewSyncResult()
+func TestResult_Summary(t *testing.T) {
+	result := NewResult()
 	result.TotalDocuments = 10
 	result.ProcessedDocuments = 8
 	result.Duration = time.Second * 30
@@ -141,8 +141,8 @@ func TestSyncResult_Summary(t *testing.T) {
 	}
 }
 
-func TestSyncResult_Summary_NoFailures(t *testing.T) {
-	result := NewSyncResult()
+func TestResult_Summary_NoFailures(t *testing.T) {
+	result := NewResult()
 	result.TotalDocuments = 5
 	result.ProcessedDocuments = 5
 	result.Duration = time.Second * 15
@@ -165,8 +165,8 @@ func TestSyncResult_Summary_NoFailures(t *testing.T) {
 	}
 }
 
-func TestSyncResult_String(t *testing.T) {
-	result := NewSyncResult()
+func TestResult_String(t *testing.T) {
+	result := NewResult()
 	result.TotalDocuments = 5
 	result.AddSuccess(&DocumentResult{DocumentID: "doc-1"})
 

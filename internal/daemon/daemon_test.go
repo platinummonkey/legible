@@ -18,16 +18,16 @@ import (
 type mockOrchestrator struct {
 	syncCalled int
 	syncErr    error
-	syncResult *sync.SyncResult
+	syncResult *sync.Result
 }
 
-func (m *mockOrchestrator) Sync(ctx context.Context) (*sync.SyncResult, error) {
+func (m *mockOrchestrator) Sync(_ context.Context) (*sync.Result, error) {
 	m.syncCalled++
 	if m.syncErr != nil {
 		return nil, m.syncErr
 	}
 	if m.syncResult == nil {
-		return sync.NewSyncResult(), nil
+		return sync.NewResult(), nil
 	}
 	return m.syncResult, nil
 }
@@ -46,10 +46,6 @@ func TestNew(t *testing.T) {
 		orchestrator: (*sync.Orchestrator)(nil),
 		logger:       logger.Get(),
 		interval:     5 * time.Minute,
-	}
-
-	if daemon == nil {
-		t.Fatal("Daemon should not be nil")
 	}
 
 	if daemon.logger == nil {
@@ -168,7 +164,7 @@ func TestRemovePIDFile(t *testing.T) {
 	}
 }
 
-func TestRemovePIDFile_NoPIDFile(t *testing.T) {
+func TestRemovePIDFile_NoPIDFile(_ *testing.T) {
 	daemon := &Daemon{
 		logger:  logger.Get(),
 		pidFile: "", // No PID file configured
@@ -226,9 +222,9 @@ func TestHealthCheckEndpoint_NotConfigured(t *testing.T) {
 func TestHealthEndpoint_Integration(t *testing.T) {
 	// Start a test server
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK\n"))
+		_, _ = w.Write([]byte("OK\n"))
 	})
 
 	server := &http.Server{
@@ -241,7 +237,9 @@ func TestHealthEndpoint_Integration(t *testing.T) {
 			t.Logf("Server error: %v", err)
 		}
 	}()
-	defer server.Shutdown(context.Background())
+	defer func() {
+		_ = server.Shutdown(context.Background())
+	}()
 
 	// Give server time to start
 	time.Sleep(100 * time.Millisecond)
@@ -251,16 +249,18 @@ func TestHealthEndpoint_Integration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to call health endpoint: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Health endpoint status = %d, want %d", resp.StatusCode, http.StatusOK)
 	}
 }
 
-func TestRunSync_Success(t *testing.T) {
+func TestRunSync_Success(_ *testing.T) {
 	mockOrch := &mockOrchestrator{
-		syncResult: sync.NewSyncResult(),
+		syncResult: sync.NewResult(),
 	}
 
 	daemon := &Daemon{

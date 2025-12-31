@@ -19,7 +19,7 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Display version information",
 	Long:  `Display version, build date, and Git commit information.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		fmt.Printf("remarkable-sync version %s\n", Version)
 		fmt.Printf("  Git commit: %s\n", GitCommit)
 		fmt.Printf("  Built: %s\n", BuildDate)

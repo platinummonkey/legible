@@ -31,8 +31,12 @@ log-level: info
 	}
 
 	// Set environment variable to use test config
-	os.Setenv("REMARKABLE_SYNC_CONFIG", configPath)
-	defer os.Unsetenv("REMARKABLE_SYNC_CONFIG")
+	if err := os.Setenv("REMARKABLE_SYNC_CONFIG", configPath); err != nil {
+		t.Fatalf("Failed to set environment variable: %v", err)
+	}
+	defer func() {
+		_ = os.Unsetenv("REMARKABLE_SYNC_CONFIG")
+	}()
 
 	// Load configuration
 	cfg, err := config.Load(configPath)
@@ -203,8 +207,8 @@ func TestRMClientTokenPersistence(t *testing.T) {
 	}
 
 	// Clean up
-	client1.Close()
-	client2.Close()
+	_ = client1.Close()
+	_ = client2.Close()
 }
 
 // TestMultipleDocumentWorkflow tests managing multiple documents through state
@@ -330,7 +334,7 @@ func TestStateUpdateWorkflow(t *testing.T) {
 	}
 
 	// Reload and verify
-	mgr.Load()
+	_ = mgr.Load()
 	doc = mgr.GetDocument("doc-workflow")
 	if doc.ConversionStatus != state.ConversionStatusCompleted {
 		t.Error("Document should have ConversionStatusCompleted status")
@@ -346,7 +350,7 @@ func TestStateUpdateWorkflow(t *testing.T) {
 	}
 
 	// Final verification
-	mgr.Load()
+	_ = mgr.Load()
 	doc = mgr.GetDocument("doc-workflow")
 	if !doc.OCRProcessed {
 		t.Error("Document should have OCRProcessed set to true")

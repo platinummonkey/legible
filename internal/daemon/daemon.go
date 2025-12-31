@@ -1,3 +1,4 @@
+// Package daemon provides long-running background sync functionality.
 package daemon
 
 import (
@@ -25,11 +26,11 @@ type Daemon struct {
 
 // Config holds configuration for the daemon
 type Config struct {
-	Orchestrator     *sync.Orchestrator
-	Logger           *logger.Logger
-	SyncInterval     time.Duration // How often to sync (default: 5 minutes)
-	HealthCheckAddr  string        // Optional health check address (e.g. ":8080")
-	PIDFile          string        // Optional PID file path
+	Orchestrator    *sync.Orchestrator
+	Logger          *logger.Logger
+	SyncInterval    time.Duration // How often to sync (default: 5 minutes)
+	HealthCheckAddr string        // Optional health check address (e.g. ":8080")
+	PIDFile         string        // Optional PID file path
 }
 
 // New creates a new daemon instance
@@ -83,7 +84,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 		defer d.stopHealthCheck()
 	}
 
-	// Create context that can be cancelled
+	// Create context that can be canceled
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -103,7 +104,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
-			d.logger.Info("Context cancelled, shutting down")
+			d.logger.Info("Context canceled, shutting down")
 			return ctx.Err()
 
 		case sig := <-sigChan:
@@ -191,15 +192,15 @@ func (d *Daemon) startHealthCheck() error {
 	mux := http.NewServeMux()
 
 	// Health check endpoint
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK\n"))
+		_, _ = w.Write([]byte("OK\n"))
 	})
 
 	// Ready check endpoint (same as health for now)
-	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/ready", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK\n"))
+		_, _ = w.Write([]byte("OK\n"))
 	})
 
 	d.httpServer = &http.Server{

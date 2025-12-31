@@ -48,10 +48,10 @@ func init() {
 	rootCmd.PersistentFlags().Bool("no-ocr", false, "disable OCR processing")
 
 	// Bind flags to viper
-	viper.BindPFlag("output_dir", rootCmd.PersistentFlags().Lookup("output"))
-	viper.BindPFlag("labels", rootCmd.PersistentFlags().Lookup("labels"))
-	viper.BindPFlag("log_level", rootCmd.PersistentFlags().Lookup("log-level"))
-	viper.BindPFlag("ocr_enabled", rootCmd.PersistentFlags().Lookup("no-ocr"))
+	_ = viper.BindPFlag("output_dir", rootCmd.PersistentFlags().Lookup("output"))
+	_ = viper.BindPFlag("labels", rootCmd.PersistentFlags().Lookup("labels"))
+	_ = viper.BindPFlag("log_level", rootCmd.PersistentFlags().Lookup("log-level"))
+	_ = viper.BindPFlag("ocr_enabled", rootCmd.PersistentFlags().Lookup("no-ocr"))
 }
 
 func initConfig() {

@@ -1,3 +1,4 @@
+// Package pdfenhancer provides PDF manipulation and OCR text layer addition.
 package pdfenhancer
 
 import (
@@ -383,11 +384,11 @@ func (pe *PDFEnhancer) GetPDFInfo(pdfPath string) (*PDFInfo, error) {
 	}
 
 	info := &PDFInfo{
-		PageCount:   ctx.PageCount,
-		PDFVersion:  versionStr,
-		FileSize:    0, // Would need to stat the file
-		Encrypted:   ctx.Encrypt != nil,
-		Linearized:  false, // pdfcpu doesn't expose this directly
+		PageCount:  ctx.PageCount,
+		PDFVersion: versionStr,
+		FileSize:   0, // Would need to stat the file
+		Encrypted:  ctx.Encrypt != nil,
+		Linearized: false, // pdfcpu doesn't expose this directly
 	}
 
 	// Get file size

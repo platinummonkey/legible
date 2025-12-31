@@ -55,10 +55,10 @@ func init() {
 
 	// Sync-specific flags
 	syncCmd.Flags().Bool("force", false, "force re-sync all documents (ignore state)")
-	viper.BindPFlag("force", syncCmd.Flags().Lookup("force"))
+	_ = viper.BindPFlag("force", syncCmd.Flags().Lookup("force"))
 }
 
-func runSync(cmd *cobra.Command, args []string) error {
+func runSync(_ *cobra.Command, _ []string) error {
 	// Initialize logger
 	log, err := logger.New(&logger.Config{
 		Level:  viper.GetString("log_level"),

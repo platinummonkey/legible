@@ -65,12 +65,12 @@ func init() {
 	daemonCmd.Flags().String("health-addr", "", "health check HTTP address (e.g., :8080)")
 	daemonCmd.Flags().String("pid-file", "", "PID file path")
 
-	viper.BindPFlag("daemon.interval", daemonCmd.Flags().Lookup("interval"))
-	viper.BindPFlag("daemon.health_addr", daemonCmd.Flags().Lookup("health-addr"))
-	viper.BindPFlag("daemon.pid_file", daemonCmd.Flags().Lookup("pid-file"))
+	_ = viper.BindPFlag("daemon.interval", daemonCmd.Flags().Lookup("interval"))
+	_ = viper.BindPFlag("daemon.health_addr", daemonCmd.Flags().Lookup("health-addr"))
+	_ = viper.BindPFlag("daemon.pid_file", daemonCmd.Flags().Lookup("pid-file"))
 }
 
-func runDaemon(cmd *cobra.Command, args []string) error {
+func runDaemon(_ *cobra.Command, _ []string) error {
 	// Initialize logger (JSON format for daemon mode)
 	log, err := logger.New(&logger.Config{
 		Level:  viper.GetString("log_level"),

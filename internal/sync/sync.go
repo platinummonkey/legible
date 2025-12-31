@@ -55,16 +55,16 @@ func New(cfg *Config) (*Orchestrator, error) {
 		return nil, fmt.Errorf("config.Config is required")
 	}
 	if cfg.RMClient == nil {
-		return nil, fmt.Errorf("RMClient is required")
+		return nil, fmt.Errorf("rmClient is required")
 	}
 	if cfg.StateStore == nil {
-		return nil, fmt.Errorf("StateStore is required")
+		return nil, fmt.Errorf("stateStore is required")
 	}
 	if cfg.Converter == nil {
-		return nil, fmt.Errorf("Converter is required")
+		return nil, fmt.Errorf("converter is required")
 	}
 	if cfg.PDFEnhancer == nil {
-		return nil, fmt.Errorf("PDFEnhancer is required")
+		return nil, fmt.Errorf("pdfEnhancer is required")
 	}
 
 	return &Orchestrator{
@@ -79,11 +79,11 @@ func New(cfg *Config) (*Orchestrator, error) {
 }
 
 // Sync performs a complete synchronization workflow
-func (o *Orchestrator) Sync(ctx context.Context) (*SyncResult, error) {
+func (o *Orchestrator) Sync(ctx context.Context) (*Result, error) {
 	o.logger.Info("Starting sync workflow")
 	startTime := time.Now()
 
-	result := NewSyncResult()
+	result := NewResult()
 
 	// Step 1: List documents from API
 	o.logger.Info("Listing documents from reMarkable API")
@@ -211,7 +211,7 @@ func (o *Orchestrator) identifyDocumentsToSync(docs []rmclient.Document, current
 }
 
 // processDocument processes a single document through the complete pipeline
-func (o *Orchestrator) processDocument(ctx context.Context, doc rmclient.Document, docNum, totalDocs int) (*DocumentResult, error) {
+func (o *Orchestrator) processDocument(_ context.Context, doc rmclient.Document, docNum, totalDocs int) (*DocumentResult, error) {
 	result := &DocumentResult{
 		DocumentID: doc.ID,
 		Title:      doc.Name,
@@ -223,7 +223,9 @@ func (o *Orchestrator) processDocument(ctx context.Context, doc rmclient.Documen
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		_ = os.RemoveAll(tmpDir)
+	}()
 
 	// Stage 1: Download .rmdoc file
 	o.logger.WithFields("document", docNum, "total", totalDocs).

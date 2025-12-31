@@ -1,3 +1,4 @@
+// Package sync provides document synchronization and orchestration.
 package sync
 
 import (
@@ -6,8 +7,8 @@ import (
 	"time"
 )
 
-// SyncResult contains the results of a complete sync operation
-type SyncResult struct {
+// Result contains the results of a complete sync operation
+type Result struct {
 	TotalDocuments     int
 	ProcessedDocuments int
 	SuccessCount       int
@@ -34,22 +35,22 @@ type DocumentFailure struct {
 	Error      error
 }
 
-// NewSyncResult creates a new sync result
-func NewSyncResult() *SyncResult {
-	return &SyncResult{
+// NewResult creates a new sync result
+func NewResult() *Result {
+	return &Result{
 		Successes: make([]DocumentResult, 0),
 		Failures:  make([]DocumentFailure, 0),
 	}
 }
 
 // AddSuccess adds a successful document result
-func (sr *SyncResult) AddSuccess(result *DocumentResult) {
+func (sr *Result) AddSuccess(result *DocumentResult) {
 	sr.Successes = append(sr.Successes, *result)
 	sr.SuccessCount++
 }
 
 // AddError adds a failed document
-func (sr *SyncResult) AddError(docID, title string, err error) {
+func (sr *Result) AddError(docID, title string, err error) {
 	sr.Failures = append(sr.Failures, DocumentFailure{
 		DocumentID: docID,
 		Title:      title,
@@ -59,15 +60,15 @@ func (sr *SyncResult) AddError(docID, title string, err error) {
 }
 
 // HasFailures returns true if there were any failures
-func (sr *SyncResult) HasFailures() bool {
+func (sr *Result) HasFailures() bool {
 	return sr.FailureCount > 0
 }
 
 // Summary returns a human-readable summary of the sync result
-func (sr *SyncResult) Summary() string {
+func (sr *Result) Summary() string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("Sync Summary:\n"))
+	sb.WriteString("Sync Summary:\n")
 	sb.WriteString(fmt.Sprintf("  Total Documents: %d\n", sr.TotalDocuments))
 	sb.WriteString(fmt.Sprintf("  Processed: %d\n", sr.ProcessedDocuments))
 	sb.WriteString(fmt.Sprintf("  Successful: %d\n", sr.SuccessCount))
@@ -75,7 +76,7 @@ func (sr *SyncResult) Summary() string {
 	sb.WriteString(fmt.Sprintf("  Duration: %v\n", sr.Duration))
 
 	if sr.HasFailures() {
-		sb.WriteString(fmt.Sprintf("\nFailures:\n"))
+		sb.WriteString("\nFailures:\n")
 		for _, failure := range sr.Failures {
 			sb.WriteString(fmt.Sprintf("  - %s (%s): %v\n",
 				failure.Title, failure.DocumentID, failure.Error))
@@ -86,6 +87,6 @@ func (sr *SyncResult) Summary() string {
 }
 
 // String returns a string representation of the sync result
-func (sr *SyncResult) String() string {
+func (sr *Result) String() string {
 	return sr.Summary()
 }

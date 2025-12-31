@@ -11,7 +11,7 @@ import (
 )
 
 // createTestPDF creates a simple test PDF file
-func createTestPDF(t *testing.T, path string, pageCount int) {
+func createTestPDF(t *testing.T, path string, _ int) {
 	t.Helper()
 
 	// Ensure directory exists
@@ -464,16 +464,16 @@ func TestPDFEnhancer_CreateTextContentStream(t *testing.T) {
 
 	// Check for required PDF operators
 	requiredOps := []string{
-		"q",           // graphics state save
-		"BT",          // begin text
-		"/Helvetica",  // font
-		"3 Tr",        // invisible text rendering mode
-		"Tm",          // text matrix (position)
-		"Tj",          // show text
-		"ET",          // end text
-		"Q",           // graphics state restore
-		"(Hello)",     // first word
-		"(World)",     // second word
+		"q",          // graphics state save
+		"BT",         // begin text
+		"/Helvetica", // font
+		"3 Tr",       // invisible text rendering mode
+		"Tm",         // text matrix (position)
+		"Tj",         // show text
+		"ET",         // end text
+		"Q",          // graphics state restore
+		"(Hello)",    // first word
+		"(World)",    // second word
 	}
 
 	for _, op := range requiredOps {
