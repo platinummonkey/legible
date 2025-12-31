@@ -36,6 +36,15 @@ type ConversionOptions struct {
 
 	// Compression enables PDF compression to reduce file size
 	Compression bool
+
+	// CopyTags enables copying reMarkable labels/tags to PDF metadata (default: true)
+	CopyTags bool
+
+	// TagPrefix is an optional prefix to add to tags (e.g., "rm:" -> "rm:work")
+	TagPrefix string
+
+	// IncludePageTags determines if page-level tags should be included (default: true)
+	IncludePageTags bool
 }
 
 // ConversionResult represents the result of a PDF conversion
@@ -140,6 +149,9 @@ func NewConversionOptions(inputPath, outputPath string) *ConversionOptions {
 		DPI:                DefaultDPI,
 		BackgroundColor:    "#FFFFFF",
 		Compression:        true,
+		CopyTags:           true,
+		TagPrefix:          "",
+		IncludePageTags:    true,
 		Metadata: PDFMetadata{
 			Creator:  "remarkable-sync",
 			Producer: "remarkable-sync",

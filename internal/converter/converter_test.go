@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/pdfcpu/pdfcpu/pkg/api"
+	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 )
 
 func TestNew(t *testing.T) {
@@ -255,5 +258,214 @@ func TestCreatePlaceholderPDF(t *testing.T) {
 	// Check for valid PDF header (should start with %PDF-)
 	if !strings.HasPrefix(string(data), "%PDF-") {
 		t.Error("PDF should start with %PDF- header")
+	}
+}
+
+func TestExtractTags(t *testing.T) {
+	converter := New(&Config{})
+
+	tests := []struct {
+		name     string
+		content  *ContentFile
+		expected []string
+	}{
+		{
+			name: "document-level tags only",
+			content: &ContentFile{
+				Tags:     []string{"work", "important"},
+				PageTags: []PageTag{},
+			},
+			expected: []string{"work", "important"},
+		},
+		{
+			name: "page-level tags only",
+			content: &ContentFile{
+				Tags: []string{},
+				PageTags: []PageTag{
+					{Name: "test", PageID: "page1"},
+					{Name: "draft", PageID: "page2"},
+				},
+			},
+			expected: []string{"test", "draft"},
+		},
+		{
+			name: "both document and page tags",
+			content: &ContentFile{
+				Tags: []string{"work"},
+				PageTags: []PageTag{
+					{Name: "test", PageID: "page1"},
+				},
+			},
+			expected: []string{"work", "test"},
+		},
+		{
+			name: "duplicate tags",
+			content: &ContentFile{
+				Tags: []string{"test"},
+				PageTags: []PageTag{
+					{Name: "test", PageID: "page1"},
+				},
+			},
+			expected: []string{"test"},
+		},
+		{
+			name: "empty tags",
+			content: &ContentFile{
+				Tags:     []string{},
+				PageTags: []PageTag{},
+			},
+			expected: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := converter.extractTags(tt.content)
+
+			if len(result) != len(tt.expected) {
+				t.Errorf("expected %d tags, got %d", len(tt.expected), len(result))
+			}
+
+			// Convert to map for easier comparison (order doesn't matter)
+			resultMap := make(map[string]bool)
+			for _, tag := range result {
+				resultMap[tag] = true
+			}
+
+			for _, expectedTag := range tt.expected {
+				if !resultMap[expectedTag] {
+					t.Errorf("expected tag '%s' not found in result", expectedTag)
+				}
+			}
+		})
+	}
+}
+
+func TestExtractTags_RealDocument(t *testing.T) {
+	converter := New(&Config{})
+
+	rmdocPath := "../../example/Test.rmdoc"
+	if _, err := os.Stat(rmdocPath); os.IsNotExist(err) {
+		t.Skipf("Test file not found: %s", rmdocPath)
+	}
+
+	tmpDir := t.TempDir()
+	if err := converter.extractRmdoc(rmdocPath, tmpDir); err != nil {
+		t.Fatalf("failed to extract: %v", err)
+	}
+
+	content, err := converter.readContent(tmpDir)
+	if err != nil {
+		t.Fatalf("readContent() error = %v", err)
+	}
+
+	tags := converter.extractTags(content)
+
+	// The Test.rmdoc has a "test" tag on page 2
+	if len(tags) == 0 {
+		t.Error("expected at least one tag from Test.rmdoc")
+	}
+
+	foundTestTag := false
+	for _, tag := range tags {
+		if tag == "test" {
+			foundTestTag = true
+			break
+		}
+	}
+
+	if !foundTestTag {
+		t.Error("expected 'test' tag from Test.rmdoc, got:", tags)
+	}
+}
+
+func TestReadContent_WithTags(t *testing.T) {
+	converter := New(&Config{})
+
+	rmdocPath := "../../example/Test.rmdoc"
+	if _, err := os.Stat(rmdocPath); os.IsNotExist(err) {
+		t.Skipf("Test file not found: %s", rmdocPath)
+	}
+
+	tmpDir := t.TempDir()
+	if err := converter.extractRmdoc(rmdocPath, tmpDir); err != nil {
+		t.Fatalf("failed to extract: %v", err)
+	}
+
+	content, err := converter.readContent(tmpDir)
+	if err != nil {
+		t.Fatalf("readContent() error = %v", err)
+	}
+
+	// Verify PageTags field is populated
+	if len(content.PageTags) == 0 {
+		t.Error("expected PageTags to be populated from Test.rmdoc")
+	}
+
+	// The Test.rmdoc has a "test" page tag
+	foundTestTag := false
+	for _, pageTag := range content.PageTags {
+		if pageTag.Name == "test" {
+			foundTestTag = true
+			if pageTag.PageID == "" {
+				t.Error("PageTag should have a PageID")
+			}
+			break
+		}
+	}
+
+	if !foundTestTag {
+		t.Error("expected 'test' page tag from Test.rmdoc")
+	}
+}
+
+func TestConvertRmdoc_PDFMetadata(t *testing.T) {
+	converter := New(&Config{})
+
+	rmdocPath := "../../example/Test.rmdoc"
+	if _, err := os.Stat(rmdocPath); os.IsNotExist(err) {
+		t.Skipf("Test file not found: %s", rmdocPath)
+	}
+
+	tmpDir := t.TempDir()
+	outputPath := filepath.Join(tmpDir, "output.pdf")
+
+	result, err := converter.ConvertRmdoc(rmdocPath, outputPath)
+	if err != nil {
+		t.Fatalf("ConvertRmdoc() error = %v", err)
+	}
+
+	if !result.Success {
+		t.Fatal("ConvertRmdoc() should succeed")
+	}
+
+	// Verify PDF metadata using pdfcpu PDFInfo
+	pdfFile, err := os.Open(outputPath)
+	if err != nil {
+		t.Fatalf("failed to open PDF: %v", err)
+	}
+	defer pdfFile.Close()
+
+	pdfInfo, err := api.PDFInfo(pdfFile, outputPath, nil, false, model.NewDefaultConfiguration())
+	if err != nil {
+		t.Fatalf("failed to read PDF info: %v", err)
+	}
+
+	// Debug: print PDF info
+	t.Logf("PDF Info - Title: %s, Subject: %s, Creator: %s", pdfInfo.Title, pdfInfo.Subject, pdfInfo.Creator)
+
+	// Check for title
+	if pdfInfo.Title != "Test" {
+		t.Errorf("expected Title 'Test', got '%s'", pdfInfo.Title)
+	}
+
+	// Check for subject (tags are stored in Subject field since gopdf doesn't have Keywords)
+	if !strings.Contains(pdfInfo.Subject, "test") {
+		t.Errorf("expected Subject to contain 'test', got '%s'", pdfInfo.Subject)
+	}
+
+	// Check for creator
+	if pdfInfo.Creator != "remarkable-sync" {
+		t.Errorf("expected Creator 'remarkable-sync', got '%s'", pdfInfo.Creator)
 	}
 }

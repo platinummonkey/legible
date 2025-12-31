@@ -53,11 +53,13 @@ type DocumentMetadata struct {
 
 // ContentFile represents the .content JSON file from a .rmdoc
 type ContentFile struct {
-	FileType      string `json:"fileType"`
-	PageCount     int    `json:"pageCount"`
-	Orientation   string `json:"orientation"`
-	FormatVersion int    `json:"formatVersion"`
-	CPages        CPages `json:"cPages"`
+	FileType      string    `json:"fileType"`
+	PageCount     int       `json:"pageCount"`
+	Orientation   string    `json:"orientation"`
+	FormatVersion int       `json:"formatVersion"`
+	CPages        CPages    `json:"cPages"`
+	Tags          []string  `json:"tags"`
+	PageTags      []PageTag `json:"pageTags"`
 }
 
 // CPages represents the pages section of content file
@@ -72,6 +74,13 @@ type PageInfo struct {
 	Template struct {
 		Value string `json:"value"`
 	} `json:"template"`
+}
+
+// PageTag represents a tag associated with a specific page
+type PageTag struct {
+	Name      string `json:"name"`
+	PageID    string `json:"pageId"`
+	Timestamp int64  `json:"timestamp"`
 }
 
 // ConvertRmdoc converts a .rmdoc file to PDF
@@ -114,6 +123,16 @@ func (c *Converter) ConvertRmdoc(rmdocPath, outputPath string) (*ConversionResul
 	// Convert pages to PDF
 	if err := c.convertPages(tmpDir, content, outputPath); err != nil {
 		return nil, fmt.Errorf("failed to convert pages: %w", err)
+	}
+
+	// Extract tags and add PDF metadata
+	tags := c.extractTags(content)
+	if len(tags) > 0 {
+		if err := c.addPDFMetadata(outputPath, metadata, tags); err != nil {
+			result.AddWarning(fmt.Sprintf("Failed to add PDF metadata: %v", err))
+		} else {
+			c.logger.WithFields("tags", tags).Info("Added PDF metadata with tags")
+		}
 	}
 
 	// Get output file size
@@ -386,3 +405,79 @@ func parseTimestamp(ts string) time.Time {
 	}
 	return time.Unix(ms/1000, (ms%1000)*1000000)
 }
+
+// extractTags extracts all tags from the content file (document-level and page-level)
+func (c *Converter) extractTags(content *ContentFile) []string {
+	tagSet := make(map[string]bool)
+
+	// Add document-level tags
+	for _, tag := range content.Tags {
+		if tag != "" {
+			tagSet[tag] = true
+		}
+	}
+
+	// Add page-level tags
+	for _, pageTag := range content.PageTags {
+		if pageTag.Name != "" {
+			tagSet[pageTag.Name] = true
+		}
+	}
+
+	// Convert map to slice
+	tags := make([]string, 0, len(tagSet))
+	for tag := range tagSet {
+		tags = append(tags, tag)
+	}
+
+	return tags
+}
+
+// addPDFMetadata adds metadata to the PDF file using pdfcpu
+func (c *Converter) addPDFMetadata(pdfPath string, metadata *DocumentMetadata, tags []string) error {
+	// Prepare metadata properties
+	properties := map[string]string{
+		"Creator":  "remarkable-sync",
+		"Producer": "remarkable-sync",
+	}
+
+	// Add title
+	if metadata.VisibleName != "" {
+		properties["Title"] = metadata.VisibleName
+	}
+
+	// Add subject (tags)
+	if len(tags) > 0 {
+		properties["Subject"] = strings.Join(tags, ", ")
+	}
+
+	// Add creation date
+	if metadata.CreatedTime != "" {
+		if createdTime := parseTimestamp(metadata.CreatedTime); !createdTime.IsZero() {
+			properties["CreationDate"] = createdTime.Format("D:20060102150405")
+		}
+	}
+
+	// Create temp file for output
+	tmpFile, err := os.CreateTemp(filepath.Dir(pdfPath), "pdf-metadata-*.pdf")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	_ = tmpFile.Close()
+	defer os.Remove(tmpPath)
+
+	// Add properties
+	conf := model.NewDefaultConfiguration()
+	if err := api.AddPropertiesFile(pdfPath, tmpPath, properties, conf); err != nil {
+		return fmt.Errorf("failed to add properties: %w", err)
+	}
+
+	// Replace original file
+	if err := os.Rename(tmpPath, pdfPath); err != nil {
+		return fmt.Errorf("failed to replace original file: %w", err)
+	}
+
+	return nil
+}
+
