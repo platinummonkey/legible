@@ -1,34 +1,6 @@
-# Multi-stage Dockerfile for remarkable-sync
-# Builds a minimal Alpine-based image with Tesseract OCR
-
-# Build stage
-FROM golang:1.25-alpine AS builder
-
-# Install build dependencies
-RUN apk add --no-cache \
-    git \
-    make \
-    gcc \
-    musl-dev \
-    tesseract-ocr-dev \
-    leptonica-dev \
-    pkgconfig
-
-WORKDIR /build
-
-# Copy go mod files first for better caching
-COPY go.mod go.sum ./
-RUN go mod download
-
-# Copy source code
-COPY . .
-
-# Build binary with CGO enabled
-# pkg-config is available in the build image
-RUN CGO_ENABLED=1 \
-    CGO_CFLAGS="$(pkg-config --cflags tesseract lept)" \
-    CGO_LDFLAGS="$(pkg-config --libs tesseract lept)" \
-    go build -ldflags="-s -w" -o remarkable-sync ./cmd/remarkable-sync
+# Runtime Dockerfile for remarkable-sync
+# Uses pre-built binaries from GoReleaser for multi-platform support
+# GoReleaser provides binaries organized by $TARGETPLATFORM in build context
 
 # Runtime stage
 FROM alpine:latest
@@ -48,8 +20,10 @@ RUN adduser -D -u 1000 -h /home/remarkable remarkable
 RUN mkdir -p /home/remarkable/.rmapi /output && \
     chown -R remarkable:remarkable /home/remarkable /output
 
-# Copy binary from builder
-COPY --from=builder /build/remarkable-sync /usr/local/bin/remarkable-sync
+# Copy pre-built binary from GoReleaser build context
+# $TARGETPLATFORM is provided by Docker buildx (e.g., linux/amd64, linux/arm64)
+ARG TARGETPLATFORM
+COPY ${TARGETPLATFORM}/remarkable-sync /usr/local/bin/remarkable-sync
 
 # Switch to non-root user
 USER remarkable

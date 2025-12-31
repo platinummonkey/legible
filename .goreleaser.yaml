@@ -270,86 +270,41 @@ homebrew_casks:
 metadata:
   mod_timestamp: '{{ .CommitTimestamp }}'
 
-# Docker images - multi-platform container builds
-dockers:
-  # AMD64 image
-  - image_templates:
-      - "ghcr.io/platinummonkey/remarkable-sync:{{ .Tag }}-amd64"
-      - "ghcr.io/platinummonkey/remarkable-sync:v{{ .Major }}-amd64"
-      - "ghcr.io/platinummonkey/remarkable-sync:v{{ .Major }}.{{ .Minor }}-amd64"
-      - "ghcr.io/platinummonkey/remarkable-sync:latest-amd64"
+# Docker images - multi-platform container builds using dockers_v2
+# This automatically builds multi-arch images and creates manifests
+dockers_v2:
+  - images:
+      - "ghcr.io/platinummonkey/remarkable-sync"
 
-    use: buildx
-    goos: linux
-    goarch: amd64
+    # Tags for different versions (multi-arch manifests)
+    tags:
+      - "{{ .Tag }}"
+      - "v{{ .Major }}"
+      - "v{{ .Major }}.{{ .Minor }}"
+      - "latest"
+
+    # Build for both platforms
+    platforms:
+      - linux/amd64
+      - linux/arm64
+
     dockerfile: Dockerfile
 
-    build_flag_templates:
+    # OCI image labels
+    labels:
+      "org.opencontainers.image.created": "{{.Date}}"
+      "org.opencontainers.image.title": "{{.ProjectName}}"
+      "org.opencontainers.image.revision": "{{.FullCommit}}"
+      "org.opencontainers.image.version": "{{.Version}}"
+      "org.opencontainers.image.source": "{{.GitURL}}"
+      "org.opencontainers.image.licenses": "MIT"
+
+    # Additional build flags
+    flags:
       - "--pull"
-      - "--platform=linux/amd64"
       - "--sbom=true"
       - "--provenance=true"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-      - "--label=org.opencontainers.image.source={{.GitURL}}"
-      - "--label=org.opencontainers.image.licenses=MIT"
 
     extra_files:
       - go.mod
       - go.sum
-
-  # ARM64 image
-  - image_templates:
-      - "ghcr.io/platinummonkey/remarkable-sync:{{ .Tag }}-arm64"
-      - "ghcr.io/platinummonkey/remarkable-sync:v{{ .Major }}-arm64"
-      - "ghcr.io/platinummonkey/remarkable-sync:v{{ .Major }}.{{ .Minor }}-arm64"
-      - "ghcr.io/platinummonkey/remarkable-sync:latest-arm64"
-
-    use: buildx
-    goos: linux
-    goarch: arm64
-    dockerfile: Dockerfile
-
-    build_flag_templates:
-      - "--pull"
-      - "--platform=linux/arm64"
-      - "--sbom=true"
-      - "--provenance=true"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-      - "--label=org.opencontainers.image.source={{.GitURL}}"
-      - "--label=org.opencontainers.image.licenses=MIT"
-
-    extra_files:
-      - go.mod
-      - go.sum
-
-# Docker manifest for multi-arch images
-docker_manifests:
-  # Latest tag
-  - name_template: "ghcr.io/platinummonkey/remarkable-sync:latest"
-    image_templates:
-      - "ghcr.io/platinummonkey/remarkable-sync:latest-amd64"
-      - "ghcr.io/platinummonkey/remarkable-sync:latest-arm64"
-
-  # Version tag
-  - name_template: "ghcr.io/platinummonkey/remarkable-sync:{{ .Tag }}"
-    image_templates:
-      - "ghcr.io/platinummonkey/remarkable-sync:{{ .Tag }}-amd64"
-      - "ghcr.io/platinummonkey/remarkable-sync:{{ .Tag }}-arm64"
-
-  # Major version tag
-  - name_template: "ghcr.io/platinummonkey/remarkable-sync:v{{ .Major }}"
-    image_templates:
-      - "ghcr.io/platinummonkey/remarkable-sync:v{{ .Major }}-amd64"
-      - "ghcr.io/platinummonkey/remarkable-sync:v{{ .Major }}-arm64"
-
-  # Major.Minor version tag
-  - name_template: "ghcr.io/platinummonkey/remarkable-sync:v{{ .Major }}.{{ .Minor }}"
-    image_templates:
-      - "ghcr.io/platinummonkey/remarkable-sync:v{{ .Major }}.{{ .Minor }}-amd64"
-      - "ghcr.io/platinummonkey/remarkable-sync:v{{ .Major }}.{{ .Minor }}-arm64"
