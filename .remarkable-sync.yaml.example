@@ -17,10 +17,27 @@ labels:
 # Default: true
 ocr-enabled: true
 
-# Languages to use for OCR (Tesseract language codes)
-# Multiple languages can be specified with + separator (e.g., "eng+fra")
-# Default: eng
-ocr-languages: eng
+# Ollama configuration for OCR
+ollama:
+  # Ollama API endpoint (default: http://localhost:11434)
+  endpoint: http://localhost:11434
+
+  # Vision model for OCR
+  # Recommended: llava (fast), mistral-small3.1 (better accuracy), llava:13b (best accuracy)
+  # Default: llava
+  model: llava
+
+  # Temperature for model inference (0.0 = deterministic, 1.0 = creative)
+  # Default: 0.0
+  temperature: 0.0
+
+  # Request timeout (e.g., 30s, 1m)
+  # Default: 30s
+  timeout: 30s
+
+  # Maximum retry attempts for failed requests
+  # Default: 3
+  max-retries: 3
 
 # Sync interval for daemon mode (0 = run once and exit)
 # Valid values: 1m, 5m, 1h, etc.
@@ -30,10 +47,6 @@ sync-interval: 0s
 # Path to sync state persistence file
 # Default: ~/.remarkable-sync-state.json
 state-file: ~/.remarkable-sync-state.json
-
-# Path to Tesseract executable (empty = use system PATH)
-# Default: "" (use system PATH)
-tesseract-path: ""
 
 # Logging verbosity level
 # Valid values: debug, info, warn, error
