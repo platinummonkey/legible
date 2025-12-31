@@ -2,6 +2,7 @@
 package rmclient
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/juruen/rmapi/api"
 	"github.com/juruen/rmapi/config"
 	"github.com/juruen/rmapi/model"
@@ -185,13 +187,77 @@ func (c *Client) Authenticate() error {
 		return nil
 	}
 
-	// No token found, manual registration required
-	c.logger.Info("No token found. Please register device manually:")
-	c.logger.Info("1. Visit https://my.remarkable.com/device/desktop/connect")
-	c.logger.Info("2. Enter the one-time code displayed")
-	c.logger.Info("3. Save the device token to: " + c.tokenPath)
+	// No token found, need to register device
+	c.logger.Info("No device token found. Starting device registration...")
+	c.logger.Info("Visit https://my.remarkable.com/device/desktop/connect to get a one-time code")
 
-	return fmt.Errorf("authentication token not found at: %s", c.tokenPath)
+	// Prompt for one-time code
+	fmt.Print("Enter one-time code: ")
+	reader := bufio.NewReader(os.Stdin)
+	code, err := reader.ReadString('\n')
+	if err != nil {
+		return fmt.Errorf("failed to read one-time code: %w", err)
+	}
+
+	code = strings.TrimSpace(code)
+	if len(code) != 8 {
+		return fmt.Errorf("invalid code length: expected 8 characters, got %d", len(code))
+	}
+
+	// Register device with the code
+	deviceToken, err := c.registerDevice(code)
+	if err != nil {
+		return fmt.Errorf("failed to register device: %w", err)
+	}
+
+	c.logger.Info("Device registered successfully")
+
+	// Save the device token
+	if err := c.saveToken(deviceToken); err != nil {
+		return fmt.Errorf("failed to save device token: %w", err)
+	}
+
+	// Initialize API client with the new device token
+	if err := c.initializeAPIClient(); err != nil {
+		c.logger.WithError(err).Error("Failed to initialize rmapi client")
+		return fmt.Errorf("failed to initialize API client: %w", err)
+	}
+
+	c.logger.Info("Successfully authenticated with new device token")
+	return nil
+}
+
+// registerDevice registers a new device with the reMarkable API using a one-time code
+func (c *Client) registerDevice(code string) (string, error) {
+	c.logger.WithFields("code_length", len(code)).Debug("Registering device")
+
+	// Generate a unique device ID
+	deviceID := uuid.New().String()
+
+	// Create device registration request
+	req := model.DeviceTokenRequest{
+		Code:       code,
+		DeviceDesc: "desktop-linux",
+		DeviceId:   deviceID,
+	}
+
+	// Create HTTP context for device registration (no auth required)
+	httpCtx := &transport.HttpClientCtx{
+		Client: wrapHTTPClient(&http.Client{
+			Timeout: 60 * time.Second,
+		}),
+		Tokens: model.AuthTokens{},
+	}
+
+	// Call device registration API
+	resp := transport.BodyString{}
+	err := httpCtx.Post(transport.EmptyBearer, config.NewTokenDevice, req, &resp)
+	if err != nil {
+		return "", fmt.Errorf("failed to register device: %w", err)
+	}
+
+	c.logger.WithFields("device_id", deviceID).Debug("Device registered successfully")
+	return resp.Content, nil
 }
 
 // renewUserToken renews the user token using the device token

@@ -28,12 +28,13 @@ No! This tool runs entirely on your computer and syncs through the reMarkable cl
 
 Yes! OCR is optional. You can sync and convert documents without OCR by using the `--no-ocr` flag. However, without OCR, your handwritten notes won't be searchable.
 
-### How do I get the authentication code?
+### How do I authenticate with my reMarkable account?
 
 1. Run `remarkable-sync auth`
-2. Visit https://my.remarkable.com/device/desktop/connect
-3. Enter the code displayed on the website
-4. The token will be saved automatically
+2. The tool will prompt you to visit https://my.remarkable.com/device/desktop/connect
+3. Copy the 8-character one-time code displayed on the website
+4. Enter the code when prompted in the terminal
+5. Your device will be registered and the token saved automatically
 
 ### Where are my authentication credentials stored?
 

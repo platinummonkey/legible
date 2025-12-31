@@ -77,7 +77,11 @@ First time setup requires authenticating with your reMarkable account:
 remarkable-sync auth
 ```
 
-This will prompt you for a one-time code from https://my.remarkable.com/device/desktop/connect
+This will guide you through the authentication process:
+1. Visit https://my.remarkable.com/device/desktop/connect
+2. Copy the one-time code displayed
+3. Enter the code when prompted
+4. The device token will be saved automatically
 
 ## Usage
 
