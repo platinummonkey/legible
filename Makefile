@@ -16,6 +16,26 @@ GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod
 GOINSTALL=$(GOCMD) install
 
+# CGO flags for Tesseract/Leptonica (using pkg-config for dynamic path resolution)
+# If pkg-config is not available or libraries not found, these will be empty
+PKG_CONFIG?=pkg-config
+CGO_CFLAGS_TESS=$(shell $(PKG_CONFIG) --cflags tesseract 2>/dev/null)
+CGO_CFLAGS_LEPT=$(shell $(PKG_CONFIG) --cflags lept 2>/dev/null | sed 's|/leptonica$$||')
+CGO_LDFLAGS_TESSERACT=$(shell $(PKG_CONFIG) --libs tesseract lept 2>/dev/null)
+
+# Export CGO flags if libraries are found
+# Note: leptonica's pkg-config includes /leptonica in the path, but headers use #include <leptonica/...>
+# so we need both the original path and the parent directory
+ifneq ($(CGO_CFLAGS_TESS),)
+export CGO_CFLAGS=$(CGO_CFLAGS_TESS) $(CGO_CFLAGS_LEPT) $(shell $(PKG_CONFIG) --cflags lept 2>/dev/null)
+export CGO_CXXFLAGS=$(CGO_CFLAGS_TESS) $(CGO_CFLAGS_LEPT) $(shell $(PKG_CONFIG) --cflags lept 2>/dev/null)
+export CGO_LDFLAGS=$(CGO_LDFLAGS_TESSERACT)
+export CGO_ENABLED=1
+else
+$(warning Warning: pkg-config could not find tesseract/lept. OCR features may not compile.)
+export CGO_ENABLED=0
+endif
+
 # Build directory
 BUILD_DIR=./bin
 

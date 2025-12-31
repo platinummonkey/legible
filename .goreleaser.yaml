@@ -15,6 +15,10 @@ before:
     - go mod tidy
     # Run tests (no-ocr variant for CI environment without Tesseract)
     - make test-no-ocr
+    # Note: CGO_CFLAGS and CGO_LDFLAGS should be set using pkg-config before running goreleaser:
+    #   export CGO_CFLAGS="$(pkg-config --cflags tesseract lept)"
+    #   export CGO_LDFLAGS="$(pkg-config --libs tesseract lept)"
+    # Or use the Makefile which handles this automatically
 
 builds:
   - id: remarkable-sync
@@ -45,6 +49,10 @@ builds:
 
     env:
       - CGO_ENABLED=1
+      # Use pkg-config for dynamic Tesseract/Leptonica path resolution
+      # These will be set by the build environment or fall back to empty
+      - CGO_CFLAGS={{ if .Env.CGO_CFLAGS }}{{ .Env.CGO_CFLAGS }}{{ else }}{{ end }}
+      - CGO_LDFLAGS={{ if .Env.CGO_LDFLAGS }}{{ .Env.CGO_LDFLAGS }}{{ else }}{{ end }}
 
     # Build flags
     flags:

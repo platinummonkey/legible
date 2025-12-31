@@ -26,7 +26,7 @@ jobs:
       - name: Install Tesseract OCR and libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y tesseract-ocr libleptonica-dev libtesseract-dev
+          sudo apt-get install -y tesseract-ocr libleptonica-dev libtesseract-dev pkg-config
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -63,7 +63,7 @@ jobs:
       - name: Install Tesseract OCR and libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y tesseract-ocr libleptonica-dev libtesseract-dev
+          sudo apt-get install -y tesseract-ocr libleptonica-dev libtesseract-dev pkg-config
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -109,13 +109,19 @@ jobs:
       - name: Install Tesseract OCR and libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y tesseract-ocr libleptonica-dev libtesseract-dev
+          sudo apt-get install -y tesseract-ocr libleptonica-dev libtesseract-dev pkg-config
 
       - name: Build binary
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: |
+          # Set up CGO flags using pkg-config for Tesseract/Leptonica
+          export CGO_ENABLED=1
+          export CGO_CFLAGS="$(pkg-config --cflags tesseract 2>/dev/null) $(pkg-config --cflags lept 2>/dev/null | sed 's|/leptonica$||') $(pkg-config --cflags lept 2>/dev/null)"
+          export CGO_CXXFLAGS="$CGO_CFLAGS"
+          export CGO_LDFLAGS="$(pkg-config --libs tesseract lept 2>/dev/null)"
+
           VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
           BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
           LDFLAGS="-ldflags \"-X main.Version=$VERSION -X main.BuildTime=$BUILD_TIME\""

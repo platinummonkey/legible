@@ -255,11 +255,32 @@ See [examples/config.yaml](examples/config.yaml) for a complete configuration te
 
 ### Building
 
+The build system uses `pkg-config` to automatically detect Tesseract and Leptonica library paths. This ensures builds work across different platforms and library versions without hardcoded paths.
+
+**Prerequisites:**
+- `pkg-config` (usually pre-installed on macOS/Linux)
+- Tesseract and Leptonica development libraries
+
+```bash
+# Install build dependencies (if not already installed)
+# macOS:
+brew install pkg-config tesseract leptonica
+
+# Ubuntu/Debian:
+sudo apt-get install pkg-config libtesseract-dev libleptonica-dev
+
+# Verify pkg-config can find libraries:
+pkg-config --modversion tesseract lept
+```
+
+**Build commands:**
 ```bash
 make build          # Build binary to bin/remarkable-sync
 make build-all      # Build for multiple platforms
 make install        # Install to $GOPATH/bin
 ```
+
+The Makefile automatically sets `CGO_CFLAGS`, `CGO_CXXFLAGS`, and `CGO_LDFLAGS` using `pkg-config`. If pkg-config cannot find the libraries, you'll see a warning and the build may fail.
 
 ### Running tests
 
@@ -300,10 +321,20 @@ See [AGENTS.md](./AGENTS.md) for detailed architecture and design documentation.
 **"Tesseract not found" or build errors**
 - Ensure Tesseract is installed and in your PATH
 - Verify installation: `tesseract --version`
+- Verify pkg-config can find libraries: `pkg-config --modversion tesseract lept`
 - Install development libraries:
-  - macOS: `brew install tesseract leptonica`
-  - Ubuntu: `sudo apt-get install tesseract-ocr libtesseract-dev libleptonica-dev`
+  - macOS: `brew install pkg-config tesseract leptonica`
+  - Ubuntu: `sudo apt-get install pkg-config tesseract-ocr libtesseract-dev libleptonica-dev`
   - Windows: Download from [UB Mannheim](https://github.com/UB-Mannheim/tesseract/wiki)
+
+If pkg-config cannot find the libraries, you may need to set `PKG_CONFIG_PATH`:
+```bash
+# macOS (Homebrew):
+export PKG_CONFIG_PATH="/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH"
+
+# Linux (custom install):
+export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+```
 
 **"go: module not found" errors**
 ```bash
