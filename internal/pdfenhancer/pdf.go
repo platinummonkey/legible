@@ -231,8 +231,8 @@ func (pe *PDFEnhancer) appendContentStream(ctx *model.Context, pageDict types.Di
 	}
 
 	// Get existing Contents entry
-	contentsEntry := pageDict.Entry("Contents")
-	if contentsEntry == nil {
+	contentsEntry, found := pageDict.Find("Contents")
+	if !found {
 		// No existing contents, set our stream as the only content
 		pageDict.Update("Contents", *indRef)
 		return nil

@@ -21,7 +21,7 @@ type Orchestrator struct {
 	config      *config.Config
 	logger      *logger.Logger
 	rmClient    *rmclient.Client
-	stateStore  *state.Store
+	stateStore  *state.Manager
 	converter   *converter.Converter
 	ocrProc     *ocr.Processor
 	pdfEnhancer *pdfenhancer.PDFEnhancer
@@ -32,7 +32,7 @@ type Config struct {
 	Config       *config.Config
 	Logger       *logger.Logger
 	RMClient     *rmclient.Client
-	StateStore   *state.Store
+	StateStore   *state.Manager
 	Converter    *converter.Converter
 	OCRProcessor *ocr.Processor
 	PDFEnhancer  *pdfenhancer.PDFEnhancer
@@ -87,7 +87,7 @@ func (o *Orchestrator) Sync(ctx context.Context) (*SyncResult, error) {
 
 	// Step 1: List documents from API
 	o.logger.Info("Listing documents from reMarkable API")
-	docs, err := o.rmClient.ListDocuments(ctx)
+	docs, err := o.rmClient.ListDocuments(o.config.Labels)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list documents: %w", err)
 	}
@@ -99,11 +99,10 @@ func (o *Orchestrator) Sync(ctx context.Context) (*SyncResult, error) {
 		Info("Filtered documents by labels")
 
 	// Step 3: Load current sync state
-	currentState, err := o.stateStore.Load()
-	if err != nil {
+	if err := o.stateStore.Load(); err != nil {
 		o.logger.WithFields("error", err).Warn("Failed to load state, starting fresh")
-		currentState = state.NewSyncState()
 	}
+	currentState := o.stateStore.GetState()
 
 	// Step 4: Identify new/changed documents
 	docsToSync := o.identifyDocumentsToSync(filteredDocs, currentState)
@@ -118,14 +117,14 @@ func (o *Orchestrator) Sync(ctx context.Context) (*SyncResult, error) {
 			"document", docNum,
 			"total", totalDocs,
 			"id", doc.ID,
-			"title", doc.Title,
+			"title", doc.Name,
 		).Info("Processing document")
 
 		// Process document through pipeline
 		docResult, err := o.processDocument(ctx, doc, docNum, totalDocs)
 		if err != nil {
 			o.logger.WithFields("id", doc.ID, "error", err).Error("Document processing failed")
-			result.AddError(doc.ID, doc.Title, err)
+			result.AddError(doc.ID, doc.Name, err)
 			continue
 		}
 
@@ -136,7 +135,7 @@ func (o *Orchestrator) Sync(ctx context.Context) (*SyncResult, error) {
 		docState := &state.DocumentState{
 			ID:             doc.ID,
 			Version:        doc.Version,
-			ModifiedClient: doc.ModifiedTime,
+			ModifiedClient: doc.ModifiedClient,
 			LastSynced:     time.Now(),
 			LocalPath:      docResult.OutputPath,
 		}
@@ -144,7 +143,7 @@ func (o *Orchestrator) Sync(ctx context.Context) (*SyncResult, error) {
 		currentState.AddDocument(docState)
 
 		// Save state after each document
-		if err := o.stateStore.Save(currentState); err != nil {
+		if err := o.stateStore.Save(); err != nil {
 			o.logger.WithFields("error", err).Warn("Failed to save state")
 		}
 	}
@@ -181,14 +180,10 @@ func (o *Orchestrator) filterDocumentsByLabels(docs []rmclient.Document) []rmcli
 	// Filter documents
 	var filtered []rmclient.Document
 	for _, doc := range docs {
-		// Check if document has any matching labels
-		hasMatchingLabel := false
-		for _, docLabel := range doc.Labels {
-			if labelFilter[docLabel] {
-				hasMatchingLabel = true
-				break
-			}
-		}
+		// TODO: Document labels are not available in the current API
+		// The API now filters by labels at the ListDocuments call level
+		// For now, accept all documents returned by the API
+		hasMatchingLabel := true
 
 		if hasMatchingLabel {
 			filtered = append(filtered, doc)
@@ -219,7 +214,7 @@ func (o *Orchestrator) identifyDocumentsToSync(docs []rmclient.Document, current
 func (o *Orchestrator) processDocument(ctx context.Context, doc rmclient.Document, docNum, totalDocs int) (*DocumentResult, error) {
 	result := &DocumentResult{
 		DocumentID: doc.ID,
-		Title:      doc.Title,
+		Title:      doc.Name,
 		StartTime:  time.Now(),
 	}
 
@@ -235,7 +230,7 @@ func (o *Orchestrator) processDocument(ctx context.Context, doc rmclient.Documen
 		Info("Downloading document")
 
 	rmdocPath := filepath.Join(tmpDir, fmt.Sprintf("%s.rmdoc", doc.ID))
-	if err := o.rmClient.DownloadDocument(ctx, doc.ID, rmdocPath); err != nil {
+	if err := o.rmClient.DownloadDocument(doc.ID, rmdocPath); err != nil {
 		return nil, fmt.Errorf("download failed: %w", err)
 	}
 
@@ -276,7 +271,7 @@ func (o *Orchestrator) processDocument(ctx context.Context, doc rmclient.Documen
 	}
 
 	// Stage 5: Move to output directory
-	outputFilename := fmt.Sprintf("%s.pdf", sanitizeFilename(doc.Title))
+	outputFilename := fmt.Sprintf("%s.pdf", sanitizeFilename(doc.Name))
 	outputPath := filepath.Join(o.config.OutputDir, outputFilename)
 
 	// Ensure output directory exists

@@ -1,9 +1,7 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"time"
 
 	"github.com/platinummonkey/remarkable-sync/internal/logger"
 	"github.com/platinummonkey/remarkable-sync/internal/rmclient"
@@ -46,19 +44,18 @@ func runAuth(cmd *cobra.Command, args []string) error {
 	log.Info("Starting reMarkable authentication")
 
 	// Create rmclient
-	client := rmclient.New(&rmclient.Config{
+	client, err := rmclient.NewClient(&rmclient.Config{
 		Logger: log,
 	})
-
-	// Create context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
+	if err != nil {
+		log.Fatal("Failed to create client:", err)
+	}
 
 	// Start authentication flow
 	log.Info("Opening browser for authentication...")
 	log.Info("Please follow the instructions in your browser")
 
-	if err := client.Authenticate(ctx); err != nil {
+	if err := client.Authenticate(); err != nil {
 		return fmt.Errorf("authentication failed: %w", err)
 	}
 

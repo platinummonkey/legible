@@ -77,16 +77,19 @@ func runSync(cmd *cobra.Command, args []string) error {
 	log.WithFields("output_dir", cfg.OutputDir).Info("Starting sync")
 
 	// Initialize components
-	rmClient := rmclient.New(&rmclient.Config{
+	rmClient, err := rmclient.NewClient(&rmclient.Config{
 		Logger: log,
 	})
+	if err != nil {
+		log.Fatal("Failed to create client:", err)
+	}
 
 	// Determine state file path
 	stateFile := filepath.Join(cfg.OutputDir, ".remarkable-sync-state.json")
-	stateStore := state.New(&state.Config{
-		Logger:   log,
-		FilePath: stateFile,
-	})
+	stateStore, err := state.LoadOrCreate(stateFile)
+	if err != nil {
+		log.Fatal("Failed to initialize state:", err)
+	}
 
 	// If force flag is set, clear state
 	if viper.GetBool("force") {

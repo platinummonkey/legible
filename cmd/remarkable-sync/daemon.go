@@ -3,11 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 
-	"github.com/platinummonkey/remarkable-sync/internal/config"
 	"github.com/platinummonkey/remarkable-sync/internal/converter"
 	"github.com/platinummonkey/remarkable-sync/internal/daemon"
 	"github.com/platinummonkey/remarkable-sync/internal/logger"
@@ -94,15 +92,18 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 	).Info("Starting daemon")
 
 	// Initialize components
-	rmClient := rmclient.New(&rmclient.Config{
+	rmClient, err := rmclient.NewClient(&rmclient.Config{
 		Logger: log,
 	})
+	if err != nil {
+		log.Fatal("Failed to create client:", err)
+	}
 
 	stateFile := filepath.Join(cfg.OutputDir, ".remarkable-sync-state.json")
-	stateStore := state.New(&state.Config{
-		Logger:   log,
-		FilePath: stateFile,
-	})
+	stateStore, err := state.LoadOrCreate(stateFile)
+	if err != nil {
+		log.Fatal("Failed to initialize state:", err)
+	}
 
 	conv := converter.New(&converter.Config{
 		Logger: log,
