@@ -219,14 +219,20 @@ func (pe *PDFEnhancer) appendContentStream(ctx *model.Context, pageDict types.Di
 	streamDict := types.NewDict()
 	streamDict.Insert("Length", types.Integer(len(contentData)))
 
-	// Create stream object
-	sd := &types.StreamDict{
-		Dict:    streamDict,
-		Content: contentData,
-	}
+	// Create stream object with properly initialized fields
+	streamLength := int64(len(contentData))
+	sd := types.NewStreamDict(
+		streamDict,
+		0,             // streamOffset (will be set during write)
+		&streamLength, // streamLength
+		nil,           // streamLengthObjNr (not using indirect length)
+		nil,           // filterPipeline (no compression)
+	)
+	sd.Content = contentData
+	sd.Raw = contentData // Set raw data as well
 
 	// Add stream to context and get indirect reference
-	indRef, err := ctx.IndRefForNewObject(*sd)
+	indRef, err := ctx.IndRefForNewObject(sd)
 	if err != nil {
 		return fmt.Errorf("failed to create indirect reference: %w", err)
 	}
