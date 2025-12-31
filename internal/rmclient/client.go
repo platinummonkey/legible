@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/juruen/rmapi/api"
-	"github.com/juruen/rmapi/auth"
+	"github.com/juruen/rmapi/config"
 	"github.com/juruen/rmapi/model"
 	"github.com/juruen/rmapi/transport"
 	"github.com/platinummonkey/remarkable-sync/internal/logger"
@@ -70,14 +70,14 @@ type Config struct {
 	Logger *logger.Logger
 }
 
-// jsonTokenStore implements auth.TokenStore for our JSON token format
-// It bridges our JSON token file format to rmapi's TokenStore interface
+// jsonTokenStore stores tokens in JSON format
+// It works with model.AuthTokens from rmapi
 type jsonTokenStore struct {
 	tokenPath string
 }
 
 // Save persists tokens to our JSON format
-func (jts *jsonTokenStore) Save(t auth.TokenSet) error {
+func (jts *jsonTokenStore) Save(t model.AuthTokens) error {
 	// Create token directory if it doesn't exist
 	tokenDir := filepath.Dir(jts.tokenPath)
 	if err := os.MkdirAll(tokenDir, 0700); err != nil {
@@ -106,23 +106,23 @@ func (jts *jsonTokenStore) Save(t auth.TokenSet) error {
 }
 
 // Load loads tokens from our JSON format
-func (jts *jsonTokenStore) Load() (auth.TokenSet, error) {
+func (jts *jsonTokenStore) Load() (*model.AuthTokens, error) {
 	// Return empty if file doesn't exist
 	if _, err := os.Stat(jts.tokenPath); os.IsNotExist(err) {
-		return auth.TokenSet{}, nil
+		return &model.AuthTokens{}, nil
 	}
 
 	data, err := os.ReadFile(jts.tokenPath)
 	if err != nil {
-		return auth.TokenSet{}, fmt.Errorf("failed to read token file: %w", err)
+		return nil, fmt.Errorf("failed to read token file: %w", err)
 	}
 
 	var tokenData map[string]string
 	if err := json.Unmarshal(data, &tokenData); err != nil {
-		return auth.TokenSet{}, fmt.Errorf("failed to parse token file: %w", err)
+		return nil, fmt.Errorf("failed to parse token file: %w", err)
 	}
 
-	return auth.TokenSet{
+	return &model.AuthTokens{
 		DeviceToken: tokenData["device_token"],
 		UserToken:   tokenData["user_token"],
 	}, nil
@@ -194,22 +194,55 @@ func (c *Client) Authenticate() error {
 	return fmt.Errorf("authentication token not found at: %s", c.tokenPath)
 }
 
+// renewUserToken renews the user token using the device token
+// This implementation uses config.NewUserDevice which points to the correct API endpoint
+func (c *Client) renewUserToken(deviceToken string) (string, error) {
+	// Create HTTP context with device token
+	httpCtx := &transport.HttpClientCtx{
+		Client: wrapHTTPClient(&http.Client{
+			Timeout: 60 * time.Second,
+		}),
+		Tokens: model.AuthTokens{
+			DeviceToken: deviceToken,
+		},
+	}
+
+	// Use config.NewUserDevice which uses webapp-prod.cloud.remarkable.engineering
+	// instead of the hardcoded my.remarkable.com that causes redirects
+	resp := transport.BodyString{}
+	err := httpCtx.Post(transport.DeviceBearer, config.NewUserDevice, nil, &resp)
+	if err != nil {
+		return "", fmt.Errorf("failed to renew user token: %w", err)
+	}
+
+	return resp.Content, nil
+}
+
 // initializeAPIClient initializes the rmapi API context
 func (c *Client) initializeAPIClient() error {
 	// Create token store
 	tokenStore := &jsonTokenStore{tokenPath: c.tokenPath}
 
-	// Create auth instance
-	authClient := auth.NewFromStore(tokenStore)
-
-	// Get authenticated HTTP client and wrap it with URL fixer
-	// This fixes the doesnotexist.remarkable.com issue
-	httpClient := wrapHTTPClient(authClient.Client())
-
-	// Get the user token to extract sync version
-	userToken, err := authClient.Token()
+	// Load tokens
+	tokens, err := tokenStore.Load()
 	if err != nil {
-		return fmt.Errorf("failed to get user token: %w", err)
+		return fmt.Errorf("failed to load tokens: %w", err)
+	}
+
+	// If we don't have a user token or it's expired, renew it
+	userToken := tokens.UserToken
+	if userToken == "" {
+		c.logger.Debug("No user token found, renewing from device token")
+		userToken, err = c.renewUserToken(tokens.DeviceToken)
+		if err != nil {
+			return fmt.Errorf("failed to get user token: %w", err)
+		}
+
+		// Save the new user token
+		tokens.UserToken = userToken
+		if err := tokenStore.Save(*tokens); err != nil {
+			c.logger.WithError(err).Warn("Failed to save user token")
+		}
 	}
 
 	// Parse token to get user info and sync version
@@ -220,24 +253,17 @@ func (c *Client) initializeAPIClient() error {
 
 	c.logger.WithFields("sync_version", userInfo.SyncVersion, "user", userInfo.User).Debug("Parsed user token")
 
-	// Create HTTP context - we need to get tokens again from store
-	tokens, err := tokenStore.Load()
-	if err != nil {
-		return fmt.Errorf("failed to load tokens: %w", err)
-	}
+	// Create HTTP client with URL fixing
+	httpClient := wrapHTTPClient(&http.Client{
+		Timeout: 60 * time.Second,
+	})
 
-	// Create API context
-	// We need to create the transport manually since api.CreateApiCtx expects HttpClientCtx
-	// But the auth package gives us an http.Client
-	// Let's use the direct approach from rmapi
-
-	// Actually, looking at rmapi source, we need to use api.AuthHttpCtx
-	// But that does interactive auth. Since we have tokens, let's create HttpClientCtx directly
+	// Create HTTP context
 	httpCtx := &transport.HttpClientCtx{
 		Client: httpClient,
 		Tokens: model.AuthTokens{
 			DeviceToken: tokens.DeviceToken,
-			UserToken:   tokens.UserToken,
+			UserToken:   userToken,
 		},
 	}
 
