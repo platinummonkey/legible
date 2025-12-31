@@ -1,0 +1,41 @@
+# Ignore build artifacts
+bin/
+dist/
+*.tar.gz
+*.zip
+
+# Ignore test files
+*_test.go
+testdata/
+coverage*.out
+coverage*.html
+
+# Ignore development files
+.git/
+.github/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Ignore documentation (copied separately if needed)
+docs/
+*.md
+!README.md
+
+# Ignore CI/CD files
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+
+# Ignore example and development files
+examples/
+scripts/
+
+# Ignore goreleaser files
+.goreleaser.yaml
+.goreleaser.yml
+
+# Ignore beads files
+.beads/

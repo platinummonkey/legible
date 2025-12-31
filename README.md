@@ -37,19 +37,37 @@ Download from [GitHub releases](https://github.com/UB-Mannheim/tesseract/wiki)
 
 ## Installation
 
+### Using Docker (Recommended)
+
+Pull the official container image from GitHub Container Registry:
+
+```bash
+# Pull latest version
+docker pull ghcr.io/platinummonkey/remarkable-sync:latest
+
+# Or specific version
+docker pull ghcr.io/platinummonkey/remarkable-sync:v0.1.0
+```
+
+Multi-platform images available:
+- `linux/amd64` (Intel/AMD 64-bit)
+- `linux/arm64` (ARM 64-bit, including Apple Silicon)
+
+### Using Go Install
+
 ```bash
 go install github.com/platinummonkey/remarkable-sync/cmd/remarkable-sync@latest
 ```
 
-Or build from source:
+### Build from Source
 
 ```bash
 git clone https://github.com/platinummonkey/remarkable-sync.git
 cd remarkable-sync
-make build
+make build-local
 ```
 
-The binary will be available at `bin/remarkable-sync`.
+The binary will be available at `dist/remarkable-sync_*/remarkable-sync`.
 
 ## Configuration
 
@@ -63,30 +81,97 @@ This will prompt you for a one-time code from https://my.remarkable.com/device/c
 
 ## Usage
 
-### Sync all documents
+### Native Binary
+
+**Sync all documents:**
 
 ```bash
 remarkable-sync sync
 ```
 
-### Sync documents with specific labels
+**Sync documents with specific labels:**
 
 ```bash
 remarkable-sync sync --labels "work,personal"
 ```
 
-### Specify output directory
+**Specify output directory:**
 
 ```bash
 remarkable-sync sync --output ./my-remarkable-docs
 ```
 
-### Run in daemon mode
+**Run in daemon mode:**
 
 For continuous background synchronization:
 
 ```bash
 remarkable-sync daemon --interval 10m --health-addr :8080
+```
+
+### Using Docker
+
+**First-time authentication:**
+
+```bash
+docker run --rm -it \
+  -v $HOME/.rmapi:/home/remarkable/.rmapi \
+  ghcr.io/platinummonkey/remarkable-sync:latest auth
+```
+
+**Sync documents:**
+
+```bash
+docker run --rm \
+  -v $HOME/.rmapi:/home/remarkable/.rmapi \
+  -v $PWD/output:/output \
+  ghcr.io/platinummonkey/remarkable-sync:latest sync --output /output
+```
+
+**Sync with labels:**
+
+```bash
+docker run --rm \
+  -v $HOME/.rmapi:/home/remarkable/.rmapi \
+  -v $PWD/output:/output \
+  ghcr.io/platinummonkey/remarkable-sync:latest sync \
+    --output /output \
+    --labels "work,personal"
+```
+
+**Run in daemon mode:**
+
+```bash
+docker run -d \
+  --name remarkable-sync \
+  -v $HOME/.rmapi:/home/remarkable/.rmapi \
+  -v $PWD/output:/output \
+  ghcr.io/platinummonkey/remarkable-sync:latest daemon \
+    --interval 30m \
+    --output /output
+```
+
+**Docker Compose:**
+
+Create a `docker-compose.yml`:
+
+```yaml
+version: '3.8'
+
+services:
+  remarkable-sync:
+    image: ghcr.io/platinummonkey/remarkable-sync:latest
+    container_name: remarkable-sync
+    restart: unless-stopped
+    volumes:
+      - ./credentials:/home/remarkable/.rmapi
+      - ./output:/output
+    command: daemon --interval 1h --output /output
+```
+
+Run with:
+```bash
+docker-compose up -d
 ```
 
 ### Full command options
