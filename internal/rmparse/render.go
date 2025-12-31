@@ -116,14 +116,24 @@ func renderLine(pdf *gopdf.GoPdf, line Line) error {
 
 // transformPoint converts reMarkable coordinates to PDF coordinates
 func transformPoint(x, y float32) (float64, float64) {
-	// reMarkable coordinates: X is centered (origin at center), Y starts at top
-	// PDF coordinates: origin at top-left
+	// reMarkable coordinates (from rmv6 spec):
+	//   X: origin at CENTER of page, ranges approximately -702 to +702 (1404 pixels / 2)
+	//   Y: origin at TOP of page, ranges 0 to 1872
+	//
+	// PDF coordinates:
+	//   Origin at top-left corner
+	//   X: ranges 0 to PDFWidth (420 pts)
+	//   Y: ranges 0 to PDFHeight (595 pts)
 
-	// Convert X from centered to left-aligned
-	pdfX := (float64(x) + RMWidth/2) * ScaleX
+	// Convert X from centered (±702) to left-aligned (0 to 1404)
+	rmX := float64(x) + (RMWidth / 2)
 
-	// Y coordinate (already top-aligned)
-	pdfY := float64(y) * ScaleY
+	// Y is already top-aligned, just use as-is
+	rmY := float64(y)
+
+	// Scale to PDF dimensions
+	pdfX := rmX * ScaleX
+	pdfY := rmY * ScaleY
 
 	return pdfX, pdfY
 }

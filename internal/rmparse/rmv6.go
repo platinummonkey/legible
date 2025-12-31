@@ -148,47 +148,150 @@ func ParseRM(filename string) (*RMFile, error) {
 	return rmFile, nil
 }
 
-// parseLineDef parses a line definition block
+// parseLineDef parses a line definition block according to v6 format
 func parseLineDef(data []byte) (Line, error) {
-	if len(data) < 16 {
-		return Line{}, fmt.Errorf("line block too small")
-	}
-
 	line := Line{}
+	offset := 0
 
-	// Read pen type (4 bytes)
-	line.PenType = binary.LittleEndian.Uint32(data[0:4])
-
-	// Read color (4 bytes)
-	line.Color = binary.LittleEndian.Uint32(data[4:8])
-
-	// Skip 4 bytes (padding)
-
-	// Read brush size (4 bytes, float32)
-	line.BrushSize = math.Float32frombits(binary.LittleEndian.Uint32(data[12:16]))
-
-	// Read number of points (4 bytes)
-	offset := 16
-	if len(data) < offset+4 {
-		return line, nil
+	// Helper to check bounds
+	check := func(need int) error {
+		if offset+need > len(data) {
+			return fmt.Errorf("unexpected end of data at offset %d (need %d more bytes)", offset, need)
+		}
+		return nil
 	}
-	numPoints := binary.LittleEndian.Uint32(data[offset : offset+4])
+
+	// Skip initial header with layer_id, line_id, etc.
+	// Structure: 0x1f + layer_id + 0x2f + line_id + 0x3f + last_line_id + 0x4f + id_field_0(2) + 0x54 + done_flag(4)
+
+	// Scan for done_flag position by finding 0x54 magic byte followed by 4-byte done_flag
+	foundDoneFlag := false
+	for i := 0; i < len(data)-5; i++ {
+		if data[i] == 0x54 {
+			// Check if this is followed by a plausible done_flag (0 or non-zero)
+			offset = i + 1
+			foundDoneFlag = true
+			break
+		}
+	}
+
+	if !foundDoneFlag {
+		return line, fmt.Errorf("could not find done_flag marker (0x54)")
+	}
+
+	// Read done_flag (4 bytes)
+	if err := check(4); err != nil {
+		return line, err
+	}
+	doneFlag := binary.LittleEndian.Uint32(data[offset : offset+4])
 	offset += 4
 
-	// Read points (14 bytes each)
+	if doneFlag != 0 {
+		// Empty line, no points
+		return line, nil
+	}
+
+	// Expect 0x6c magic
+	if err := check(1); err != nil {
+		return line, err
+	}
+	if data[offset] != 0x6c {
+		return line, fmt.Errorf("expected magic 0x6c at offset %d, got 0x%02x", offset, data[offset])
+	}
+	offset++
+
+	// Skip len_block_0 (4 bytes)
+	if err := check(4); err != nil {
+		return line, err
+	}
+	offset += 4
+
+	// Expect 0x03, 0x14 magic
+	if err := check(2); err != nil {
+		return line, err
+	}
+	if data[offset] != 0x03 || data[offset+1] != 0x14 {
+		return line, fmt.Errorf("expected magic [0x03, 0x14] at offset %d", offset)
+	}
+	offset += 2
+
+	// Read pen_type (4 bytes)
+	if err := check(4); err != nil {
+		return line, err
+	}
+	line.PenType = binary.LittleEndian.Uint32(data[offset : offset+4])
+	offset += 4
+
+	// Expect 0x24 magic
+	if err := check(1); err != nil {
+		return line, err
+	}
+	if data[offset] != 0x24 {
+		return line, fmt.Errorf("expected magic 0x24 at offset %d, got 0x%02x", offset, data[offset])
+	}
+	offset++
+
+	// Read color (4 bytes)
+	if err := check(4); err != nil {
+		return line, err
+	}
+	line.Color = binary.LittleEndian.Uint32(data[offset : offset+4])
+	offset += 4
+
+	// Expect 0x38, 0x00, 0x00, 0x00, 0x00 magic
+	if err := check(5); err != nil {
+		return line, err
+	}
+	if data[offset] != 0x38 {
+		return line, fmt.Errorf("expected magic 0x38 at offset %d, got 0x%02x", offset, data[offset])
+	}
+	offset += 5
+
+	// Read brush_size (4 bytes, float32)
+	if err := check(4); err != nil {
+		return line, err
+	}
+	line.BrushSize = math.Float32frombits(binary.LittleEndian.Uint32(data[offset : offset+4]))
+	offset += 4
+
+	// Expect 0x44, 0x00, 0x00, 0x00, 0x00 magic
+	if err := check(5); err != nil {
+		return line, err
+	}
+	offset += 5
+
+	// Expect 0x5c magic
+	if err := check(1); err != nil {
+		return line, err
+	}
+	if data[offset] != 0x5c {
+		return line, fmt.Errorf("expected magic 0x5c at offset %d, got 0x%02x", offset, data[offset])
+	}
+	offset++
+
+	// Read len_point_array (4 bytes)
+	if err := check(4); err != nil {
+		return line, err
+	}
+	lenPointArray := binary.LittleEndian.Uint32(data[offset : offset+4])
+	offset += 4
+
+	// Calculate number of points (each point is 14 bytes)
+	numPoints := lenPointArray / 14
+
+	// Read points
 	line.Points = make([]Point, 0, numPoints)
 	for i := uint32(0); i < numPoints; i++ {
-		if len(data) < offset+14 {
+		if err := check(14); err != nil {
 			break
 		}
 		point := Point{
 			X:         math.Float32frombits(binary.LittleEndian.Uint32(data[offset : offset+4])),
 			Y:         math.Float32frombits(binary.LittleEndian.Uint32(data[offset+4 : offset+8])),
 			Speed:     data[offset+8],
-			Width:     data[offset+9],
-			Direction:  data[offset+10],
-			Pressure:  data[offset+11],
-			// bytes 12-13 are padding
+			Width:     data[offset+10],      // Note: offset 9 is padding
+			Direction: data[offset+12],      // Note: offset 11 is padding
+			Pressure:  data[offset+13],
 		}
 		line.Points = append(line.Points, point)
 		offset += 14
