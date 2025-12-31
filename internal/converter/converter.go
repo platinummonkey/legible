@@ -14,18 +14,25 @@ import (
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	"github.com/platinummonkey/remarkable-sync/internal/logger"
+	"github.com/platinummonkey/remarkable-sync/internal/ocr"
+	"github.com/platinummonkey/remarkable-sync/internal/pdfenhancer"
 	"github.com/platinummonkey/remarkable-sync/internal/rmparse"
 	"github.com/signintech/gopdf"
 )
 
 // Converter handles conversion of .rmdoc files to PDF
 type Converter struct {
-	logger *logger.Logger
+	logger      *logger.Logger
+	ocrEnabled  bool
+	ocrProc     *ocr.Processor
+	pdfEnhancer *pdfenhancer.PDFEnhancer
 }
 
 // Config holds configuration for the converter
 type Config struct {
-	Logger *logger.Logger
+	Logger       *logger.Logger
+	EnableOCR    bool     // Enable OCR text layer (default: true)
+	OCRLanguages []string // Tesseract language codes (default: ["eng"])
 }
 
 // New creates a new converter instance
@@ -35,8 +42,37 @@ func New(cfg *Config) *Converter {
 		log = logger.Get()
 	}
 
+	// Enable OCR by default
+	enableOCR := cfg.EnableOCR
+	if cfg == nil || (!cfg.EnableOCR && cfg.OCRLanguages == nil) {
+		// If not explicitly configured, enable by default
+		enableOCR = true
+	}
+
+	// Set default languages
+	languages := cfg.OCRLanguages
+	if len(languages) == 0 {
+		languages = []string{"eng"}
+	}
+
+	// Create OCR processor if enabled
+	var ocrProc *ocr.Processor
+	var pdfEnhancer *pdfenhancer.PDFEnhancer
+	if enableOCR {
+		ocrProc = ocr.New(&ocr.Config{
+			Logger:    log,
+			Languages: languages,
+		})
+		pdfEnhancer = pdfenhancer.New(&pdfenhancer.Config{
+			Logger: log,
+		})
+	}
+
 	return &Converter{
-		logger: log,
+		logger:      log,
+		ocrEnabled:  enableOCR,
+		ocrProc:     ocrProc,
+		pdfEnhancer: pdfEnhancer,
 	}
 }
 
@@ -132,6 +168,20 @@ func (c *Converter) ConvertRmdoc(rmdocPath, outputPath string) (*ConversionResul
 			result.AddWarning(fmt.Sprintf("Failed to add PDF metadata: %v", err))
 		} else {
 			c.logger.WithFields("tags", tags).Info("Added PDF metadata with tags")
+		}
+	}
+
+	// Add OCR text layer if enabled
+	if c.ocrEnabled {
+		if err := c.addOCRTextLayer(outputPath, content.PageCount, result); err != nil {
+			result.AddWarning(fmt.Sprintf("Failed to add OCR text layer: %v", err))
+			c.logger.WithFields("error", err).Warn("OCR processing failed, continuing without text layer")
+		} else {
+			c.logger.WithFields(
+				"word_count", result.OCRWordCount,
+				"confidence", result.OCRConfidence,
+				"duration", result.OCRDuration,
+			).Info("Successfully added OCR text layer")
 		}
 	}
 
@@ -431,6 +481,114 @@ func (c *Converter) extractTags(content *ContentFile) []string {
 	}
 
 	return tags
+}
+
+// addOCRTextLayer performs OCR on the PDF and adds a searchable text layer
+func (c *Converter) addOCRTextLayer(pdfPath string, pageCount int, result *ConversionResult) error {
+	c.logger.WithFields("pdf", pdfPath, "pages", pageCount).Info("Starting OCR processing")
+
+	ocrStartTime := time.Now()
+
+	// Render PDF pages to images for OCR
+	// Use 300 DPI for good OCR accuracy
+	const ocrDPI = 300
+	images, err := c.renderAllPagesToImages(pdfPath, ocrDPI)
+	if err != nil {
+		return fmt.Errorf("failed to render PDF pages: %w", err)
+	}
+
+	// Get PDF page dimensions for coordinate scaling
+	pdfEnhancer := pdfenhancer.New(&pdfenhancer.Config{Logger: c.logger})
+	pageInfo, err := pdfEnhancer.ExtractPageInfo(pdfPath, 1)
+	if err != nil {
+		return fmt.Errorf("failed to get page dimensions: %w", err)
+	}
+
+	// Create document OCR result
+	docOCR := ocr.NewDocumentOCR("", strings.Join(c.ocrProc.Languages(), "+"))
+
+	// Process each page with OCR
+	for i, img := range images {
+		pageNum := i + 1
+		c.logger.WithFields("page", pageNum, "total", pageCount).Debug("Processing page with OCR")
+
+		// Convert image to bytes
+		imageData, err := c.imageToBytes(img)
+		if err != nil {
+			c.logger.WithFields("page", pageNum, "error", err).Warn("Failed to convert image to bytes, skipping OCR for this page")
+			continue
+		}
+
+		// Process with OCR
+		pageOCR, err := c.ocrProc.ProcessImage(imageData, pageNum)
+		if err != nil {
+			c.logger.WithFields("page", pageNum, "error", err).Warn("Failed to process page with OCR, skipping")
+			continue
+		}
+
+		// Scale OCR coordinates from image pixels to PDF points
+		// Image was rendered at ocrDPI, so pixels -> PDF points conversion is:
+		// pdfPoint = imagePixel * 72 / ocrDPI
+		bounds := img.Bounds()
+		imageWidth := bounds.Dx()
+		imageHeight := bounds.Dy()
+		scaleX := float64(pageInfo.Width) / float64(imageWidth)
+		scaleY := float64(pageInfo.Height) / float64(imageHeight)
+
+		// Scale all word bounding boxes
+		for j := range pageOCR.Words {
+			word := &pageOCR.Words[j]
+			word.BoundingBox.X = int(float64(word.BoundingBox.X) * scaleX)
+			word.BoundingBox.Y = int(float64(word.BoundingBox.Y) * scaleY)
+			word.BoundingBox.Width = int(float64(word.BoundingBox.Width) * scaleX)
+			word.BoundingBox.Height = int(float64(word.BoundingBox.Height) * scaleY)
+		}
+
+		// Update page dimensions to match PDF
+		pageOCR.Width = pageInfo.Width
+		pageOCR.Height = pageInfo.Height
+
+		// Add to document results
+		docOCR.AddPage(*pageOCR)
+		c.logger.WithFields(
+			"page", pageNum,
+			"words", len(pageOCR.Words),
+			"confidence", pageOCR.Confidence,
+			"scale", fmt.Sprintf("%.3fx%.3f", scaleX, scaleY),
+		).Debug("Completed OCR for page")
+	}
+
+	// Finalize document OCR statistics
+	docOCR.Finalize()
+
+	// Create temporary enhanced PDF
+	tmpFile, err := os.CreateTemp(filepath.Dir(pdfPath), "enhanced-*.pdf")
+	if err != nil {
+		return fmt.Errorf("failed to create temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	tmpFile.Close()
+	defer os.Remove(tmpPath)
+
+	// Add text layer to PDF
+	if err := c.pdfEnhancer.AddTextLayer(pdfPath, tmpPath, docOCR); err != nil {
+		return fmt.Errorf("failed to add text layer: %w", err)
+	}
+
+	// Replace original with enhanced PDF
+	if err := os.Rename(tmpPath, pdfPath); err != nil {
+		return fmt.Errorf("failed to replace PDF with enhanced version: %w", err)
+	}
+
+	ocrDuration := time.Since(ocrStartTime)
+
+	// Update result with OCR statistics
+	result.OCREnabled = true
+	result.OCRWordCount = docOCR.TotalWords
+	result.OCRConfidence = docOCR.AverageConfidence
+	result.OCRDuration = ocrDuration
+
+	return nil
 }
 
 // addPDFMetadata adds metadata to the PDF file using pdfcpu

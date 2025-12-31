@@ -135,6 +135,11 @@ func (pe *PDFEnhancer) addTextToPage(ctx *model.Context, pageNum int, pageOCR *o
 		return nil
 	}
 
+	// Ensure page has font resources
+	if err := pe.ensurePageFonts(ctx, pageDict); err != nil {
+		return fmt.Errorf("failed to ensure page fonts: %w", err)
+	}
+
 	// Create content stream with invisible text
 	contentStream, err := pe.createTextContentStream(pageOCR, pageHeight)
 	if err != nil {
@@ -413,6 +418,78 @@ type PDFInfo struct {
 	FileSize   int64
 	Encrypted  bool
 	Linearized bool
+}
+
+// ensurePageFonts ensures that standard PDF fonts are available in the page resources
+func (pe *PDFEnhancer) ensurePageFonts(ctx *model.Context, pageDict types.Dict) error {
+	// Get or create Resources dictionary
+	var resourcesDict types.Dict
+	resourcesEntry, found := pageDict.Find("Resources")
+	if !found || resourcesEntry == nil {
+		// Create new Resources dictionary
+		resourcesDict = types.NewDict()
+		pageDict.Update("Resources", resourcesDict)
+	} else {
+		// Use existing Resources
+		switch res := resourcesEntry.(type) {
+		case types.Dict:
+			resourcesDict = res
+		case types.IndirectRef:
+			// Dereference
+			obj, err := ctx.Dereference(res)
+			if err != nil {
+				return fmt.Errorf("failed to dereference Resources: %w", err)
+			}
+			dict, ok := obj.(types.Dict)
+			if !ok {
+				return fmt.Errorf("Resources is not a dictionary")
+			}
+			resourcesDict = dict
+		default:
+			return fmt.Errorf("unexpected Resources type: %T", res)
+		}
+	}
+
+	// Get or create Font dictionary
+	var fontDict types.Dict
+	fontEntry, found := resourcesDict.Find("Font")
+	if !found || fontEntry == nil {
+		// Create new Font dictionary
+		fontDict = types.NewDict()
+		resourcesDict.Update("Font", fontDict)
+	} else {
+		// Use existing Font dictionary
+		switch f := fontEntry.(type) {
+		case types.Dict:
+			fontDict = f
+		case types.IndirectRef:
+			obj, err := ctx.Dereference(f)
+			if err != nil {
+				return fmt.Errorf("failed to dereference Font: %w", err)
+			}
+			dict, ok := obj.(types.Dict)
+			if !ok {
+				return fmt.Errorf("Font is not a dictionary")
+			}
+			fontDict = dict
+		default:
+			return fmt.Errorf("unexpected Font type: %T", f)
+		}
+	}
+
+	// Check if Helvetica is already defined
+	if _, found := fontDict.Find("Helvetica"); !found {
+		// Add Helvetica font (Type 1 standard font)
+		helveticaDict := types.NewDict()
+		helveticaDict.Insert("Type", types.Name("Font"))
+		helveticaDict.Insert("Subtype", types.Name("Type1"))
+		helveticaDict.Insert("BaseFont", types.Name("Helvetica"))
+
+		// Add font to font dictionary
+		fontDict.Update("Helvetica", helveticaDict)
+	}
+
+	return nil
 }
 
 // CompareCoordinateSystems returns information about coordinate system differences

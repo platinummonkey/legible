@@ -45,6 +45,12 @@ type ConversionOptions struct {
 
 	// IncludePageTags determines if page-level tags should be included (default: true)
 	IncludePageTags bool
+
+	// EnableOCR determines if OCR processing should be performed to add searchable text layer
+	EnableOCR bool
+
+	// OCRLanguages is the list of Tesseract language codes to use for OCR (default: ["eng"])
+	OCRLanguages []string
 }
 
 // ConversionResult represents the result of a PDF conversion
@@ -69,6 +75,18 @@ type ConversionResult struct {
 
 	// Warnings contains any warnings encountered during conversion
 	Warnings []string
+
+	// OCREnabled indicates if OCR processing was performed
+	OCREnabled bool
+
+	// OCRWordCount is the total number of words recognized via OCR
+	OCRWordCount int
+
+	// OCRConfidence is the average OCR confidence score (0-100)
+	OCRConfidence float64
+
+	// OCRDuration is the time taken for OCR processing
+	OCRDuration time.Duration
 }
 
 // PDFMetadata represents metadata to embed in the PDF
@@ -152,6 +170,8 @@ func NewConversionOptions(inputPath, outputPath string) *ConversionOptions {
 		CopyTags:           true,
 		TagPrefix:          "",
 		IncludePageTags:    true,
+		EnableOCR:          true, // Enable OCR by default for searchable text layer
+		OCRLanguages:       []string{"eng"},
 		Metadata: PDFMetadata{
 			Creator:  "remarkable-sync",
 			Producer: "remarkable-sync",

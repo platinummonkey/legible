@@ -42,6 +42,11 @@ func New(cfg *Config) *Processor {
 	}
 }
 
+// Languages returns the configured OCR languages
+func (p *Processor) Languages() []string {
+	return p.languages
+}
+
 // ProcessImage performs OCR on an image and returns structured results
 func (p *Processor) ProcessImage(imageData []byte, pageNumber int) (*PageOCR, error) {
 	p.logger.WithFields("page", pageNumber, "image_size", len(imageData)).Debug("Processing image with OCR")
