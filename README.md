@@ -527,6 +527,71 @@ make build
 
 For more help, see [FAQ.md](FAQ.md) or [open an issue](https://github.com/platinummonkey/remarkable-sync/issues).
 
+## Security
+
+### Software Bill of Materials (SBOM)
+
+Each release includes Software Bill of Materials (SBOMs) in SPDX format for transparency and security auditing:
+
+- **Binary SBOMs**: Available for each platform-specific binary
+- **Container SBOMs**: Attached to Docker images as attestations
+- **Source SBOM**: Complete dependency tree for the project
+
+**Downloading SBOMs:**
+
+SBOMs are published with each release on GitHub:
+
+```bash
+# Download SBOM for a specific release
+curl -LO https://github.com/platinummonkey/remarkable-sync/releases/download/v1.0.0/remarkable-sync_1.0.0_linux_amd64.sbom.spdx.json
+```
+
+**Extracting Container SBOMs:**
+
+Container images include embedded SBOMs:
+
+```bash
+# Pull image
+docker pull ghcr.io/platinummonkey/remarkable-sync:latest
+
+# Extract SBOM
+docker buildx imagetools inspect ghcr.io/platinummonkey/remarkable-sync:latest --format "{{ json .SBOM }}"
+```
+
+**Vulnerability Scanning:**
+
+Use the SBOM to scan for known vulnerabilities:
+
+```bash
+# Install grype (vulnerability scanner)
+brew install anchore/grype/grype
+
+# Scan using SBOM
+grype sbom:./remarkable-sync_1.0.0_linux_amd64.sbom.spdx.json
+
+# Or scan the container image directly
+grype ghcr.io/platinummonkey/remarkable-sync:latest
+```
+
+**SBOM Contents:**
+
+The SBOM includes:
+- All Go dependencies with versions
+- Transitive dependencies
+- Package licenses
+- File checksums
+- Build information
+
+This enables users to:
+- Track known vulnerabilities in dependencies
+- Meet compliance requirements (Executive Order 14028, NTIA guidelines)
+- Audit the software supply chain
+- Verify software integrity
+
+For more information on SBOMs, see:
+- [NTIA SBOM Minimum Elements](https://www.ntia.gov/sbom)
+- [SPDX Specification](https://spdx.dev/)
+
 ## Contributing
 
 Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on:

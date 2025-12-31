@@ -50,9 +50,8 @@ builds:
     env:
       - CGO_ENABLED=1
       # Use pkg-config for dynamic Tesseract/Leptonica path resolution
-      # These will be set by the build environment or fall back to empty
-      - CGO_CFLAGS={{ if .Env.CGO_CFLAGS }}{{ .Env.CGO_CFLAGS }}{{ else }}{{ end }}
-      - CGO_LDFLAGS={{ if .Env.CGO_LDFLAGS }}{{ .Env.CGO_LDFLAGS }}{{ else }}{{ end }}
+      # These should be set by the Makefile or build environment
+      # If not set, the build may fail if Tesseract/Leptonica aren't in standard paths
 
     # Build flags
     flags:
@@ -89,6 +88,23 @@ archives:
 checksum:
   name_template: 'checksums.txt'
   algorithm: sha256
+
+# Software Bill of Materials (SBOM) generation
+sboms:
+  - id: archive
+    artifacts: archive
+    documents:
+      - "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}.sbom.spdx.json"
+
+  - id: binary
+    artifacts: binary
+    documents:
+      - "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}.sbom.spdx.json"
+
+  - id: source
+    artifacts: source
+    documents:
+      - "{{ .ProjectName }}_{{ .Version }}.sbom.spdx.json"
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
@@ -273,6 +289,8 @@ dockers:
     build_flag_templates:
       - "--pull"
       - "--platform=linux/amd64"
+      - "--sbom=true"
+      - "--provenance=true"
       - "--label=org.opencontainers.image.created={{.Date}}"
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
@@ -299,6 +317,8 @@ dockers:
     build_flag_templates:
       - "--pull"
       - "--platform=linux/arm64"
+      - "--sbom=true"
+      - "--provenance=true"
       - "--label=org.opencontainers.image.created={{.Date}}"
       - "--label=org.opencontainers.image.title={{.ProjectName}}"
       - "--label=org.opencontainers.image.revision={{.FullCommit}}"
