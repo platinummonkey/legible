@@ -16,8 +16,8 @@
 #      docker-compose down
 #
 # System Requirements:
-#   - 8GB+ disk space (Ollama model is ~4-7GB)
-#   - 4GB+ RAM recommended
+#   - 10GB+ disk space (mistral-small3.1 model is ~7-8GB)
+#   - 6GB+ RAM recommended (for mistral-small3.1)
 #   - CPU with decent performance for OCR
 
 version: '3.8'
@@ -44,12 +44,12 @@ services:
       # Ollama service endpoint (internal)
       - OLLAMA_HOST=http://localhost:11434
 
-      # OCR model to use (llava, mistral-small3.1, llava:13b, etc.)
+      # OCR model to use (mistral-small3.1, llava, llava:13b, etc.)
       # Recommended models:
+      # - mistral-small3.1: Better multilingual and complex handwriting (~7-8GB) [DEFAULT]
       # - llava: Faster, good for most handwriting (~4GB)
-      # - mistral-small3.1: Better multilingual and complex handwriting (~7-8GB)
       # - llava:13b: Higher accuracy, slower (~7GB)
-      - OCR_MODEL=llava
+      - OCR_MODEL=mistral-small3.1
 
       # Optional: Increase if running large models
       # - OLLAMA_NUM_PARALLEL=1
@@ -75,10 +75,10 @@ services:
       resources:
         limits:
           cpus: '2.0'
-          memory: 4G
+          memory: 6G  # Increased for mistral-small3.1 model
         reservations:
           cpus: '0.5'
-          memory: 1G
+          memory: 2G
 
 volumes:
   # Persistent volume for Ollama models

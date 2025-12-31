@@ -26,8 +26,8 @@ Sync documents from your reMarkable tablet and add OCR text layers to make handw
 Ollama is required if you want searchable PDFs with OCR text layers. You can skip this if you only need PDF conversion without OCR.
 
 **System Requirements:**
-- Disk space: 8-10GB (for Ollama + vision model)
-- RAM: 4GB+ recommended for OCR processing
+- Disk space: 10-12GB (for Ollama + mistral-small3.1 model)
+- RAM: 6GB+ recommended for OCR processing (8GB+ for mistral-small3.1)
 - CPU: Modern CPU with decent single-thread performance
 
 **macOS/Linux:**
@@ -35,12 +35,12 @@ Ollama is required if you want searchable PDFs with OCR text layers. You can ski
 # Install Ollama
 curl -fsSL https://ollama.ai/install.sh | sh
 
-# Download a recommended vision model (required for OCR)
-# Option 1: LLaVA (faster, good for most handwriting)
-ollama pull llava
-
-# Option 2: Mistral Small 3.1 (better multilingual and complex handwriting)
+# Download the recommended vision model (required for OCR)
+# Option 1: Mistral Small 3.1 (recommended - better multilingual and complex handwriting)
 ollama pull mistral-small3.1
+
+# Option 2: LLaVA (faster, lighter, good for basic handwriting)
+ollama pull llava
 ```
 
 **Windows:**
@@ -66,11 +66,11 @@ Multi-platform images available:
 
 **Building with a specific OCR model:**
 
-The default image includes the `llava` model (~4GB). To build with a different model:
+The default image includes the `mistral-small3.1` model (~7-8GB). To build with a different model:
 
 ```bash
-# Build with mistral-small3.1 for better multilingual support
-docker build --build-arg OCR_MODEL=mistral-small3.1 -t remarkable-sync:mistral .
+# Build with llava for faster, lighter processing
+docker build --build-arg OCR_MODEL=llava -t remarkable-sync:llava .
 
 # Build without pre-downloading models (smallest image, download on first run)
 docker build --build-arg OCR_MODEL=none -t remarkable-sync:minimal .
@@ -365,10 +365,10 @@ ocr-enabled: true
 # Ollama configuration for OCR
 ollama:
   endpoint: http://localhost:11434  # Ollama API endpoint (default)
-  model: llava                       # Vision model for OCR
+  model: mistral-small3.1            # Vision model for OCR (default)
   # Recommended models:
+  # - mistral-small3.1: Better multilingual and complex handwriting (~7-8GB) [DEFAULT]
   # - llava: Faster, good for most handwriting (~4GB)
-  # - mistral-small3.1: Better multilingual and complex handwriting (~7-8GB)
   # - llava:13b: Higher accuracy, slower (~7GB)
   temperature: 0.0                   # Lower = more deterministic (default: 0.0)
   timeout: 30s                       # Request timeout
@@ -530,7 +530,8 @@ make build
 
 **OCR is slow**
 - OCR takes 2-5 seconds per page (this is normal with vision models)
-- Use a smaller/faster model: `llava` (fastest) instead of `mistral-small3.1` or `llava:13b`
+- The default mistral-small3.1 model is larger and more accurate but slower
+- Use a smaller/faster model: `llava` (fastest) for basic handwriting
 - Consider external Ollama on a more powerful machine
 - Increase CPU allocation if running in Docker
 

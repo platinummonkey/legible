@@ -30,11 +30,11 @@ ollama:
 
   # Vision model to use for OCR
   # Recommended models:
+  # - mistral-small3.1: Better multilingual and complex handwriting (~7-8GB) [DEFAULT]
   # - llava: Faster, good for most handwriting (~4GB)
-  # - mistral-small3.1: Better multilingual and complex handwriting (~7-8GB)
   # - llava:13b: Higher accuracy, slower (~7GB)
-  # Default: llava
-  model: llava
+  # Default: mistral-small3.1
+  model: mistral-small3.1
 
   # Temperature for model inference (0.0 = deterministic, 1.0 = creative)
   # Lower values recommended for OCR accuracy
@@ -107,19 +107,19 @@ daemon-mode: false
 #   - meetings
 # ocr-enabled: true
 # ollama:
-#   model: llava
+#   model: mistral-small3.1
 
 # Fast sync without OCR:
 # output-dir: ~/remarkable-backup
 # ocr-enabled: false
 # sync-interval: 5m
 
-# Better OCR accuracy configuration:
+# Faster OCR configuration (lighter model):
 # output-dir: ~/documents/remarkable
 # ocr-enabled: true
 # ollama:
-#   model: mistral-small3.1  # Better for multilingual and complex handwriting
-# sync-interval: 15m
+#   model: llava  # Faster and lighter alternative to mistral-small3.1
+# sync-interval: 5m
 
 # Daemon with health monitoring:
 # output-dir: ~/remarkable-sync

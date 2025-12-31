@@ -23,9 +23,9 @@ ollama:
   endpoint: http://localhost:11434
 
   # Vision model for OCR
-  # Recommended: llava (fast), mistral-small3.1 (better accuracy), llava:13b (best accuracy)
-  # Default: llava
-  model: llava
+  # Recommended: mistral-small3.1 (default, best accuracy), llava (faster), llava:13b (highest accuracy)
+  # Default: mistral-small3.1
+  model: mistral-small3.1
 
   # Temperature for model inference (0.0 = deterministic, 1.0 = creative)
   # Default: 0.0

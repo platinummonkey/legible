@@ -28,9 +28,9 @@ ARG TARGETPLATFORM
 COPY ${TARGETPLATFORM}/remarkable-sync /usr/local/bin/remarkable-sync
 
 # Build argument to select which OCR model to pre-download
-# Options: llava, mistral-small3.1, llava:13b, none
+# Options: mistral-small3.1, llava, llava:13b, none
 # Set to "none" to skip pre-downloading (models can be mounted from host)
-ARG OCR_MODEL=llava
+ARG OCR_MODEL=mistral-small3.1
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
