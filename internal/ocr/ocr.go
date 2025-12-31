@@ -97,30 +97,34 @@ func (p *Processor) parseHOCR(hocrText string, pageNumber int) (*PageOCR, error)
 		return nil, fmt.Errorf("failed to unmarshal HOCR XML: %w", err)
 	}
 
-	// Extract page dimensions from the first ocr_page div
+	// Extract page dimensions from the ocr_page div
 	width, height := 0, 0
-	if bbox := extractBBox(page.Title); len(bbox) >= 4 {
-		width = bbox[2]
-		height = bbox[3]
+	if len(page.Body.Pages) > 0 {
+		if bbox := extractBBox(page.Body.Pages[0].Title); len(bbox) >= 4 {
+			width = bbox[2]
+			height = bbox[3]
+		}
 	}
 
 	pageOCR := NewPageOCR(pageNumber, width, height, strings.Join(p.languages, "+"))
 
-	// Extract words from all content areas
-	for _, area := range page.Body.Areas {
-		for _, par := range area.Pars {
-			for _, line := range par.Lines {
-				for _, word := range line.Words {
-					bbox := extractBBox(word.Title)
-					if len(bbox) >= 4 {
-						confidence := extractConfidence(word.Title)
+	// Extract words from all content areas in all page divs
+	for _, pageDiv := range page.Body.Pages {
+		for _, area := range pageDiv.Areas {
+			for _, par := range area.Pars {
+				for _, line := range par.Lines {
+					for _, word := range line.Words {
+						bbox := extractBBox(word.Title)
+						if len(bbox) >= 4 {
+							confidence := extractConfidence(word.Title)
 
-						w := NewWord(
-							strings.TrimSpace(word.Text),
-							NewRectangle(bbox[0], bbox[1], bbox[2]-bbox[0], bbox[3]-bbox[1]),
-							confidence,
-						)
-						pageOCR.AddWord(w)
+							w := NewWord(
+								strings.TrimSpace(word.Text),
+								NewRectangle(bbox[0], bbox[1], bbox[2]-bbox[0], bbox[3]-bbox[1]),
+								confidence,
+							)
+							pageOCR.AddWord(w)
+						}
 					}
 				}
 			}
@@ -179,6 +183,13 @@ type HOCRPage struct {
 
 // HOCRBody represents the body section of HOCR
 type HOCRBody struct {
+	Pages []HOCRPageDiv `xml:"div"`
+}
+
+// HOCRPageDiv represents an ocr_page div (page container)
+type HOCRPageDiv struct {
+	Class string     `xml:"class,attr"`
+	Title string     `xml:"title,attr"`
 	Areas []HOCRArea `xml:"div"`
 }
 
