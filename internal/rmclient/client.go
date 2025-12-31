@@ -55,6 +55,14 @@ func wrapHTTPClient(client *http.Client) *http.Client {
 	return client
 }
 
+// maskToken masks a token for safe logging (shows first/last 4 chars)
+func maskToken(token string) string {
+	if len(token) <= 8 {
+		return "****"
+	}
+	return token[:4] + "..." + token[len(token)-4:]
+}
+
 // Client wraps the reMarkable cloud API for document synchronization
 type Client struct {
 	tokenPath string
@@ -188,6 +196,7 @@ func (c *Client) Authenticate() error {
 	}
 
 	// No token found, need to register device
+	c.logger.Info("=== Starting device registration flow ===")
 	c.logger.Info("No device token found. Starting device registration...")
 	c.logger.Info("Visit https://my.remarkable.com/device/desktop/connect to get a one-time code")
 
@@ -196,43 +205,53 @@ func (c *Client) Authenticate() error {
 	reader := bufio.NewReader(os.Stdin)
 	code, err := reader.ReadString('\n')
 	if err != nil {
+		c.logger.WithError(err).Error("Failed to read one-time code from stdin")
 		return fmt.Errorf("failed to read one-time code: %w", err)
 	}
 
 	code = strings.TrimSpace(code)
+	c.logger.WithFields("code_length", len(code)).Debug("Received one-time code")
+
 	if len(code) != 8 {
+		c.logger.WithFields("expected", 8, "actual", len(code)).Error("Invalid code length")
 		return fmt.Errorf("invalid code length: expected 8 characters, got %d", len(code))
 	}
 
 	// Register device with the code
+	c.logger.Info("Registering device with one-time code...")
 	deviceToken, err := c.registerDevice(code)
 	if err != nil {
 		return fmt.Errorf("failed to register device: %w", err)
 	}
 
-	c.logger.Info("Device registered successfully")
+	c.logger.Info("✓ Device registered successfully")
 
 	// Save the device token
+	c.logger.Debug("Saving device token to file...")
 	if err := c.saveToken(deviceToken); err != nil {
+		c.logger.WithError(err).Error("Failed to save device token")
 		return fmt.Errorf("failed to save device token: %w", err)
 	}
+	c.logger.Info("✓ Device token saved")
 
 	// Initialize API client with the new device token
+	c.logger.Info("Initializing API client with new device token...")
 	if err := c.initializeAPIClient(); err != nil {
 		c.logger.WithError(err).Error("Failed to initialize rmapi client")
 		return fmt.Errorf("failed to initialize API client: %w", err)
 	}
 
-	c.logger.Info("Successfully authenticated with new device token")
+	c.logger.Info("=== Successfully authenticated with new device token ===")
 	return nil
 }
 
 // registerDevice registers a new device with the reMarkable API using a one-time code
 func (c *Client) registerDevice(code string) (string, error) {
-	c.logger.WithFields("code_length", len(code)).Debug("Registering device")
+	c.logger.WithFields("code_length", len(code)).Debug("Registering device with reMarkable API")
 
 	// Generate a unique device ID
 	deviceID := uuid.New().String()
+	c.logger.WithFields("device_id", deviceID).Debug("Generated device ID")
 
 	// Create device registration request
 	req := model.DeviceTokenRequest{
@@ -240,6 +259,11 @@ func (c *Client) registerDevice(code string) (string, error) {
 		DeviceDesc: "desktop-linux",
 		DeviceId:   deviceID,
 	}
+
+	c.logger.WithFields(
+		"endpoint", config.NewTokenDevice,
+		"device_desc", "desktop-linux",
+	).Info("Calling device registration API")
 
 	// Create HTTP context for device registration (no auth required)
 	httpCtx := &transport.HttpClientCtx{
@@ -253,16 +277,30 @@ func (c *Client) registerDevice(code string) (string, error) {
 	resp := transport.BodyString{}
 	err := httpCtx.Post(transport.EmptyBearer, config.NewTokenDevice, req, &resp)
 	if err != nil {
+		c.logger.WithError(err).WithFields("endpoint", config.NewTokenDevice).Error("Device registration API call failed")
 		return "", fmt.Errorf("failed to register device: %w", err)
 	}
 
-	c.logger.WithFields("device_id", deviceID).Debug("Device registered successfully")
+	// Mask the token for logging (show first/last 4 chars only)
+	maskedToken := maskToken(resp.Content)
+	c.logger.WithFields(
+		"device_id", deviceID,
+		"token_length", len(resp.Content),
+		"token_preview", maskedToken,
+	).Info("Device registered successfully, received device token")
+
 	return resp.Content, nil
 }
 
 // renewUserToken renews the user token using the device token
 // This implementation uses config.NewUserDevice which points to the correct API endpoint
 func (c *Client) renewUserToken(deviceToken string) (string, error) {
+	maskedDeviceToken := maskToken(deviceToken)
+	c.logger.WithFields(
+		"device_token_preview", maskedDeviceToken,
+		"device_token_length", len(deviceToken),
+	).Debug("Starting user token renewal")
+
 	// Create HTTP context with device token
 	httpCtx := &transport.HttpClientCtx{
 		Client: wrapHTTPClient(&http.Client{
@@ -273,58 +311,96 @@ func (c *Client) renewUserToken(deviceToken string) (string, error) {
 		},
 	}
 
+	c.logger.WithFields(
+		"endpoint", config.NewUserDevice,
+		"auth_type", "DeviceBearer",
+	).Info("Calling user token renewal API")
+
 	// Use config.NewUserDevice which uses webapp-prod.cloud.remarkable.engineering
 	// instead of the hardcoded my.remarkable.com that causes redirects
 	resp := transport.BodyString{}
 	err := httpCtx.Post(transport.DeviceBearer, config.NewUserDevice, nil, &resp)
 	if err != nil {
+		c.logger.WithError(err).WithFields(
+			"endpoint", config.NewUserDevice,
+			"device_token_preview", maskedDeviceToken,
+		).Error("User token renewal API call failed")
 		return "", fmt.Errorf("failed to renew user token: %w", err)
 	}
+
+	maskedUserToken := maskToken(resp.Content)
+	c.logger.WithFields(
+		"user_token_length", len(resp.Content),
+		"user_token_preview", maskedUserToken,
+	).Info("User token renewed successfully")
 
 	return resp.Content, nil
 }
 
 // initializeAPIClient initializes the rmapi API context
 func (c *Client) initializeAPIClient() error {
+	c.logger.Info("Initializing reMarkable API client")
+
 	// Create token store
 	tokenStore := &jsonTokenStore{tokenPath: c.tokenPath}
 
 	// Load tokens
+	c.logger.WithFields("token_path", c.tokenPath).Debug("Loading tokens from file")
 	tokens, err := tokenStore.Load()
 	if err != nil {
+		c.logger.WithError(err).Error("Failed to load tokens from file")
 		return fmt.Errorf("failed to load tokens: %w", err)
 	}
+
+	maskedDeviceToken := maskToken(tokens.DeviceToken)
+	c.logger.WithFields(
+		"has_device_token", tokens.DeviceToken != "",
+		"device_token_preview", maskedDeviceToken,
+		"has_user_token", tokens.UserToken != "",
+	).Debug("Loaded tokens")
 
 	// If we don't have a user token or it's expired, renew it
 	userToken := tokens.UserToken
 	if userToken == "" {
-		c.logger.Debug("No user token found, renewing from device token")
+		c.logger.Info("No user token found, need to renew from device token")
 		userToken, err = c.renewUserToken(tokens.DeviceToken)
 		if err != nil {
 			return fmt.Errorf("failed to get user token: %w", err)
 		}
 
 		// Save the new user token
+		c.logger.Debug("Saving renewed user token to file")
 		tokens.UserToken = userToken
 		if err := tokenStore.Save(*tokens); err != nil {
-			c.logger.WithError(err).Warn("Failed to save user token")
+			c.logger.WithError(err).Warn("Failed to save user token to file")
+		} else {
+			c.logger.Debug("User token saved successfully")
 		}
+	} else {
+		c.logger.Debug("Using existing user token from file")
 	}
 
 	// Parse token to get user info and sync version
+	c.logger.Debug("Parsing user token to extract user info")
 	userInfo, err := api.ParseToken(userToken)
 	if err != nil {
+		c.logger.WithError(err).Error("Failed to parse user token")
 		return fmt.Errorf("failed to parse user token: %w", err)
 	}
 
-	c.logger.WithFields("sync_version", userInfo.SyncVersion, "user", userInfo.User).Debug("Parsed user token")
+	c.logger.WithFields(
+		"sync_version", userInfo.SyncVersion,
+		"user", userInfo.User,
+	).Info("Successfully parsed user token")
 
 	// Create HTTP client with URL fixing
+	c.logger.Debug("Creating HTTP client with URL fixing middleware")
 	httpClient := wrapHTTPClient(&http.Client{
 		Timeout: 60 * time.Second,
 	})
 
 	// Create HTTP context
+	c.logger.Debug("Creating HTTP context with tokens")
 	httpCtx := &transport.HttpClientCtx{
 		Client: httpClient,
 		Tokens: model.AuthTokens{
@@ -334,31 +410,47 @@ func (c *Client) initializeAPIClient() error {
 	}
 
 	// Create API context
+	c.logger.WithFields("sync_version", userInfo.SyncVersion).Debug("Creating API context")
 	apiCtx, err := api.CreateApiCtx(httpCtx, userInfo.SyncVersion)
 	if err != nil {
+		c.logger.WithError(err).Error("Failed to create API context")
 		return fmt.Errorf("failed to create API context: %w", err)
 	}
 
 	c.apiCtx = apiCtx
+	c.logger.Info("API client initialized successfully")
 	return nil
 }
 
 // loadToken loads an existing authentication token from disk
 func (c *Client) loadToken() error {
+	c.logger.WithFields("path", c.tokenPath).Debug("Loading token from file")
+
 	data, err := os.ReadFile(c.tokenPath)
 	if err != nil {
+		c.logger.WithError(err).Error("Failed to read token file")
 		return fmt.Errorf("failed to read token file: %w", err)
 	}
 
+	c.logger.WithFields("file_size", len(data)).Debug("Token file read successfully")
+
 	var tokenData map[string]string
 	if err := json.Unmarshal(data, &tokenData); err != nil {
+		c.logger.WithError(err).Error("Failed to parse token JSON")
 		return fmt.Errorf("failed to parse token file: %w", err)
 	}
 
 	deviceToken, ok := tokenData["device_token"]
 	if !ok || deviceToken == "" {
+		c.logger.Error("Token file missing device_token field")
 		return fmt.Errorf("token file missing device_token field")
 	}
+
+	maskedToken := maskToken(deviceToken)
+	c.logger.WithFields(
+		"device_token_preview", maskedToken,
+		"device_token_length", len(deviceToken),
+	).Debug("Device token loaded from file")
 
 	c.token = deviceToken
 	return nil
@@ -366,6 +458,13 @@ func (c *Client) loadToken() error {
 
 // saveToken saves the authentication token to disk
 func (c *Client) saveToken(deviceToken string) error {
+	maskedToken := maskToken(deviceToken)
+	c.logger.WithFields(
+		"path", c.tokenPath,
+		"device_token_preview", maskedToken,
+		"device_token_length", len(deviceToken),
+	).Debug("Saving device token to file")
+
 	tokenData := map[string]string{
 		"device_token": deviceToken,
 	}
