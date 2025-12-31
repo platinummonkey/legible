@@ -219,35 +219,33 @@ signs:
     signature: "${artifact}.sig"
 
 # Homebrew tap - automatically updates platinummonkey/homebrew-tap
-brews:
+# Using homebrew_casks (not brews) since we distribute pre-compiled binaries
+homebrew_casks:
   - name: remarkable-sync
     repository:
       owner: platinummonkey
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
 
-    directory: Formula
+    directory: Casks
 
     homepage: "https://github.com/platinummonkey/remarkable-sync"
     description: "Sync documents from reMarkable tablet with OCR text layer generation"
 
-    license: "MIT"
+    # Specify the binary name for the cask
+    binaries:
+      - "remarkable-sync"
 
-    dependencies:
-      - name: tesseract
-        type: optional
+    # Note: Tesseract is optional, so not listed as hard dependency
+    # Users are informed via caveats below
 
-    test: |
-      system "#{bin}/remarkable-sync", "version"
-
-    install: |
-      bin.install "remarkable-sync"
-
-      # Install examples
-      (share/"remarkable-sync").install "examples"
-
-      # Install documentation
-      doc.install "README.md", "FAQ.md", "CONTRIBUTING.md"
+    # Remove quarantine attribute for unsigned binaries
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/remarkable-sync"]
+          end
 
     caveats: |
       reMarkable Sync requires a reMarkable tablet with cloud sync enabled.
