@@ -63,8 +63,16 @@ func TestCLIVersion(t *testing.T) {
 	}
 
 	outputStr := string(output)
-	if !strings.Contains(outputStr, "Version:") {
-		t.Error("Version output should contain 'Version:'")
+	if !strings.Contains(outputStr, "version") {
+		t.Error("Version output should contain 'version'")
+	}
+
+	// Verify key components are present
+	if !strings.Contains(outputStr, "Git commit:") {
+		t.Error("Version output should contain 'Git commit:'")
+	}
+	if !strings.Contains(outputStr, "Go version:") {
+		t.Error("Version output should contain 'Go version:'")
 	}
 
 	t.Logf("Version output:\n%s", outputStr)
