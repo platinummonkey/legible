@@ -77,7 +77,7 @@ First time setup requires authenticating with your reMarkable account:
 remarkable-sync auth
 ```
 
-This will prompt you for a one-time code from https://my.remarkable.com/device/connect/desktop
+This will prompt you for a one-time code from https://my.remarkable.com/device/browser/connect
 
 ## Usage
 
@@ -450,7 +450,7 @@ make build
 
 **Authentication fails or "token not found"**
 - Ensure your reMarkable has cloud sync enabled in Settings → Storage
-- Get a new one-time code from https://my.remarkable.com/device/connect/desktop
+- Get a new one-time code from https://my.remarkable.com/device/browser/connect
 - Clear old credentials and re-authenticate:
   ```bash
   rm -rf ~/.remarkable-sync

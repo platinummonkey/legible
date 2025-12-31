@@ -31,7 +31,7 @@ Yes! OCR is optional. You can sync and convert documents without OCR by using th
 ### How do I get the authentication code?
 
 1. Run `remarkable-sync auth`
-2. Visit https://my.remarkable.com/device/connect/desktop
+2. Visit https://my.remarkable.com/device/browser/connect
 3. Enter the code displayed on the website
 4. The token will be saved automatically
 

@@ -149,7 +149,7 @@ func (c *Client) Authenticate() error {
 
 	// No token found, manual registration required
 	c.logger.Info("No token found. Please register device manually:")
-	c.logger.Info("1. Visit https://my.remarkable.com/device/desktop/connect")
+	c.logger.Info("1. Visit https://my.remarkable.com/device/browser/connect")
 	c.logger.Info("2. Enter the one-time code displayed")
 	c.logger.Info("3. Save the device token to: " + c.tokenPath)
 
