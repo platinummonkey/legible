@@ -61,6 +61,7 @@ func TestNew(t *testing.T) {
 	}
 
 	_ = mockOrch // Use mock to avoid unused variable error
+	_ = cfg      // Use cfg to avoid unused variable error
 }
 
 func TestNew_NilConfig(t *testing.T) {

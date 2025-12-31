@@ -1,7 +1,6 @@
 package sync
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,7 +8,6 @@ import (
 	"github.com/platinummonkey/remarkable-sync/internal/config"
 	"github.com/platinummonkey/remarkable-sync/internal/converter"
 	"github.com/platinummonkey/remarkable-sync/internal/logger"
-	"github.com/platinummonkey/remarkable-sync/internal/ocr"
 	"github.com/platinummonkey/remarkable-sync/internal/pdfenhancer"
 	"github.com/platinummonkey/remarkable-sync/internal/rmclient"
 	"github.com/platinummonkey/remarkable-sync/internal/state"
@@ -22,7 +20,7 @@ func TestNew(t *testing.T) {
 			OutputDir: tmpDir,
 		},
 		RMClient:    &rmclient.Client{},
-		StateStore:  &state.Store{},
+		StateStore:  &state.Manager{},
 		Converter:   &converter.Converter{},
 		PDFEnhancer: &pdfenhancer.PDFEnhancer{},
 	}
@@ -57,7 +55,7 @@ func TestNew_MissingDependencies(t *testing.T) {
 			name: "missing Config",
 			cfg: &Config{
 				RMClient:    &rmclient.Client{},
-				StateStore:  &state.Store{},
+				StateStore:  &state.Manager{},
 				Converter:   &converter.Converter{},
 				PDFEnhancer: &pdfenhancer.PDFEnhancer{},
 			},
@@ -66,7 +64,7 @@ func TestNew_MissingDependencies(t *testing.T) {
 			name: "missing RMClient",
 			cfg: &Config{
 				Config:      &config.Config{},
-				StateStore:  &state.Store{},
+				StateStore:  &state.Manager{},
 				Converter:   &converter.Converter{},
 				PDFEnhancer: &pdfenhancer.PDFEnhancer{},
 			},
@@ -85,7 +83,7 @@ func TestNew_MissingDependencies(t *testing.T) {
 			cfg: &Config{
 				Config:      &config.Config{},
 				RMClient:    &rmclient.Client{},
-				StateStore:  &state.Store{},
+				StateStore:  &state.Manager{},
 				PDFEnhancer: &pdfenhancer.PDFEnhancer{},
 			},
 		},
@@ -94,7 +92,7 @@ func TestNew_MissingDependencies(t *testing.T) {
 			cfg: &Config{
 				Config:     &config.Config{},
 				RMClient:   &rmclient.Client{},
-				StateStore: &state.Store{},
+				StateStore: &state.Manager{},
 				Converter:  &converter.Converter{},
 			},
 		},
@@ -121,31 +119,19 @@ func TestFilterDocumentsByLabels(t *testing.T) {
 	}
 
 	docs := []rmclient.Document{
-		{ID: "1", Title: "Work Doc", Labels: []string{"work"}},
-		{ID: "2", Title: "Personal Doc", Labels: []string{"personal"}},
-		{ID: "3", Title: "Project Doc", Labels: []string{"project"}},
-		{ID: "4", Title: "Mixed Doc", Labels: []string{"work", "project"}},
+		{ID: "1", Name: "Work Doc"},
+		{ID: "2", Name: "Personal Doc"},
+		{ID: "3", Name: "Project Doc"},
+		{ID: "4", Name: "Mixed Doc"},
 	}
 
 	filtered := orch.filterDocumentsByLabels(docs)
 
-	// Should include docs 1, 2, and 4 (have work or personal labels)
-	if len(filtered) != 3 {
-		t.Errorf("expected 3 filtered documents, got %d", len(filtered))
-	}
-
-	// Verify correct documents were filtered
-	foundIDs := make(map[string]bool)
-	for _, doc := range filtered {
-		foundIDs[doc.ID] = true
-	}
-
-	if !foundIDs["1"] || !foundIDs["2"] || !foundIDs["4"] {
-		t.Error("filtered documents don't match expected IDs")
-	}
-
-	if foundIDs["3"] {
-		t.Error("document 3 should not be included in filtered results")
+	// NOTE: With the new API, label filtering happens at the ListDocuments level,
+	// so this function now returns all documents passed to it.
+	// The API itself handles the filtering before documents are returned.
+	if len(filtered) != len(docs) {
+		t.Errorf("expected %d documents, got %d", len(docs), len(filtered))
 	}
 }
 
@@ -160,9 +146,9 @@ func TestFilterDocumentsByLabels_NoFilter(t *testing.T) {
 	}
 
 	docs := []rmclient.Document{
-		{ID: "1", Title: "Doc 1"},
-		{ID: "2", Title: "Doc 2"},
-		{ID: "3", Title: "Doc 3"},
+		{ID: "1", Name: "Doc 1"},
+		{ID: "2", Name: "Doc 2"},
+		{ID: "3", Name: "Doc 3"},
 	}
 
 	filtered := orch.filterDocumentsByLabels(docs)
