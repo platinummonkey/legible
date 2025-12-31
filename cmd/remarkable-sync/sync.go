@@ -84,6 +84,11 @@ func runSync(_ *cobra.Command, _ []string) error {
 		log.Fatal("Failed to create client:", err)
 	}
 
+	// Authenticate with the reMarkable API (loads existing credentials)
+	if err := rmClient.Authenticate(); err != nil {
+		return fmt.Errorf("authentication failed: %w. Please run 'remarkable-sync auth' first", err)
+	}
+
 	// Determine state file path
 	stateFile := filepath.Join(cfg.OutputDir, ".remarkable-sync-state.json")
 	stateStore, err := state.LoadOrCreate(stateFile)
