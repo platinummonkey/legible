@@ -22,16 +22,33 @@ labels:
 # Default: true
 ocr-enabled: true
 
-# Tesseract OCR languages (use + to combine multiple languages)
-# Requires corresponding Tesseract language packs to be installed
-# Common languages: eng, spa, fra, deu, ita, por, rus, ara, chi_sim, jpn
-# Default: eng
-ocr-languages: eng+spa
+# Ollama configuration for OCR processing
+ollama:
+  # Ollama API endpoint
+  # Default: http://localhost:11434
+  endpoint: http://localhost:11434
 
-# Tesseract executable path (empty = use system PATH)
-# Only needed if Tesseract is installed in a non-standard location
-# Default: "" (auto-detect)
-tesseract-path: ""
+  # Vision model to use for OCR
+  # Recommended models:
+  # - llava: Faster, good for most handwriting (~4GB)
+  # - mistral-small3.1: Better multilingual and complex handwriting (~7-8GB)
+  # - llava:13b: Higher accuracy, slower (~7GB)
+  # Default: llava
+  model: llava
+
+  # Temperature for model inference (0.0 = deterministic, 1.0 = creative)
+  # Lower values recommended for OCR accuracy
+  # Default: 0.0
+  temperature: 0.0
+
+  # Request timeout (e.g., 30s, 1m, 2m)
+  # Increase for slower hardware or larger models
+  # Default: 30s
+  timeout: 30s
+
+  # Maximum retry attempts for failed requests
+  # Default: 3
+  max-retries: 3
 
 # Logging level: debug, info, warn, error
 # debug = verbose logging for troubleshooting
@@ -89,17 +106,19 @@ daemon-mode: false
 #   - work
 #   - meetings
 # ocr-enabled: true
-# ocr-languages: eng
+# ollama:
+#   model: llava
 
 # Fast sync without OCR:
 # output-dir: ~/remarkable-backup
 # ocr-enabled: false
 # sync-interval: 5m
 
-# Multi-language OCR:
+# Better OCR accuracy configuration:
 # output-dir: ~/documents/remarkable
 # ocr-enabled: true
-# ocr-languages: eng+spa+fra
+# ollama:
+#   model: mistral-small3.1  # Better for multilingual and complex handwriting
 # sync-interval: 15m
 
 # Daemon with health monitoring:

@@ -7,7 +7,8 @@ Sync documents from your reMarkable tablet and add OCR text layers to make handw
 - 📥 Download documents from reMarkable cloud
 - 📄 Convert .rmdoc files to standard PDF format
 - 🏷️ Optional label-based filtering
-- 🔍 OCR processing with Tesseract (optional)
+- 🔍 OCR processing with Ollama vision models (optional)
+- 🤖 Superior handwriting recognition using AI models
 - 📝 Add hidden searchable text layer to PDFs
 - 🔄 Incremental sync with state tracking
 - ⚙️ Daemon mode for continuous background sync
@@ -17,23 +18,33 @@ Sync documents from your reMarkable tablet and add OCR text layers to make handw
 ## Prerequisites
 
 - Go 1.21 or higher
-- Tesseract OCR installed on your system
+- Ollama (for OCR functionality, optional)
 - reMarkable tablet with cloud sync enabled
 
-### Installing Tesseract
+### Installing Ollama (Optional)
 
-**macOS:**
-```bash
-brew install tesseract
-```
+Ollama is required if you want searchable PDFs with OCR text layers. You can skip this if you only need PDF conversion without OCR.
 
-**Ubuntu/Debian:**
+**System Requirements:**
+- Disk space: 8-10GB (for Ollama + vision model)
+- RAM: 4GB+ recommended for OCR processing
+- CPU: Modern CPU with decent single-thread performance
+
+**macOS/Linux:**
 ```bash
-sudo apt-get install tesseract-ocr
+# Install Ollama
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Download a recommended vision model (required for OCR)
+# Option 1: LLaVA (faster, good for most handwriting)
+ollama pull llava
+
+# Option 2: Mistral Small 3.1 (better multilingual and complex handwriting)
+ollama pull mistral-small3.1
 ```
 
 **Windows:**
-Download from [GitHub releases](https://github.com/UB-Mannheim/tesseract/wiki)
+Download from [ollama.ai](https://ollama.ai/download)
 
 ## Installation
 
@@ -52,6 +63,43 @@ docker pull ghcr.io/platinummonkey/remarkable-sync:v0.1.0
 Multi-platform images available:
 - `linux/amd64` (Intel/AMD 64-bit)
 - `linux/arm64` (ARM 64-bit, including Apple Silicon)
+
+**Building with a specific OCR model:**
+
+The default image includes the `llava` model (~4GB). To build with a different model:
+
+```bash
+# Build with mistral-small3.1 for better multilingual support
+docker build --build-arg OCR_MODEL=mistral-small3.1 -t remarkable-sync:mistral .
+
+# Build without pre-downloading models (smallest image, download on first run)
+docker build --build-arg OCR_MODEL=none -t remarkable-sync:minimal .
+
+# Build with llava:13b for higher accuracy
+docker build --build-arg OCR_MODEL=llava:13b -t remarkable-sync:llava13b .
+```
+
+**Using host-mounted Ollama models:**
+
+If you already have Ollama models downloaded on your host, you can mount them:
+
+```bash
+# First, download the model on your host
+ollama pull mistral-small3.1
+
+# Then mount your host's Ollama models directory when running the container
+docker run --rm \
+  -v $HOME/.rmapi:/home/remarkable/.rmapi \
+  -v $PWD/output:/output \
+  -v $HOME/.ollama/models:/home/remarkable/.ollama/models:ro \
+  -e OCR_MODEL=mistral-small3.1 \
+  ghcr.io/platinummonkey/remarkable-sync:latest sync --output /output
+```
+
+This approach:
+- Avoids downloading models inside the container
+- Allows sharing models across multiple containers
+- Reduces image size and startup time
 
 ### Using Go Install
 
@@ -281,7 +329,7 @@ remarkable-sync --config ~/.remarkable-work.yaml sync
 
 1. **Authentication**: Connects to reMarkable cloud using your credentials
 2. **Download**: Fetches `.rmdoc` files and renders them as PDFs
-3. **OCR**: Processes each page with Tesseract to extract text (optional)
+3. **OCR**: Processes each page with Ollama vision models to extract handwritten text (optional)
 4. **Enhancement**: Adds invisible text layer to PDF at correct positions
 5. **Save**: Outputs searchable PDF files to the specified directory
 6. **State**: Tracks synced documents to enable incremental updates
@@ -314,8 +362,17 @@ labels:
 # Enable/disable OCR processing (default: true)
 ocr-enabled: true
 
-# OCR languages (default: eng)
-ocr-languages: eng+spa
+# Ollama configuration for OCR
+ollama:
+  endpoint: http://localhost:11434  # Ollama API endpoint (default)
+  model: llava                       # Vision model for OCR
+  # Recommended models:
+  # - llava: Faster, good for most handwriting (~4GB)
+  # - mistral-small3.1: Better multilingual and complex handwriting (~7-8GB)
+  # - llava:13b: Higher accuracy, slower (~7GB)
+  temperature: 0.0                   # Lower = more deterministic (default: 0.0)
+  timeout: 30s                       # Request timeout
+  max-retries: 3                     # Retry attempts for failed requests
 
 # Logging level: debug, info, warn, error (default: info)
 log-level: info
@@ -344,23 +401,11 @@ See [examples/config.yaml](examples/config.yaml) for a complete configuration te
 
 ### Building
 
-The build system uses `pkg-config` to automatically detect Tesseract and Leptonica library paths. This ensures builds work across different platforms and library versions without hardcoded paths.
+The build system is simple and doesn't require any system dependencies since OCR now uses Ollama's HTTP API instead of native libraries.
 
 **Prerequisites:**
-- `pkg-config` (usually pre-installed on macOS/Linux)
-- Tesseract and Leptonica development libraries
-
-```bash
-# Install build dependencies (if not already installed)
-# macOS:
-brew install pkg-config tesseract leptonica
-
-# Ubuntu/Debian:
-sudo apt-get install pkg-config libtesseract-dev libleptonica-dev
-
-# Verify pkg-config can find libraries:
-pkg-config --modversion tesseract lept
-```
+- Go 1.21+
+- (Optional) Ollama for OCR testing
 
 **Build commands:**
 ```bash
@@ -373,9 +418,9 @@ make install        # Install to $GOPATH/bin
 **Build System:**
 - The project uses [goreleaser](https://goreleaser.com) for consistent, reproducible builds
 - `make build-local` and `make build-all` use goreleaser for production-quality builds
-- The Makefile automatically sets `CGO_CFLAGS`, `CGO_CXXFLAGS`, and `CGO_LDFLAGS` using `pkg-config`
+- CGO is disabled (`CGO_ENABLED=0`), enabling simple cross-compilation
 - Built binaries are in `dist/remarkable-sync_<os>_<arch>/` directory
-- If pkg-config cannot find the libraries, you'll see a warning and the build may fail
+- No system dependencies required - builds work on any platform
 
 **Installing goreleaser:**
 ```bash
@@ -389,9 +434,11 @@ brew install goreleaser
 ### Running tests
 
 ```bash
-make test           # Run all tests
+make test           # Run all tests (uses mock Ollama server)
 make test-coverage  # Run tests with coverage report
 ```
+
+**Note:** OCR tests use a mock HTTP server and don't require Ollama to be installed or running.
 
 ### Code quality
 
@@ -422,25 +469,7 @@ See [AGENTS.md](./AGENTS.md) for detailed architecture and design documentation.
 
 ### Build and Installation Issues
 
-**"Tesseract not found" or build errors**
-- Ensure Tesseract is installed and in your PATH
-- Verify installation: `tesseract --version`
-- Verify pkg-config can find libraries: `pkg-config --modversion tesseract lept`
-- Install development libraries:
-  - macOS: `brew install pkg-config tesseract leptonica`
-  - Ubuntu: `sudo apt-get install pkg-config tesseract-ocr libtesseract-dev libleptonica-dev`
-  - Windows: Download from [UB Mannheim](https://github.com/UB-Mannheim/tesseract/wiki)
-
-If pkg-config cannot find the libraries, you may need to set `PKG_CONFIG_PATH`:
-```bash
-# macOS (Homebrew):
-export PKG_CONFIG_PATH="/opt/homebrew/lib/pkgconfig:$PKG_CONFIG_PATH"
-
-# Linux (custom install):
-export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
-```
-
-**"go: module not found" errors**
+**Build errors**
 ```bash
 # Ensure Go modules are downloaded
 go mod download
@@ -449,6 +478,10 @@ go mod tidy
 # Try building again
 make build
 ```
+
+**"CGO errors" or "undefined symbols"**
+- This project doesn't use CGO - if you see CGO errors, ensure you're using the latest version
+- Clean build cache: `go clean -cache && make clean && make build`
 
 ### Authentication Issues
 
@@ -488,16 +521,31 @@ make build
 ### OCR Issues
 
 **OCR quality is poor**
-- Check Tesseract language data is installed
-- Install additional languages:
-  - macOS: `brew install tesseract-lang`
-  - Ubuntu: `sudo apt-get install tesseract-ocr-eng tesseract-ocr-spa`
-- Specify languages in config: `ocr-languages: eng+spa+fra`
+- Try a different Ollama vision model for better accuracy:
+  - `mistral-small3.1` - Better for multilingual and complex handwriting
+  - `llava:13b` - Larger LLaVA model with improved accuracy
+- Ensure Ollama is running: `ollama list`
+- Check that the model is downloaded: `ollama pull mistral-small3.1`
+- Verify Ollama endpoint is accessible: `curl http://localhost:11434/api/tags`
+
+**OCR is slow**
+- OCR takes 2-5 seconds per page (this is normal with vision models)
+- Use a smaller/faster model: `llava` (fastest) instead of `mistral-small3.1` or `llava:13b`
+- Consider external Ollama on a more powerful machine
+- Increase CPU allocation if running in Docker
 
 **OCR crashes or fails**
-- Verify Tesseract installation: `tesseract --version`
-- Check system resources (OCR is memory-intensive)
+- Verify Ollama is running: `ollama list`
+- Check system resources (4GB+ RAM recommended)
+- Check Ollama logs for errors
+- Try a different model: `ollama pull mistral`
 - Skip OCR for testing: `--no-ocr`
+
+**"Connection refused" or "Ollama not found"**
+- Start Ollama service: `ollama serve` (or background: `ollama serve &`)
+- Check Ollama is listening: `curl http://localhost:11434/api/tags`
+- Verify endpoint in config matches Ollama address
+- For Docker: ensure Ollama container is running and accessible
 
 ### Daemon Issues
 
@@ -613,7 +661,7 @@ MIT License - See LICENSE file for details
 ## Acknowledgments
 
 - [rmapi](https://github.com/ddvk/rmapi) - reMarkable cloud API client
-- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) - OCR engine
+- [Ollama](https://ollama.ai/) - Local AI model runtime for OCR
 
 ## Related Projects
 

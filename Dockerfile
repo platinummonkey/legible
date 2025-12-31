@@ -27,6 +27,11 @@ RUN mkdir -p /home/remarkable/.rmapi /home/remarkable/.ollama/models /output && 
 ARG TARGETPLATFORM
 COPY ${TARGETPLATFORM}/remarkable-sync /usr/local/bin/remarkable-sync
 
+# Build argument to select which OCR model to pre-download
+# Options: llava, mistral-small3.1, llava:13b, none
+# Set to "none" to skip pre-downloading (models can be mounted from host)
+ARG OCR_MODEL=llava
+
 # Copy entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
@@ -37,20 +42,25 @@ WORKDIR /home/remarkable
 
 # Environment variables for Ollama configuration
 ENV OLLAMA_HOST=http://localhost:11434
-ENV OCR_MODEL=llava
 ENV OLLAMA_MODELS=/home/remarkable/.ollama/models
 
-# Pre-download default OCR model (llava)
+# Pre-download OCR model (controlled by OCR_MODEL build arg)
 # This increases image size but avoids download on first run
-# Comment out these lines to skip pre-downloading
+# To skip pre-downloading, build with: --build-arg OCR_MODEL=none
+# To use mistral-small3.1: --build-arg OCR_MODEL=mistral-small3.1
 USER root
-RUN ollama serve & \
-    OLLAMA_PID=$! && \
-    sleep 5 && \
-    ollama pull llava && \
-    kill $OLLAMA_PID && \
-    wait $OLLAMA_PID 2>/dev/null || true
+RUN if [ "$OCR_MODEL" != "none" ]; then \
+        ollama serve & \
+        OLLAMA_PID=$! && \
+        sleep 5 && \
+        ollama pull $OCR_MODEL && \
+        kill $OLLAMA_PID && \
+        wait $OLLAMA_PID 2>/dev/null || true; \
+    fi
 USER remarkable
+
+# Set the OCR_MODEL environment variable to the build arg value
+ENV OCR_MODEL=$OCR_MODEL
 
 # Set up volumes
 VOLUME ["/home/remarkable/.rmapi", "/home/remarkable/.ollama/models", "/output"]

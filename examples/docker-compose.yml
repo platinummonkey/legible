@@ -44,7 +44,11 @@ services:
       # Ollama service endpoint (internal)
       - OLLAMA_HOST=http://localhost:11434
 
-      # OCR model to use (llava, mistral, etc.)
+      # OCR model to use (llava, mistral-small3.1, llava:13b, etc.)
+      # Recommended models:
+      # - llava: Faster, good for most handwriting (~4GB)
+      # - mistral-small3.1: Better multilingual and complex handwriting (~7-8GB)
+      # - llava:13b: Higher accuracy, slower (~7GB)
       - OCR_MODEL=llava
 
       # Optional: Increase if running large models
@@ -111,19 +115,56 @@ volumes:
 #       --interval 1h
 #       --output /output
 
-# Example: Using a different OCR model
+# Example: Using mistral-small3.1 for better multilingual OCR
 #
-# To use a different Ollama model for OCR:
+# Mistral Small 3.1 provides better accuracy for:
+# - Multilingual handwriting
+# - Complex or messy handwriting
+# - Mixed language documents
+#
+# Note: Larger model (~7-8GB) requires more RAM and takes longer per page
 #
 # services:
 #   remarkable-sync:
 #     image: ghcr.io/platinummonkey/remarkable-sync:latest
 #     environment:
-#       - OCR_MODEL=mistral  # or llava:13b, llama2, etc.
+#       - OCR_MODEL=mistral-small3.1
 #     volumes:
 #       - ./credentials:/home/remarkable/.rmapi
 #       - ./output:/output
 #       - ollama-models:/home/remarkable/.ollama/models
+#     deploy:
+#       resources:
+#         limits:
+#           memory: 6G  # Increase memory for larger model
+#     command: >
+#       daemon
+#       --interval 1h
+#       --output /output
+
+# Example: Using host-mounted Ollama models
+#
+# Mount Ollama models from your host machine to avoid re-downloading
+# This is useful if you already have models downloaded or want to share
+# models across multiple containers.
+#
+# First, download the model on your host:
+#   ollama pull mistral-small3.1
+#
+# Then mount your host's Ollama models directory:
+#
+# services:
+#   remarkable-sync:
+#     image: ghcr.io/platinummonkey/remarkable-sync:latest
+#     environment:
+#       - OCR_MODEL=mistral-small3.1
+#     volumes:
+#       - ./credentials:/home/remarkable/.rmapi
+#       - ./output:/output
+#       # Mount host Ollama models (adjust path for your OS)
+#       # macOS/Linux: ~/.ollama/models
+#       # Windows: %USERPROFILE%\.ollama\models
+#       - ~/.ollama/models:/home/remarkable/.ollama/models:ro  # :ro = read-only
 #     command: >
 #       daemon
 #       --interval 1h
