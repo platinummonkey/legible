@@ -14,6 +14,8 @@ import (
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	"github.com/platinummonkey/remarkable-sync/internal/logger"
+	"github.com/platinummonkey/remarkable-sync/internal/rmparse"
+	"github.com/signintech/gopdf"
 )
 
 // Converter handles conversion of .rmdoc files to PDF
@@ -243,14 +245,58 @@ func (c *Converter) convertPages(extractDir string, content *ContentFile, output
 		return fmt.Errorf(".rm files directory not found")
 	}
 
-	// For now, use a simple approach: create a basic PDF with blank pages
-	// TODO: Implement actual .rm file rendering using go-remarkable2pdf or custom renderer
-	if err := c.createPlaceholderPDF(outputPath, content.PageCount); err != nil {
-		return fmt.Errorf("failed to create PDF: %w", err)
+	c.logger.WithFields("rm_dir", rmDir).Debug("Found .rm files directory")
+
+	// Create PDF with rendered pages
+	if err := c.renderPagesToPDF(rmDir, content, outputPath); err != nil {
+		return fmt.Errorf("failed to render pages: %w", err)
 	}
 
-	c.logger.WithFields("rm_dir", rmDir).Debug("Found .rm files directory")
-	c.logger.Warn("Note: Currently creating placeholder PDF - full .rm rendering to be implemented")
+	return nil
+}
+
+// renderPagesToPDF renders .rm files to PDF pages
+func (c *Converter) renderPagesToPDF(rmDir string, content *ContentFile, outputPath string) error {
+	// Initialize PDF
+	pdf := gopdf.GoPdf{}
+	pdf.Start(gopdf.Config{
+		PageSize: gopdf.Rect{W: rmparse.PDFWidth, H: rmparse.PDFHeight},
+	})
+
+	// Process each page in order
+	for i, pageInfo := range content.CPages.Pages {
+		c.logger.WithFields("page", i+1, "id", pageInfo.ID).Debug("Rendering page")
+
+		// Add new page
+		pdf.AddPage()
+
+		// Find corresponding .rm file
+		rmPath := filepath.Join(rmDir, pageInfo.ID+".rm")
+		if _, err := os.Stat(rmPath); os.IsNotExist(err) {
+			c.logger.WithFields("page", i+1, "path", rmPath).Warn("Page .rm file not found, skipping")
+			continue
+		}
+
+		// Parse .rm file
+		rmFile, err := rmparse.ParseRM(rmPath)
+		if err != nil {
+			c.logger.WithFields("page", i+1, "error", err).Warn("Failed to parse .rm file, skipping")
+			continue
+		}
+
+		// Render to current page
+		if err := rmparse.RenderToPage(&pdf, rmFile); err != nil {
+			c.logger.WithFields("page", i+1, "error", err).Warn("Failed to render page, continuing")
+			// Continue with blank page
+		}
+
+		c.logger.WithFields("page", i+1, "layers", len(rmFile.Layers)).Debug("Successfully rendered page")
+	}
+
+	// Write PDF to output file
+	if err := pdf.WritePdf(outputPath); err != nil {
+		return fmt.Errorf("failed to write PDF: %w", err)
+	}
 
 	return nil
 }
