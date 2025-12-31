@@ -4,8 +4,10 @@ package rmclient
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/juruen/rmapi/api"
@@ -14,6 +16,42 @@ import (
 	"github.com/juruen/rmapi/transport"
 	"github.com/platinummonkey/remarkable-sync/internal/logger"
 )
+
+// urlFixingRoundTripper is a custom HTTP transport that fixes URLs containing doesnotexist.remarkable.com
+// The reMarkable API sometimes returns URLs with this invalid hostname, so we replace it with my.remarkable.com
+type urlFixingRoundTripper struct {
+	base http.RoundTripper
+}
+
+// RoundTrip implements http.RoundTripper
+func (u *urlFixingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Fix the URL if it contains doesnotexist.remarkable.com
+	if strings.Contains(req.URL.Host, "doesnotexist.remarkable.com") {
+		fixedURL := *req.URL
+		fixedURL.Host = strings.Replace(fixedURL.Host, "doesnotexist.remarkable.com", "my.remarkable.com", 1)
+		req.URL = &fixedURL
+	}
+
+	// Call the base transport
+	if u.base == nil {
+		return http.DefaultTransport.RoundTrip(req)
+	}
+	return u.base.RoundTrip(req)
+}
+
+// wrapHTTPClient wraps an HTTP client with URL fixing middleware
+func wrapHTTPClient(client *http.Client) *http.Client {
+	if client == nil {
+		client = &http.Client{}
+	}
+
+	// Wrap the transport with our URL fixer
+	client.Transport = &urlFixingRoundTripper{
+		base: client.Transport,
+	}
+
+	return client
+}
 
 // Client wraps the reMarkable cloud API for document synchronization
 type Client struct {
@@ -149,7 +187,7 @@ func (c *Client) Authenticate() error {
 
 	// No token found, manual registration required
 	c.logger.Info("No token found. Please register device manually:")
-	c.logger.Info("1. Visit https://my.remarkable.com/device/browser/connect")
+	c.logger.Info("1. Visit https://my.remarkable.com/device/desktop/connect")
 	c.logger.Info("2. Enter the one-time code displayed")
 	c.logger.Info("3. Save the device token to: " + c.tokenPath)
 
@@ -164,8 +202,9 @@ func (c *Client) initializeAPIClient() error {
 	// Create auth instance
 	authClient := auth.NewFromStore(tokenStore)
 
-	// Get authenticated HTTP client
-	httpClient := authClient.Client()
+	// Get authenticated HTTP client and wrap it with URL fixer
+	// This fixes the doesnotexist.remarkable.com issue
+	httpClient := wrapHTTPClient(authClient.Client())
 
 	// Get the user token to extract sync version
 	userToken, err := authClient.Token()
