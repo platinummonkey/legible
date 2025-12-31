@@ -81,23 +81,12 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     needs: [test, lint]
-    strategy:
-      matrix:
-        include:
-          - goos: linux
-            goarch: amd64
-          - goos: linux
-            goarch: arm64
-          - goos: darwin
-            goarch: amd64
-          - goos: darwin
-            goarch: arm64
-          - goos: windows
-            goarch: amd64
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # Required for goreleaser to generate version info
 
       - name: Set up Go
         uses: actions/setup-go@v6
@@ -105,36 +94,34 @@ jobs:
           go-version: '1.25'
           cache: true
 
-      # Step 1: Install Tesseract dependencies
+      # Install Tesseract dependencies
       - name: Install Tesseract OCR and libraries
         run: |
           sudo apt-get update
           sudo apt-get install -y tesseract-ocr libleptonica-dev libtesseract-dev pkg-config
 
-      - name: Build binary
-        env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
+      # Set up CGO flags for Tesseract/Leptonica
+      - name: Configure CGO flags
         run: |
-          # Set up CGO flags using pkg-config for Tesseract/Leptonica
-          export CGO_ENABLED=1
-          export CGO_CFLAGS="$(pkg-config --cflags tesseract 2>/dev/null) $(pkg-config --cflags lept 2>/dev/null | sed 's|/leptonica$||') $(pkg-config --cflags lept 2>/dev/null)"
-          export CGO_CXXFLAGS="$CGO_CFLAGS"
-          export CGO_LDFLAGS="$(pkg-config --libs tesseract lept 2>/dev/null)"
+          echo "CGO_ENABLED=1" >> $GITHUB_ENV
+          echo "CGO_CFLAGS=$(pkg-config --cflags tesseract lept)" >> $GITHUB_ENV
+          echo "CGO_CXXFLAGS=$(pkg-config --cflags tesseract lept)" >> $GITHUB_ENV
+          echo "CGO_LDFLAGS=$(pkg-config --libs tesseract lept)" >> $GITHUB_ENV
 
-          VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
-          BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
-          LDFLAGS="-ldflags \"-X main.Version=$VERSION -X main.BuildTime=$BUILD_TIME\""
-          mkdir -p bin
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            go build $LDFLAGS -o bin/remarkable-sync-${{ matrix.goos }}-${{ matrix.goarch }}.exe ./cmd/remarkable-sync
-          else
-            go build $LDFLAGS -o bin/remarkable-sync-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/remarkable-sync
-          fi
+      # Run goreleaser in snapshot mode (build only, no release)
+      - name: Run GoReleaser build
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: latest
+          args: build --snapshot --clean
+        env:
+          CGO_ENABLED: 1
 
-      - name: Upload artifacts
+      # Upload all built binaries as artifacts
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: remarkable-sync-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: bin/*
+          name: remarkable-sync-binaries
+          path: dist/remarkable-sync_*/remarkable-sync*
           retention-days: 7
