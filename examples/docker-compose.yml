@@ -1,6 +1,6 @@
-# Docker Compose example for remarkable-sync
+# Docker Compose example for remarkable-sync with Ollama
 #
-# This runs remarkable-sync in daemon mode, syncing documents every hour.
+# This runs remarkable-sync in daemon mode with Ollama for OCR processing.
 #
 # Usage:
 #   1. First, authenticate:
@@ -14,6 +14,11 @@
 #
 #   4. Stop the daemon:
 #      docker-compose down
+#
+# System Requirements:
+#   - 8GB+ disk space (Ollama model is ~4-7GB)
+#   - 4GB+ RAM recommended
+#   - CPU with decent performance for OCR
 
 version: '3.8'
 
@@ -31,6 +36,21 @@ services:
       # Output directory for synced documents
       - ./output:/output
 
+      # Ollama models cache (persists downloaded models)
+      - ollama-models:/home/remarkable/.ollama/models
+
+    # Environment variables for Ollama configuration
+    environment:
+      # Ollama service endpoint (internal)
+      - OLLAMA_HOST=http://localhost:11434
+
+      # OCR model to use (llava, mistral, etc.)
+      - OCR_MODEL=llava
+
+      # Optional: Increase if running large models
+      # - OLLAMA_NUM_PARALLEL=1
+      # - OLLAMA_MAX_LOADED_MODELS=1
+
     # Run in daemon mode, syncing every hour
     command: >
       daemon
@@ -38,57 +58,113 @@ services:
       --output /output
       --log-level info
 
-    # Optional: Health check
+    # Health check for both Ollama and remarkable-sync
     healthcheck:
-      test: ["CMD", "pgrep", "remarkable-sync"]
-      interval: 5m
+      test: ["CMD-SHELL", "curl -f http://localhost:11434/api/tags && pgrep remarkable-sync"]
+      interval: 1m
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 30s
 
-    # Optional: Resource limits
+    # Resource limits (adjust based on your model and usage)
     deploy:
       resources:
         limits:
-          cpus: '1.0'
-          memory: 512M
+          cpus: '2.0'
+          memory: 4G
         reservations:
-          cpus: '0.25'
-          memory: 128M
+          cpus: '0.5'
+          memory: 1G
 
-# Example with labels filter
+volumes:
+  # Persistent volume for Ollama models
+  ollama-models:
+    driver: local
+
+# Example: Using an external Ollama service
+#
+# If you want to run Ollama separately (e.g., on a different machine
+# or shared across containers), you can use this configuration:
+#
+# services:
+#   ollama:
+#     image: ollama/ollama:latest
+#     container_name: ollama
+#     restart: unless-stopped
+#     volumes:
+#       - ollama-models:/root/.ollama
+#     ports:
+#       - "11434:11434"
+#
+#   remarkable-sync:
+#     image: ghcr.io/platinummonkey/remarkable-sync:latest
+#     depends_on:
+#       - ollama
+#     environment:
+#       - OLLAMA_HOST=http://ollama:11434
+#       - OCR_MODEL=llava
+#     volumes:
+#       - ./credentials:/home/remarkable/.rmapi
+#       - ./output:/output
+#     command: >
+#       daemon
+#       --interval 1h
+#       --output /output
+
+# Example: Using a different OCR model
+#
+# To use a different Ollama model for OCR:
+#
+# services:
+#   remarkable-sync:
+#     image: ghcr.io/platinummonkey/remarkable-sync:latest
+#     environment:
+#       - OCR_MODEL=mistral  # or llava:13b, llama2, etc.
+#     volumes:
+#       - ./credentials:/home/remarkable/.rmapi
+#       - ./output:/output
+#       - ollama-models:/home/remarkable/.ollama/models
+#     command: >
+#       daemon
+#       --interval 1h
+#       --output /output
+
+# Example: With labels filter
 #
 # To sync only documents with specific labels:
 #
 # services:
 #   remarkable-sync:
 #     image: ghcr.io/platinummonkey/remarkable-sync:latest
+#     environment:
+#       - OCR_MODEL=llava
 #     volumes:
 #       - ./credentials:/home/remarkable/.rmapi
 #       - ./output:/output
+#       - ollama-models:/home/remarkable/.ollama/models
 #     command: >
 #       daemon
 #       --interval 1h
 #       --output /output
 #       --labels "work,personal"
 
-# Example with custom health endpoint
+# Example: Development setup with local build
+#
+# To build and run locally for testing:
 #
 # services:
 #   remarkable-sync:
-#     image: ghcr.io/platinummonkey/remarkable-sync:latest
-#     ports:
-#       - "8080:8080"
+#     build:
+#       context: ..
+#       dockerfile: Dockerfile
+#     environment:
+#       - OCR_MODEL=llava
 #     volumes:
 #       - ./credentials:/home/remarkable/.rmapi
 #       - ./output:/output
+#       - ollama-models:/home/remarkable/.ollama/models
 #     command: >
 #       daemon
 #       --interval 1h
 #       --output /output
-#       --health-addr :8080
-#     healthcheck:
-#       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
-#       interval: 1m
-#       timeout: 5s
-#       retries: 3
+#       --log-level debug

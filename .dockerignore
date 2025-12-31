@@ -33,9 +33,15 @@ Jenkinsfile
 examples/
 scripts/
 
+# Keep docker-entrypoint.sh (needed for Docker build)
+!docker-entrypoint.sh
+
 # Ignore goreleaser files
 .goreleaser.yaml
 .goreleaser.yml
 
 # Ignore beads files
 .beads/
+
+# Ignore output directory
+output/
