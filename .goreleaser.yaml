@@ -1,9 +1,8 @@
 # GoReleaser Pro configuration for remarkable-sync
 # https://goreleaser.com/pro
 #
-# NOTE: This build requires Tesseract OCR and Leptonica to be installed
-# on the build system due to gosseract CGO dependencies.
-# The GitHub Actions workflow installs these automatically.
+# NOTE: OCR now uses Ollama (HTTP API), so no system dependencies are required.
+# CGO is disabled, enabling simple cross-compilation.
 
 version: 2
 
@@ -13,12 +12,8 @@ before:
   hooks:
     # Ensure dependencies are up to date
     - go mod tidy
-    # Run tests (no-ocr variant for CI environment without Tesseract)
-    - make test-no-ocr
-    # Note: CGO_CFLAGS and CGO_LDFLAGS should be set using pkg-config before running goreleaser:
-    #   export CGO_CFLAGS="$(pkg-config --cflags tesseract lept)"
-    #   export CGO_LDFLAGS="$(pkg-config --libs tesseract lept)"
-    # Or use the Makefile which handles this automatically
+    # Run tests (OCR tests use mock Ollama server, no external dependencies needed)
+    - make test
 
 builds:
   - id: remarkable-sync
@@ -48,10 +43,7 @@ builds:
       - -X main.BuildDate={{.Date}}
 
     env:
-      - CGO_ENABLED=1
-      # Use pkg-config for dynamic Tesseract/Leptonica path resolution
-      # These should be set by the Makefile or build environment
-      # If not set, the build may fail if Tesseract/Leptonica aren't in standard paths
+      - CGO_ENABLED=0  # OCR uses Ollama HTTP API, no CGO needed
 
     # Build flags
     flags:
@@ -236,7 +228,7 @@ homebrew_casks:
     binaries:
       - "remarkable-sync"
 
-    # Note: Tesseract is optional, so not listed as hard dependency
+    # Note: Ollama is optional for OCR functionality
     # Users are informed via caveats below
 
     # Remove quarantine attribute for unsigned binaries
@@ -250,8 +242,9 @@ homebrew_casks:
     caveats: |
       reMarkable Sync requires a reMarkable tablet with cloud sync enabled.
 
-      Optional: Install Tesseract OCR for searchable PDF generation:
-        brew install tesseract
+      Optional: Install Ollama for OCR text layer generation (searchable PDFs):
+        brew install ollama
+        ollama pull llava
 
       Get started:
         1. Authenticate: remarkable-sync auth

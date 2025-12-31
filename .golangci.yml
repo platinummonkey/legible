@@ -1,15 +1,7 @@
 version: "2"
 
-# Note: Typecheck errors in internal/ocr/ cannot be excluded when Tesseract
-# is not installed locally. CI has Tesseract installed, so linting works there.
-# Many packages depend on OCR (pdfenhancer, sync, daemon, cmd), so they also fail.
-#
-# For local development without Tesseract, run linting on these packages only:
-#   golangci-lint run ./internal/config/... ./internal/converter/... ./internal/logger/... ./internal/rmclient/... ./internal/rmrender/... ./internal/state/...
-#
-# Or install Tesseract:
-#   macOS: brew install tesseract
-#   Linux: sudo apt-get install -y libtesseract-dev libleptonica-dev
+# Note: OCR now uses Ollama HTTP API (no CGO dependencies), so linting works everywhere
+# without system dependencies. All packages should lint cleanly.
 
 run:
   timeout: 5m
@@ -42,26 +34,9 @@ linters:
     misspell:
       locale: US
 
-  # Exclusion paths for directories to skip
+  # Exclusion rules
   exclusions:
-    paths:
-      - internal/ocr
-
     rules:
-      # OCR package has missing system dependencies (Tesseract/leptonica)
-      - path: internal/ocr/
-        linters:
-          - typecheck
-
-      # Gosseract import errors (system dependency missing)
-      - path: '(.+)\.go$'
-        text: "could not import github.com/otiai10/gosseract"
-        linters:
-          - typecheck
-      - path: '(.+)\.go$'
-        text: "undefined: gosseract"
-        linters:
-          - typecheck
       # Unused code in rmrender is work-in-progress for v6 format parsing
       - path: internal/rmrender/
         linters:

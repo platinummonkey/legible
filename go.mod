@@ -5,11 +5,11 @@ go 1.25.0
 require (
 	github.com/google/uuid v1.6.0
 	github.com/juruen/rmapi v0.0.32
-	github.com/otiai10/gosseract/v2 v2.4.1
 	github.com/pdfcpu/pdfcpu v0.11.1
 	github.com/signintech/gopdf v0.34.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
+	github.com/unidoc/unipdf/v3 v3.69.0
 	go.uber.org/zap v1.27.1
 )
 
@@ -46,7 +46,6 @@ require (
 	github.com/unidoc/pkcs7 v0.3.0 // indirect
 	github.com/unidoc/timestamp v0.0.0-20200412005513-91597fd3793a // indirect
 	github.com/unidoc/unichart v0.5.1 // indirect
-	github.com/unidoc/unipdf/v3 v3.69.0 // indirect
 	github.com/unidoc/unitype v0.5.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect

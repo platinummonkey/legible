@@ -118,8 +118,8 @@ func runSync(_ *cobra.Command, _ []string) error {
 	var ocrProc *ocr.Processor
 	if cfg.OCREnabled {
 		ocrProc = ocr.New(&ocr.Config{
-			Logger:    log,
-			Languages: []string{"eng"}, // TODO: Make configurable
+			Logger: log,
+			// Ollama handles language detection automatically via vision models
 		})
 	}
 

@@ -59,12 +59,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      # Step 1: Install Tesseract dependencies
-      - name: Install Tesseract OCR and libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y tesseract-ocr libleptonica-dev libtesseract-dev pkg-config
-
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
@@ -94,31 +88,17 @@ jobs:
           go-version: '1.25'
           cache: true
 
-      # Install Tesseract dependencies
-      - name: Install Tesseract OCR and libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y tesseract-ocr libleptonica-dev libtesseract-dev pkg-config
-
-      # Set up CGO flags for Tesseract/Leptonica
-      - name: Configure CGO flags
-        run: |
-          echo "CGO_ENABLED=1" >> $GITHUB_ENV
-          echo "CGO_CFLAGS=$(pkg-config --cflags tesseract lept)" >> $GITHUB_ENV
-          echo "CGO_CXXFLAGS=$(pkg-config --cflags tesseract lept)" >> $GITHUB_ENV
-          echo "CGO_LDFLAGS=$(pkg-config --libs tesseract lept)" >> $GITHUB_ENV
-
       # Run goreleaser in snapshot mode (build only, no release)
-      # Use --single-target to only build for the host platform (linux/amd64)
-      # since we can't cross-compile CGO code without proper toolchains
+      # OCR now uses Ollama (HTTP API), so no CGO dependencies needed
+      # Cross-compilation is now simple without CGO
       - name: Run GoReleaser build
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: latest
-          args: build --snapshot --clean --single-target
+          args: build --snapshot --clean
         env:
-          CGO_ENABLED: 1
+          CGO_ENABLED: 0
 
       # Upload all built binaries as artifacts
       - name: Upload build artifacts

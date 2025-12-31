@@ -16,25 +16,10 @@ GOGET=$(GOCMD) get
 GOMOD=$(GOCMD) mod
 GOINSTALL=$(GOCMD) install
 
-# CGO flags for Tesseract/Leptonica (using pkg-config for dynamic path resolution)
-# If pkg-config is not available or libraries not found, these will be empty
-PKG_CONFIG?=pkg-config
-CGO_CFLAGS_TESS=$(shell $(PKG_CONFIG) --cflags tesseract 2>/dev/null)
-CGO_CFLAGS_LEPT=$(shell $(PKG_CONFIG) --cflags lept 2>/dev/null | sed 's|/leptonica$$||')
-CGO_LDFLAGS_TESSERACT=$(shell $(PKG_CONFIG) --libs tesseract lept 2>/dev/null)
-
-# Export CGO flags if libraries are found
-# Note: leptonica's pkg-config includes /leptonica in the path, but headers use #include <leptonica/...>
-# so we need both the original path and the parent directory
-ifneq ($(CGO_CFLAGS_TESS),)
-export CGO_CFLAGS=$(CGO_CFLAGS_TESS) $(CGO_CFLAGS_LEPT) $(shell $(PKG_CONFIG) --cflags lept 2>/dev/null)
-export CGO_CXXFLAGS=$(CGO_CFLAGS_TESS) $(CGO_CFLAGS_LEPT) $(shell $(PKG_CONFIG) --cflags lept 2>/dev/null)
-export CGO_LDFLAGS=$(CGO_LDFLAGS_TESSERACT)
-export CGO_ENABLED=1
-else
-$(warning Warning: pkg-config could not find tesseract/lept. OCR features may not compile.)
+# CGO configuration
+# OCR now uses Ollama (HTTP API) instead of Tesseract, so CGO is not required
+# Note: unipdf may still require CGO for some PDF operations
 export CGO_ENABLED=0
-endif
 
 # Build directory
 BUILD_DIR=./bin
@@ -66,22 +51,22 @@ build-release: ## Create a release build (requires git tag)
 	@which goreleaser > /dev/null || (echo "goreleaser not found. Install from https://goreleaser.com/install/" && exit 1)
 	goreleaser release --clean
 
-test: ## Run all tests (requires Tesseract OCR installed)
+test: ## Run all tests
 	@echo "Running all tests..."
-	@echo "Note: This requires Tesseract OCR to be installed. Use 'make test-no-ocr' if Tesseract is not available."
+	@echo "Note: OCR tests use mock Ollama server and do not require Ollama installed."
 	$(GOTEST) -v -race -coverprofile=coverage.out ./...
 
-test-no-ocr: ## Run tests without OCR dependencies (no Tesseract required)
-	@echo "Running tests (excluding OCR-dependent packages)..."
+test-no-ocr: ## Run tests without OCR and Ollama packages
+	@echo "Running tests (excluding OCR and Ollama packages)..."
 	$(GOTEST) -v -race -coverprofile=coverage-no-ocr.out ./internal/config ./internal/converter ./internal/logger ./internal/rmclient ./internal/state
 
-test-coverage: test ## Run all tests with coverage report (requires Tesseract)
+test-coverage: test ## Run all tests with coverage report
 	@echo "Generating coverage report..."
 	$(GOCMD) tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
 
-test-coverage-no-ocr: test-no-ocr ## Run tests with coverage report (no Tesseract required)
-	@echo "Generating coverage report (no OCR)..."
+test-coverage-no-ocr: test-no-ocr ## Run tests with coverage report (excluding OCR/Ollama)
+	@echo "Generating coverage report (no OCR/Ollama)..."
 	$(GOCMD) tool cover -html=coverage-no-ocr.out -o coverage-no-ocr.html
 	@echo "Coverage report generated: coverage-no-ocr.html"
 

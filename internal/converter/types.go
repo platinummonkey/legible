@@ -49,7 +49,7 @@ type ConversionOptions struct {
 	// EnableOCR determines if OCR processing should be performed to add searchable text layer
 	EnableOCR bool
 
-	// OCRLanguages is the list of Tesseract language codes to use for OCR (default: ["eng"])
+	// OCRLanguages is the list of language codes to use for OCR via Ollama (default: ["eng"])
 	OCRLanguages []string
 }
 

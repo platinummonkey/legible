@@ -22,17 +22,18 @@ import (
 
 // Converter handles conversion of .rmdoc files to PDF
 type Converter struct {
-	logger      *logger.Logger
-	ocrEnabled  bool
-	ocrProc     *ocr.Processor
-	pdfEnhancer *pdfenhancer.PDFEnhancer
+	logger       *logger.Logger
+	ocrEnabled   bool
+	ocrLanguages []string
+	ocrProc      *ocr.Processor
+	pdfEnhancer  *pdfenhancer.PDFEnhancer
 }
 
 // Config holds configuration for the converter
 type Config struct {
 	Logger       *logger.Logger
 	EnableOCR    bool     // Enable OCR text layer (default: true)
-	OCRLanguages []string // Tesseract language codes (default: ["eng"])
+	OCRLanguages []string // Language codes for OCR via Ollama (default: ["eng"])
 }
 
 // New creates a new converter instance
@@ -60,8 +61,8 @@ func New(cfg *Config) *Converter {
 	var pdfEnhancer *pdfenhancer.PDFEnhancer
 	if enableOCR {
 		ocrProc = ocr.New(&ocr.Config{
-			Logger:    log,
-			Languages: languages,
+			Logger: log,
+			// Ollama handles language detection automatically via vision models
 		})
 		pdfEnhancer = pdfenhancer.New(&pdfenhancer.Config{
 			Logger: log,
@@ -69,10 +70,11 @@ func New(cfg *Config) *Converter {
 	}
 
 	return &Converter{
-		logger:      log,
-		ocrEnabled:  enableOCR,
-		ocrProc:     ocrProc,
-		pdfEnhancer: pdfEnhancer,
+		logger:       log,
+		ocrEnabled:   enableOCR,
+		ocrLanguages: languages,
+		ocrProc:      ocrProc,
+		pdfEnhancer:  pdfEnhancer,
 	}
 }
 
@@ -505,7 +507,7 @@ func (c *Converter) addOCRTextLayer(pdfPath string, pageCount int, result *Conve
 	}
 
 	// Create document OCR result
-	docOCR := ocr.NewDocumentOCR("", strings.Join(c.ocrProc.Languages(), "+"))
+	docOCR := ocr.NewDocumentOCR("", strings.Join(c.ocrLanguages, "+"))
 
 	// Process each page with OCR
 	for i, img := range images {

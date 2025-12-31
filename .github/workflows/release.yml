@@ -23,12 +23,6 @@ jobs:
       - name: Fetch all tags
         run: git fetch --force --tags
 
-      # Step 1: Install Tesseract dependencies
-      - name: Install Tesseract OCR and libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y tesseract-ocr libleptonica-dev libtesseract-dev tesseract-ocr-eng
-
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
@@ -72,10 +66,8 @@ jobs:
           GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
           GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
-          # CGO flags for Tesseract/Leptonica (used by goreleaser builds)
-          CGO_ENABLED: "1"
-          CGO_CFLAGS: "-I/usr/include/tesseract -I/usr/include/leptonica"
-          CGO_LDFLAGS: "-ltesseract -llept"
+          # OCR now uses Ollama (HTTP API), so no CGO dependencies needed
+          CGO_ENABLED: "0"
 
       - name: Upload artifacts to workflow
         uses: actions/upload-artifact@v6
