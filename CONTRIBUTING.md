@@ -27,8 +27,10 @@ This project follows a standard code of conduct. Please be respectful and constr
 
 ### Prerequisites
 
-- Go 1.21 or higher
-- Tesseract OCR installed (for OCR-related features)
+- Go 1.24 or higher
+- goreleaser (for building)
+- pkg-config (for library detection)
+- Tesseract OCR and Leptonica (for OCR features)
 - Git
 - Make (optional, but recommended)
 - golangci-lint (for linting)
@@ -54,28 +56,45 @@ This project follows a standard code of conduct. Please be respectful and constr
 # Download Go module dependencies
 go mod download
 
+# Install goreleaser (macOS)
+brew install goreleaser
+
+# Install pkg-config and libraries (macOS)
+brew install pkg-config tesseract leptonica
+
 # Install development tools
 go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 ```
 
 ### Build the Project
 
-```bash
-# Build the binary
-make build
+We use goreleaser for consistent, production-quality builds:
 
-# Or build for all platforms
+```bash
+# Build for current platform (recommended)
+make build-local
+
+# The binary will be in:
+# dist/remarkable-sync_<os>_<arch>/remarkable-sync
+
+# Build for all platforms
 make build-all
 ```
+
+**Why goreleaser?**
+- Same configuration for local dev and releases
+- Consistent builds across platforms
+- Automatic version injection
+- Pre-configured CGO handling via pkg-config
 
 ### Verify Installation
 
 ```bash
-# Run the binary
-./bin/remarkable-sync version
+# Verify pkg-config can find libraries
+pkg-config --modversion tesseract lept
 
-# Run tests
-make test
+# Run tests (without OCR if Tesseract not available)
+make test-no-ocr
 
 # Run linter
 make lint
@@ -406,13 +425,35 @@ remarkable-sync/
 
 ```bash
 make help           # Show all available targets
-make build          # Build binary
+make build-local    # Build for current platform (uses goreleaser, recommended)
+make build-all      # Build for all platforms (uses goreleaser)
+make build          # Simple Go build (single platform, no goreleaser)
 make test           # Run tests
 make test-no-ocr    # Run tests without Tesseract
 make lint           # Run linter
 make fmt            # Format code
 make clean          # Clean build artifacts
 make dev            # Run in development mode
+```
+
+### Build System Details
+
+The project uses goreleaser for builds. Configuration is in `.goreleaser.yaml`.
+
+**CGO Configuration:**
+- The Makefile automatically sets CGO flags using pkg-config
+- Flags are exported: `CGO_CFLAGS`, `CGO_CXXFLAGS`, `CGO_LDFLAGS`
+- Libraries detected: Tesseract OCR and Leptonica
+
+**Troubleshooting builds:**
+```bash
+# Verify CGO flags are set correctly
+scripts/check-cgo-flags.sh
+
+# Manual CGO flag export (if needed)
+export CGO_CFLAGS="$(pkg-config --cflags tesseract lept)"
+export CGO_LDFLAGS="$(pkg-config --libs tesseract lept)"
+make build-local
 ```
 
 ## Getting Help

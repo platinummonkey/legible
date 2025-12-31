@@ -275,12 +275,27 @@ pkg-config --modversion tesseract lept
 
 **Build commands:**
 ```bash
-make build          # Build binary to bin/remarkable-sync
-make build-all      # Build for multiple platforms
+make build-local    # Build for current platform (recommended, uses goreleaser)
+make build-all      # Build for all platforms (uses goreleaser)
+make build          # Simple Go build (single platform, no goreleaser)
 make install        # Install to $GOPATH/bin
 ```
 
-The Makefile automatically sets `CGO_CFLAGS`, `CGO_CXXFLAGS`, and `CGO_LDFLAGS` using `pkg-config`. If pkg-config cannot find the libraries, you'll see a warning and the build may fail.
+**Build System:**
+- The project uses [goreleaser](https://goreleaser.com) for consistent, reproducible builds
+- `make build-local` and `make build-all` use goreleaser for production-quality builds
+- The Makefile automatically sets `CGO_CFLAGS`, `CGO_CXXFLAGS`, and `CGO_LDFLAGS` using `pkg-config`
+- Built binaries are in `dist/remarkable-sync_<os>_<arch>/` directory
+- If pkg-config cannot find the libraries, you'll see a warning and the build may fail
+
+**Installing goreleaser:**
+```bash
+# macOS:
+brew install goreleaser
+
+# Linux:
+# See https://goreleaser.com/install/
+```
 
 ### Running tests
 

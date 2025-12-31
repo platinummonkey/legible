@@ -39,24 +39,32 @@ endif
 # Build directory
 BUILD_DIR=./bin
 
-all: lint test build
+all: lint test build-local
 
 help: ## Display this help screen
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-build: ## Build the binary
+build: ## Build the binary (Go-based, single platform)
 	@echo "Building $(BINARY_NAME)..."
 	@mkdir -p $(BUILD_DIR)
 	$(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/$(BINARY_NAME)
 
-build-all: ## Build for all platforms
-	@echo "Building for multiple platforms..."
-	@mkdir -p $(BUILD_DIR)
-	GOOS=linux GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 ./cmd/$(BINARY_NAME)
-	GOOS=linux GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 ./cmd/$(BINARY_NAME)
-	GOOS=darwin GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 ./cmd/$(BINARY_NAME)
-	GOOS=darwin GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 ./cmd/$(BINARY_NAME)
-	GOOS=windows GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe ./cmd/$(BINARY_NAME)
+build-local: ## Build binary for current platform using goreleaser (recommended)
+	@echo "Building with goreleaser for current platform..."
+	@which goreleaser > /dev/null || (echo "goreleaser not found. Install from https://goreleaser.com/install/" && exit 1)
+	goreleaser build --snapshot --clean --single-target
+	@echo "Binary available in dist/$(BINARY_NAME)_*/$(BINARY_NAME)"
+
+build-all: ## Build for all platforms using goreleaser
+	@echo "Building for all platforms with goreleaser..."
+	@which goreleaser > /dev/null || (echo "goreleaser not found. Install from https://goreleaser.com/install/" && exit 1)
+	goreleaser build --snapshot --clean
+	@echo "Binaries available in dist/$(BINARY_NAME)_*/"
+
+build-release: ## Create a release build (requires git tag)
+	@echo "Creating release build..."
+	@which goreleaser > /dev/null || (echo "goreleaser not found. Install from https://goreleaser.com/install/" && exit 1)
+	goreleaser release --clean
 
 test: ## Run all tests (requires Tesseract OCR installed)
 	@echo "Running all tests..."
