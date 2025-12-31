@@ -15,8 +15,6 @@ run:
   timeout: 5m
   tests: true
   modules-download-mode: readonly
-  skip-dirs:
-    - internal/ocr
   build-tags:
     - ignore_ocr
 
@@ -43,13 +41,25 @@ linters:
       min-occurrences: 3
     misspell:
       locale: US
+
+  # Exclusion paths for directories to skip
   exclusions:
+    paths:
+      - internal/ocr
+
     rules:
       # OCR package has missing system dependencies (Tesseract/leptonica)
       - path: internal/ocr/
         linters:
           - typecheck
-      - text: "could not import github.com/otiai10/gosseract"
+
+      # Gosseract import errors (system dependency missing)
+      - path: '(.+)\.go$'
+        text: "could not import github.com/otiai10/gosseract"
+        linters:
+          - typecheck
+      - path: '(.+)\.go$'
+        text: "undefined: gosseract"
         linters:
           - typecheck
       # Unused code in rmrender is work-in-progress for v6 format parsing
@@ -96,8 +106,3 @@ formatters:
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
-  exclude-dirs:
-    - internal/ocr
-  exclude:
-    - "could not import github.com/otiai10/gosseract"
-    - "undefined: gosseract"
