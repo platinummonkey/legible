@@ -91,16 +91,27 @@ func (p *Processor) ProcessImage(imageData []byte, pageNumber int) (*PageOCR, er
 
 // parseHOCR parses HOCR XML output to extract words with bounding boxes
 func (p *Processor) parseHOCR(hocrText string, pageNumber int) (*PageOCR, error) {
-	// Parse HOCR XML
+	// Try to parse as full HTML HOCR first
 	var page HOCRPage
-	if err := xml.Unmarshal([]byte(hocrText), &page); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal HOCR XML: %w", err)
+	var pageDivs []HOCRPageDiv
+
+	err := xml.Unmarshal([]byte(hocrText), &page)
+	if err != nil {
+		// If full HTML parsing fails, try parsing as direct page div(s)
+		// Some Tesseract versions output just the div elements without HTML wrapper
+		err2 := xml.Unmarshal([]byte(hocrText), &pageDivs)
+		if err2 != nil {
+			return nil, fmt.Errorf("failed to unmarshal HOCR XML: %w", err)
+		}
+	} else {
+		// Successfully parsed as full HTML, use the pages from body
+		pageDivs = page.Body.Pages
 	}
 
-	// Extract page dimensions from the ocr_page div
+	// Extract page dimensions from the first ocr_page div
 	width, height := 0, 0
-	if len(page.Body.Pages) > 0 {
-		if bbox := extractBBox(page.Body.Pages[0].Title); len(bbox) >= 4 {
+	if len(pageDivs) > 0 {
+		if bbox := extractBBox(pageDivs[0].Title); len(bbox) >= 4 {
 			width = bbox[2]
 			height = bbox[3]
 		}
@@ -109,7 +120,7 @@ func (p *Processor) parseHOCR(hocrText string, pageNumber int) (*PageOCR, error)
 	pageOCR := NewPageOCR(pageNumber, width, height, strings.Join(p.languages, "+"))
 
 	// Extract words from all content areas in all page divs
-	for _, pageDiv := range page.Body.Pages {
+	for _, pageDiv := range pageDivs {
 		for _, area := range pageDiv.Areas {
 			for _, par := range area.Pars {
 				for _, line := range par.Lines {
