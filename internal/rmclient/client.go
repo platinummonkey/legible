@@ -655,6 +655,95 @@ func (c *Client) SetToken(token string) error {
 	return nil
 }
 
+// GetFolderPath returns the full folder path for a document by traversing its parent chain
+// Returns an empty string if the document is in the root folder
+// Returns an error if the document is not found or if there's a circular reference
+func (c *Client) GetFolderPath(documentID string) (string, error) {
+	if !c.IsAuthenticated() {
+		return "", fmt.Errorf("client not authenticated")
+	}
+
+	if c.apiCtx == nil {
+		return "", fmt.Errorf("API client not initialized, call Authenticate() first")
+	}
+
+	// Get the file tree
+	tree := c.apiCtx.Filetree()
+	if tree == nil {
+		return "", fmt.Errorf("failed to get file tree")
+	}
+
+	// Find the node by ID
+	node := tree.NodeById(documentID)
+	if node == nil {
+		return "", fmt.Errorf("document not found: %s", documentID)
+	}
+
+	// Build the folder path by traversing parents
+	var pathParts []string
+	visited := make(map[string]bool)
+	currentNode := node
+
+	// Traverse up to the root, collecting folder names
+	for currentNode != nil && currentNode.Parent != nil {
+		parentID := ""
+		if currentNode.Document != nil {
+			parentID = currentNode.Document.Parent
+		}
+
+		// Check for circular references
+		if visited[parentID] {
+			return "", fmt.Errorf("circular reference detected in folder hierarchy")
+		}
+		visited[parentID] = true
+
+		// Get parent node
+		parentNode := tree.NodeById(parentID)
+		if parentNode == nil {
+			// Parent not found, assume we've reached root
+			break
+		}
+
+		// Add parent folder name to path (if it's a collection)
+		if parentNode.Document != nil && parentNode.Document.Type == CollectionType {
+			// Prepend to build path from root to document
+			pathParts = append([]string{sanitizeFolderName(parentNode.Document.Name)}, pathParts...)
+		}
+
+		currentNode = parentNode
+	}
+
+	// Join path parts with forward slash
+	return filepath.Join(pathParts...), nil
+}
+
+// sanitizeFolderName removes or replaces characters that are invalid in folder names
+func sanitizeFolderName(name string) string {
+	// Replace common problematic characters
+	replacements := map[rune]string{
+		'/':  "-",
+		'\\': "-",
+		':':  "-",
+		'*':  "_",
+		'?':  "_",
+		'"':  "'",
+		'<':  "_",
+		'>':  "_",
+		'|':  "-",
+	}
+
+	result := ""
+	for _, ch := range name {
+		if replacement, found := replacements[ch]; found {
+			result += replacement
+		} else {
+			result += string(ch)
+		}
+	}
+
+	return result
+}
+
 // Close closes the client and cleans up resources
 func (c *Client) Close() error {
 	// No cleanup required for now

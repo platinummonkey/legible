@@ -272,14 +272,30 @@ func (o *Orchestrator) processDocument(_ context.Context, doc rmclient.Document,
 		}
 	}
 
-	// Stage 5: Move to output directory
-	outputFilename := fmt.Sprintf("%s.pdf", sanitizeFilename(doc.Name))
-	outputPath := filepath.Join(o.config.OutputDir, outputFilename)
+	// Stage 5: Determine output path with folder structure
+	// Get the folder path for this document from reMarkable
+	folderPath, err := o.rmClient.GetFolderPath(doc.ID)
+	if err != nil {
+		o.logger.WithFields("id", doc.ID, "error", err).
+			Warn("Failed to get folder path, saving to root output directory")
+		folderPath = "" // Fall back to root if path lookup fails
+	}
+
+	// Build output directory path (OutputDir + folder path)
+	outputDir := o.config.OutputDir
+	if folderPath != "" {
+		outputDir = filepath.Join(o.config.OutputDir, folderPath)
+		o.logger.WithFields("document", docNum, "folder_path", folderPath).
+			Debug("Preserving folder structure")
+	}
 
 	// Ensure output directory exists
-	if err := os.MkdirAll(o.config.OutputDir, 0755); err != nil {
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create output directory: %w", err)
 	}
+
+	outputFilename := fmt.Sprintf("%s.pdf", sanitizeFilename(doc.Name))
+	outputPath := filepath.Join(outputDir, outputFilename)
 
 	// Copy final PDF to output location
 	if err := copyFile(finalPath, outputPath); err != nil {

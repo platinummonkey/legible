@@ -648,3 +648,142 @@ func TestClient_LoadToken_EmptyDeviceToken(t *testing.T) {
 		t.Error("loadToken() should error when device_token is empty")
 	}
 }
+
+func TestClient_GetFolderPath_NotAuthenticated(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := &Config{
+		TokenPath: filepath.Join(tmpDir, "token.json"),
+	}
+
+	client, err := NewClient(cfg)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+
+	// Should error when not authenticated
+	_, err = client.GetFolderPath("doc-123")
+	if err == nil {
+		t.Error("GetFolderPath() should error when not authenticated")
+	}
+
+	if !strings.Contains(err.Error(), "not authenticated") {
+		t.Errorf("Expected 'not authenticated' error, got: %v", err)
+	}
+}
+
+func TestClient_GetFolderPath_APINotInitialized(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := &Config{
+		TokenPath: filepath.Join(tmpDir, "token.json"),
+	}
+
+	client, err := NewClient(cfg)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+
+	// Set token but don't initialize API
+	if err := client.SetToken("test-token"); err != nil {
+		t.Fatalf("SetToken() error = %v", err)
+	}
+
+	// Should error when API client not initialized
+	_, err = client.GetFolderPath("doc-123")
+	if err == nil {
+		t.Error("GetFolderPath() should error when API client not initialized")
+	}
+
+	if !strings.Contains(err.Error(), "API client not initialized") {
+		t.Errorf("Expected 'API client not initialized' error, got: %v", err)
+	}
+}
+
+func TestSanitizeFolderName(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "clean name",
+			input:    "MyFolder",
+			expected: "MyFolder",
+		},
+		{
+			name:     "forward slash",
+			input:    "Work/Projects",
+			expected: "Work-Projects",
+		},
+		{
+			name:     "backslash",
+			input:    "Work\\Projects",
+			expected: "Work-Projects",
+		},
+		{
+			name:     "colon",
+			input:    "Project: Important",
+			expected: "Project- Important",
+		},
+		{
+			name:     "asterisk",
+			input:    "Files*Backup",
+			expected: "Files_Backup",
+		},
+		{
+			name:     "question mark",
+			input:    "What?",
+			expected: "What_",
+		},
+		{
+			name:     "quotes",
+			input:    "My \"Notes\"",
+			expected: "My 'Notes'",
+		},
+		{
+			name:     "angle brackets",
+			input:    "<Important>",
+			expected: "_Important_",
+		},
+		{
+			name:     "pipe",
+			input:    "Option A | Option B",
+			expected: "Option A - Option B",
+		},
+		{
+			name:     "multiple special chars",
+			input:    "Work/Projects: Notes*2024",
+			expected: "Work-Projects- Notes_2024",
+		},
+		{
+			name:     "unicode and spaces",
+			input:    "Notes 📝",
+			expected: "Notes 📝",
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizeFolderName(tt.input)
+			if result != tt.expected {
+				t.Errorf("sanitizeFolderName(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+// Note: Testing GetFolderPath with actual folder hierarchy requires mocking the rmapi library
+// or integration tests with a real reMarkable account. The following scenarios would be tested
+// with proper mocks:
+// 1. Document in root folder (empty parent) -> returns ""
+// 2. Document in single folder -> returns "FolderName"
+// 3. Document in nested folders -> returns "Parent/Child/Grandchild"
+// 4. Circular reference detection -> returns error
+// 5. Document not found -> returns error
+// These would be covered by integration tests or with a proper mock of api.ApiCtx and model.Filetree
