@@ -1,82 +1,150 @@
 package ocr
 
 import (
-	"encoding/xml"
+	"context"
+	"encoding/json"
 	"fmt"
-	"regexp"
-	"strconv"
+	"image"
 	"strings"
 	"time"
 
-	"github.com/otiai10/gosseract/v2"
 	"github.com/platinummonkey/remarkable-sync/internal/logger"
+	"github.com/platinummonkey/remarkable-sync/internal/ollama"
 )
 
-// Processor handles OCR processing using Tesseract
+const (
+	// DefaultModel is the default Ollama model for OCR
+	DefaultModel = "llava"
+
+	// DefaultTemperature for OCR (0.0 for deterministic output)
+	DefaultTemperature = 0.0
+)
+
+// OCR prompt template for extracting text with bounding boxes
+const ocrPromptTemplate = `You are analyzing a handwritten note from a reMarkable tablet.
+
+Extract ALL visible handwritten text from this image.
+Return ONLY valid JSON with no markdown formatting, no code blocks, no explanation.
+
+Format:
+{
+  "words": [
+    {"text": "word", "bbox": [x, y, width, height], "confidence": 0.95}
+  ]
+}
+
+Rules:
+- Include ALL text, even if partially visible
+- bbox coordinates are pixels from top-left (0,0)
+- confidence is 0.0-1.0, use 0.8 if uncertain
+- Return {"words": []} if no text found
+`
+
+// Processor handles OCR processing using Ollama
 type Processor struct {
-	logger    *logger.Logger
-	languages []string
+	logger         *logger.Logger
+	ollamaClient   *ollama.Client
+	model          string
+	promptTemplate string
+	imageDimCache  map[int]image.Point // cache image dimensions by page number
 }
 
 // Config holds configuration for the OCR processor
 type Config struct {
-	Logger    *logger.Logger
-	Languages []string // Tesseract language codes (default: ["eng"])
+	Logger         *logger.Logger
+	OllamaEndpoint string  // default: "http://localhost:11434"
+	Model          string  // default: "llava"
+	Temperature    float64 // default: 0.0 for deterministic output
+	MaxRetries     int     // default: 3
 }
 
-// New creates a new OCR processor
+// New creates a new OCR processor using Ollama
 func New(cfg *Config) *Processor {
 	log := cfg.Logger
 	if log == nil {
 		log = logger.Get()
 	}
 
-	languages := cfg.Languages
-	if len(languages) == 0 {
-		languages = []string{"eng"}
+	model := cfg.Model
+	if model == "" {
+		model = DefaultModel
 	}
+
+	// Build Ollama client options
+	clientOpts := []ollama.ClientOption{}
+	if cfg.OllamaEndpoint != "" {
+		clientOpts = append(clientOpts, ollama.WithEndpoint(cfg.OllamaEndpoint))
+	}
+	if cfg.MaxRetries > 0 {
+		clientOpts = append(clientOpts, ollama.WithMaxRetries(cfg.MaxRetries))
+	}
+	clientOpts = append(clientOpts, ollama.WithLogger(log))
 
 	return &Processor{
-		logger:    log,
-		languages: languages,
+		logger:         log,
+		ollamaClient:   ollama.NewClient(clientOpts...),
+		model:          model,
+		promptTemplate: ocrPromptTemplate,
+		imageDimCache:  make(map[int]image.Point),
 	}
-}
-
-// Languages returns the configured OCR languages
-func (p *Processor) Languages() []string {
-	return p.languages
 }
 
 // ProcessImage performs OCR on an image and returns structured results
 func (p *Processor) ProcessImage(imageData []byte, pageNumber int) (*PageOCR, error) {
-	p.logger.WithFields("page", pageNumber, "image_size", len(imageData)).Debug("Processing image with OCR")
+	p.logger.WithFields("page", pageNumber, "image_size", len(imageData)).Debug("Processing image with Ollama OCR")
 
 	startTime := time.Now()
 
-	// Create Tesseract client
-	client := gosseract.NewClient()
-	defer client.Close()
-
-	// Configure languages
-	if err := client.SetLanguage(p.languages...); err != nil {
-		return nil, fmt.Errorf("failed to set OCR language: %w", err)
-	}
-
-	// Set image data
-	if err := client.SetImageFromBytes(imageData); err != nil {
-		return nil, fmt.Errorf("failed to set image data: %w", err)
-	}
-
-	// Get HOCR output (HTML-based OCR with position information)
-	hocrText, err := client.HOCRText()
+	// Decode image to get dimensions
+	img, format, err := image.Decode(strings.NewReader(string(imageData)))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get HOCR text: %w", err)
+		// If we can't decode, try without dimensions (less accurate OCR)
+		p.logger.WithFields("page", pageNumber, "error", err).Warn("Failed to decode image for dimensions")
 	}
 
-	// Parse HOCR to extract words with bounding boxes
-	pageOCR, err := p.parseHOCR(hocrText, pageNumber)
+	var width, height int
+	if img != nil {
+		bounds := img.Bounds()
+		width = bounds.Dx()
+		height = bounds.Dy()
+		p.imageDimCache[pageNumber] = image.Point{X: width, Y: height}
+		p.logger.WithFields("page", pageNumber, "width", width, "height", height, "format", format).Debug("Image dimensions")
+	} else if cached, ok := p.imageDimCache[pageNumber]; ok {
+		// Use cached dimensions if available
+		width = cached.X
+		height = cached.Y
+	}
+
+	// Encode image to base64
+	base64Image := ollama.EncodeBytesToBase64(imageData)
+
+	// Call Ollama OCR API
+	ctx := context.Background()
+	words, err := p.ollamaClient.GenerateOCR(ctx, p.model, base64Image)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse HOCR: %w", err)
+		return nil, fmt.Errorf("failed to generate OCR with Ollama: %w", err)
+	}
+
+	// Convert Ollama response to PageOCR
+	pageOCR := NewPageOCR(pageNumber, width, height, p.model)
+	for _, oWord := range words {
+		if len(oWord.BBox) < 4 {
+			p.logger.WithFields("word", oWord.Text, "bbox", oWord.BBox).Warn("Invalid bounding box, skipping word")
+			continue
+		}
+
+		// Convert confidence from 0.0-1.0 to 0-100 scale
+		confidence := oWord.Confidence * 100.0
+		if confidence == 0 {
+			confidence = 80.0 // default confidence if not provided
+		}
+
+		word := NewWord(
+			oWord.Text,
+			NewRectangle(oWord.BBox[0], oWord.BBox[1], oWord.BBox[2], oWord.BBox[3]),
+			confidence,
+		)
+		pageOCR.AddWord(word)
 	}
 
 	// Build full text and calculate confidence
@@ -89,150 +157,86 @@ func (p *Processor) ProcessImage(imageData []byte, pageNumber int) (*PageOCR, er
 		"words", len(pageOCR.Words),
 		"confidence", pageOCR.Confidence,
 		"duration", duration,
-	).Info("OCR processing completed")
+	).Info("Ollama OCR processing completed")
 
 	return pageOCR, nil
 }
 
-// parseHOCR parses HOCR XML output to extract words with bounding boxes
-func (p *Processor) parseHOCR(hocrText string, pageNumber int) (*PageOCR, error) {
-	// Try to parse as full HTML HOCR first
-	var page HOCRPage
-	var pageDivs []HOCRPageDiv
+// ProcessImageWithCustomPrompt allows using a custom prompt template
+func (p *Processor) ProcessImageWithCustomPrompt(imageData []byte, pageNumber int, customPrompt string) (*PageOCR, error) {
+	originalPrompt := p.promptTemplate
+	p.promptTemplate = customPrompt
+	defer func() {
+		p.promptTemplate = originalPrompt
+	}()
 
-	err := xml.Unmarshal([]byte(hocrText), &page)
+	return p.ProcessImage(imageData, pageNumber)
+}
+
+// HealthCheck verifies that Ollama is accessible and the model is available
+func (p *Processor) HealthCheck() error {
+	ctx := context.Background()
+
+	// Check if Ollama is running
+	if err := p.ollamaClient.HealthCheck(ctx); err != nil {
+		return fmt.Errorf("ollama health check failed: %w", err)
+	}
+
+	// Check if model is available
+	models, err := p.ollamaClient.ListModels(ctx)
 	if err != nil {
-		// If full HTML parsing fails, try parsing as direct page div(s)
-		// Some Tesseract versions output just the div elements without HTML wrapper
-		err2 := xml.Unmarshal([]byte(hocrText), &pageDivs)
-		if err2 != nil {
-			return nil, fmt.Errorf("failed to unmarshal HOCR XML: %w", err)
-		}
-	} else {
-		// Successfully parsed as full HTML, use the pages from body
-		pageDivs = page.Body.Pages
+		return fmt.Errorf("failed to list models: %w", err)
 	}
 
-	// Extract page dimensions from the first ocr_page div
-	width, height := 0, 0
-	if len(pageDivs) > 0 {
-		if bbox := extractBBox(pageDivs[0].Title); len(bbox) >= 4 {
-			width = bbox[2]
-			height = bbox[3]
+	// Look for the configured model
+	modelFound := false
+	for _, m := range models.Models {
+		if strings.Contains(m.Name, p.model) {
+			modelFound = true
+			p.logger.WithFields("model", m.Name, "size", m.Size).Debug("Found OCR model")
+			break
 		}
 	}
 
-	pageOCR := NewPageOCR(pageNumber, width, height, strings.Join(p.languages, "+"))
-
-	// Extract words from all content areas in all page divs
-	for _, pageDiv := range pageDivs {
-		for _, area := range pageDiv.Areas {
-			for _, par := range area.Pars {
-				for _, line := range par.Lines {
-					for _, word := range line.Words {
-						bbox := extractBBox(word.Title)
-						if len(bbox) >= 4 {
-							confidence := extractConfidence(word.Title)
-
-							w := NewWord(
-								strings.TrimSpace(word.Text),
-								NewRectangle(bbox[0], bbox[1], bbox[2]-bbox[0], bbox[3]-bbox[1]),
-								confidence,
-							)
-							pageOCR.AddWord(w)
-						}
-					}
-				}
-			}
+	if !modelFound {
+		p.logger.WithFields("model", p.model).Warn("Model not found, attempting to pull")
+		if err := p.ollamaClient.PullModel(ctx, p.model); err != nil {
+			return fmt.Errorf("model %s not found and pull failed: %w", p.model, err)
 		}
 	}
 
-	return pageOCR, nil
+	return nil
 }
 
-// extractBBox extracts bounding box coordinates from HOCR title attribute
-// Format: "bbox x0 y0 x1 y1" or "bbox x0 y0 x1 y1; x_wconf 95"
-func extractBBox(title string) []int {
-	re := regexp.MustCompile(`bbox\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)`)
-	matches := re.FindStringSubmatch(title)
+// Model returns the configured model name
+func (p *Processor) Model() string {
+	return p.model
+}
 
-	if len(matches) != 5 {
-		return nil
+// ollamaOCRResponse represents the JSON response from Ollama
+type ollamaOCRResponse struct {
+	Words []struct {
+		Text       string    `json:"text"`
+		BBox       []int     `json:"bbox"`
+		Confidence float64   `json:"confidence"`
+	} `json:"words"`
+}
+
+// parseOllamaResponse parses the Ollama JSON response into OCR words
+func parseOllamaResponse(jsonResponse string) ([]ollama.OCRWord, error) {
+	var response ollamaOCRResponse
+	if err := json.Unmarshal([]byte(jsonResponse), &response); err != nil {
+		return nil, fmt.Errorf("failed to parse Ollama OCR response: %w", err)
 	}
 
-	bbox := make([]int, 4)
-	for i := 0; i < 4; i++ {
-		val, err := strconv.Atoi(matches[i+1])
-		if err != nil {
-			return nil
+	words := make([]ollama.OCRWord, len(response.Words))
+	for i, w := range response.Words {
+		words[i] = ollama.OCRWord{
+			Text:       w.Text,
+			BBox:       w.BBox,
+			Confidence: w.Confidence,
 		}
-		bbox[i] = val
 	}
 
-	return bbox
-}
-
-// extractConfidence extracts confidence score from HOCR title attribute
-// Format: "bbox x0 y0 x1 y1; x_wconf 95"
-func extractConfidence(title string) float64 {
-	re := regexp.MustCompile(`x_wconf\s+(\d+)`)
-	matches := re.FindStringSubmatch(title)
-
-	if len(matches) != 2 {
-		return 0.0
-	}
-
-	conf, err := strconv.ParseFloat(matches[1], 64)
-	if err != nil {
-		return 0.0
-	}
-
-	return conf
-}
-
-// HOCRPage represents the HOCR XML structure
-type HOCRPage struct {
-	XMLName xml.Name `xml:"html"`
-	Title   string   `xml:"head>title"`
-	Body    HOCRBody `xml:"body"`
-}
-
-// HOCRBody represents the body section of HOCR
-type HOCRBody struct {
-	Pages []HOCRPageDiv `xml:"div"`
-}
-
-// HOCRPageDiv represents an ocr_page div (page container)
-type HOCRPageDiv struct {
-	Class string     `xml:"class,attr"`
-	Title string     `xml:"title,attr"`
-	Areas []HOCRArea `xml:"div"`
-}
-
-// HOCRArea represents an ocr_carea (content area)
-type HOCRArea struct {
-	Class string    `xml:"class,attr"`
-	Title string    `xml:"title,attr"`
-	Pars  []HOCRPar `xml:"p"`
-}
-
-// HOCRPar represents an ocr_par (paragraph)
-type HOCRPar struct {
-	Class string     `xml:"class,attr"`
-	Title string     `xml:"title,attr"`
-	Lines []HOCRLine `xml:"span"`
-}
-
-// HOCRLine represents an ocr_line (text line)
-type HOCRLine struct {
-	Class string     `xml:"class,attr"`
-	Title string     `xml:"title,attr"`
-	Words []HOCRWord `xml:"span"`
-}
-
-// HOCRWord represents an ocr_word (individual word)
-type HOCRWord struct {
-	Class string `xml:"class,attr"`
-	Title string `xml:"title,attr"`
-	Text  string `xml:",chardata"`
+	return words, nil
 }

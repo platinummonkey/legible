@@ -1,15 +1,19 @@
 package ocr
 
 import (
+	"encoding/json"
 	"image"
 	"image/color"
 	"image/png"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/otiai10/gosseract/v2"
+	"github.com/platinummonkey/remarkable-sync/internal/logger"
 )
 
 func TestNew(t *testing.T) {
@@ -24,152 +28,92 @@ func TestNew(t *testing.T) {
 		t.Error("logger should be initialized")
 	}
 
-	if len(processor.languages) == 0 {
-		t.Error("languages should have default value")
+	if processor.ollamaClient == nil {
+		t.Error("ollama client should be initialized")
 	}
 
-	if processor.languages[0] != "eng" {
-		t.Errorf("default language should be 'eng', got '%s'", processor.languages[0])
+	if processor.model == "" {
+		t.Error("model should have default value")
+	}
+
+	if processor.model != DefaultModel {
+		t.Errorf("default model should be '%s', got '%s'", DefaultModel, processor.model)
 	}
 }
 
-func TestNew_CustomLanguages(t *testing.T) {
+func TestNew_CustomConfig(t *testing.T) {
+	log, _ := logger.New(&logger.Config{Level: "debug", Format: "console"})
 	cfg := &Config{
-		Languages: []string{"eng", "fra"},
+		Logger:      log,
+		Model:       "llava",
+		Temperature: 0.1,
+		MaxRetries:  5,
 	}
 	processor := New(cfg)
 
-	if len(processor.languages) != 2 {
-		t.Errorf("expected 2 languages, got %d", len(processor.languages))
+	if processor.model != "llava" {
+		t.Errorf("expected model 'llava', got '%s'", processor.model)
 	}
 
-	if processor.languages[0] != "eng" || processor.languages[1] != "fra" {
-		t.Error("custom languages not set correctly")
-	}
-}
-
-func TestExtractBBox(t *testing.T) {
-	tests := []struct {
-		name  string
-		title string
-		want  []int
-	}{
-		{
-			name:  "valid bbox",
-			title: "bbox 100 200 300 400",
-			want:  []int{100, 200, 300, 400},
-		},
-		{
-			name:  "bbox with confidence",
-			title: "bbox 50 75 150 125; x_wconf 95",
-			want:  []int{50, 75, 150, 125},
-		},
-		{
-			name:  "invalid format",
-			title: "no bbox here",
-			want:  nil,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := extractBBox(tt.title)
-
-			if tt.want == nil {
-				if got != nil {
-					t.Errorf("extractBBox() = %v, want nil", got)
-				}
-				return
-			}
-
-			if len(got) != len(tt.want) {
-				t.Errorf("extractBBox() length = %d, want %d", len(got), len(tt.want))
-				return
-			}
-
-			for i := range got {
-				if got[i] != tt.want[i] {
-					t.Errorf("extractBBox()[%d] = %d, want %d", i, got[i], tt.want[i])
-				}
-			}
-		})
+	if processor.logger == nil {
+		t.Error("logger should be initialized")
 	}
 }
 
-func TestExtractConfidence(t *testing.T) {
-	tests := []struct {
-		name  string
-		title string
-		want  float64
-	}{
-		{
-			name:  "confidence 95",
-			title: "bbox 100 200 300 400; x_wconf 95",
-			want:  95.0,
-		},
-		{
-			name:  "confidence 100",
-			title: "bbox 50 75 150 125; x_wconf 100",
-			want:  100.0,
-		},
-		{
-			name:  "confidence 42",
-			title: "bbox 10 20 30 40; x_wconf 42",
-			want:  42.0,
-		},
-		{
-			name:  "no confidence",
-			title: "bbox 100 200 300 400",
-			want:  0.0,
-		},
+func TestNew_CustomEndpoint(t *testing.T) {
+	cfg := &Config{
+		OllamaEndpoint: "http://custom:8080",
+		Model:          "mistral",
 	}
+	processor := New(cfg)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := extractConfidence(tt.title)
-			if got != tt.want {
-				t.Errorf("extractConfidence() = %v, want %v", got, tt.want)
-			}
-		})
+	if processor.model != "mistral" {
+		t.Errorf("expected model 'mistral', got '%s'", processor.model)
 	}
 }
 
-func TestParseHOCR(t *testing.T) {
-	processor := New(&Config{})
+func TestProcessImage_Success(t *testing.T) {
+	// Create mock Ollama server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/generate" {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if r.Method != http.MethodPost {
+			t.Errorf("unexpected method: %s", r.Method)
+		}
 
-	hocrXML := `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-<head>
-<title>OCR Results</title>
-<meta http-equiv="content-type" content="text/html; charset=utf-8" />
-</head>
-<body>
-<div class='ocr_page' id='page_1' title='bbox 0 0 800 600'>
-<div class='ocr_carea' id='carea_1_1' title='bbox 50 50 750 550'>
-<p class='ocr_par' id='par_1_1' title='bbox 50 50 750 100'>
-<span class='ocr_line' id='line_1_1' title='bbox 50 50 200 80'>
-<span class='ocr_word' id='word_1_1' title='bbox 50 50 100 80; x_wconf 95'>Hello</span>
-<span class='ocr_word' id='word_1_2' title='bbox 110 50 200 80; x_wconf 92'>World</span>
-</span>
-</p>
-</div>
-</div>
-</body>
-</html>`
+		// Mock OCR response
+		response := map[string]interface{}{
+			"model":    "llava",
+			"response": `[{"text":"Hello","bbox":[50,50,100,30],"confidence":0.95},{"text":"World","bbox":[160,50,100,30],"confidence":0.92}]`,
+			"done":     true,
+			"created_at": time.Now().Format(time.RFC3339),
+		}
 
-	pageOCR, err := processor.parseHOCR(hocrXML, 1)
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	processor := New(&Config{
+		OllamaEndpoint: server.URL,
+		Model:          "llava",
+	})
+
+	// Create a simple test image
+	imgData := createTestImage(t, 200, 100)
+
+	pageOCR, err := processor.ProcessImage(imgData, 1)
 	if err != nil {
-		t.Fatalf("parseHOCR() error = %v", err)
+		t.Fatalf("ProcessImage() error = %v", err)
+	}
+
+	if pageOCR == nil {
+		t.Fatal("ProcessImage() returned nil result")
 	}
 
 	if pageOCR.PageNumber != 1 {
 		t.Errorf("PageNumber = %d, want 1", pageOCR.PageNumber)
-	}
-
-	if pageOCR.Width != 800 || pageOCR.Height != 600 {
-		t.Errorf("Dimensions = %dx%d, want 800x600", pageOCR.Width, pageOCR.Height)
 	}
 
 	if len(pageOCR.Words) != 2 {
@@ -187,73 +131,391 @@ func TestParseHOCR(t *testing.T) {
 		if word.BoundingBox.X != 50 || word.BoundingBox.Y != 50 {
 			t.Errorf("First word position = (%d, %d), want (50, 50)", word.BoundingBox.X, word.BoundingBox.Y)
 		}
+		if word.BoundingBox.Width != 100 || word.BoundingBox.Height != 30 {
+			t.Errorf("First word size = (%d, %d), want (100, 30)", word.BoundingBox.Width, word.BoundingBox.Height)
+		}
+	}
+
+	// Check that text was built
+	if pageOCR.Text == "" {
+		t.Error("Text should be built from words")
+	}
+
+	if !strings.Contains(pageOCR.Text, "Hello") || !strings.Contains(pageOCR.Text, "World") {
+		t.Errorf("Text should contain 'Hello World', got: %s", pageOCR.Text)
+	}
+
+	// Check confidence
+	if pageOCR.Confidence == 0 {
+		t.Error("Confidence should be calculated")
 	}
 }
 
-func TestProcessImage_WithSimpleImage(t *testing.T) {
-	// Skip if Tesseract is not installed
-	if !isTesseractInstalled() {
-		t.Skip("Tesseract not installed, skipping integration test")
-	}
+func TestProcessImage_EmptyResult(t *testing.T) {
+	// Create mock Ollama server that returns empty results
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := map[string]interface{}{
+			"model":      "llava",
+			"response":   `[]`,
+			"done":       true,
+			"created_at": time.Now().Format(time.RFC3339),
+		}
 
-	processor := New(&Config{})
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
 
-	// Create a simple test image with text
-	imgData := createTestImage(t, "TEST", 200, 100)
+	processor := New(&Config{
+		OllamaEndpoint: server.URL,
+		Model:          "llava",
+	})
+
+	imgData := createTestImage(t, 200, 100)
 
 	pageOCR, err := processor.ProcessImage(imgData, 1)
 	if err != nil {
 		t.Fatalf("ProcessImage() error = %v", err)
 	}
 
-	if pageOCR == nil {
-		t.Fatal("ProcessImage() returned nil result")
+	if len(pageOCR.Words) != 0 {
+		t.Errorf("expected 0 words, got %d", len(pageOCR.Words))
 	}
 
-	if pageOCR.PageNumber != 1 {
-		t.Errorf("PageNumber = %d, want 1", pageOCR.PageNumber)
-	}
-
-	// The image should have some OCR results (may vary based on Tesseract)
-	if len(pageOCR.Words) == 0 {
-		t.Log("Warning: No words detected (may be due to simple test image)")
-	}
-
-	// Text should be built
-	pageOCR.BuildText()
-	if strings.Contains(strings.ToUpper(pageOCR.Text), "TEST") {
-		t.Logf("Successfully detected text: %s", pageOCR.Text)
+	if pageOCR.Text != "" {
+		t.Errorf("expected empty text, got: %s", pageOCR.Text)
 	}
 }
 
-func TestProcessImage_InvalidImage(t *testing.T) {
-	// Skip if Tesseract is not installed
-	if !isTesseractInstalled() {
-		t.Skip("Tesseract not installed, skipping integration test")
+func TestProcessImage_OllamaError(t *testing.T) {
+	// Create mock Ollama server that returns an error
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "model not found",
+		})
+	}))
+	defer server.Close()
+
+	processor := New(&Config{
+		OllamaEndpoint: server.URL,
+		Model:          "llava",
+		MaxRetries:     0, // disable retries for faster test
+	})
+
+	imgData := createTestImage(t, 200, 100)
+
+	_, err := processor.ProcessImage(imgData, 1)
+	if err == nil {
+		t.Error("ProcessImage() should error when Ollama returns error")
 	}
 
-	processor := New(&Config{})
+	if !strings.Contains(err.Error(), "failed to generate OCR") {
+		t.Errorf("error message should mention OCR failure, got: %v", err)
+	}
+}
 
-	// Invalid image data
-	_, err := processor.ProcessImage([]byte("not an image"), 1)
+func TestProcessImage_InvalidBBox(t *testing.T) {
+	// Create mock Ollama server that returns invalid bounding box
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := map[string]interface{}{
+			"model":      "llava",
+			"response":   `[{"text":"Invalid","bbox":[50,50],"confidence":0.95}]`, // only 2 coords
+			"done":       true,
+			"created_at": time.Now().Format(time.RFC3339),
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	processor := New(&Config{
+		OllamaEndpoint: server.URL,
+		Model:          "llava",
+	})
+
+	imgData := createTestImage(t, 200, 100)
+
+	pageOCR, err := processor.ProcessImage(imgData, 1)
+	if err != nil {
+		t.Fatalf("ProcessImage() error = %v", err)
+	}
+
+	// Should skip words with invalid bounding boxes
+	if len(pageOCR.Words) != 0 {
+		t.Errorf("expected 0 words (invalid bbox should be skipped), got %d", len(pageOCR.Words))
+	}
+}
+
+func TestProcessImage_DefaultConfidence(t *testing.T) {
+	// Create mock Ollama server that returns words without confidence
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := map[string]interface{}{
+			"model":      "llava",
+			"response":   `[{"text":"Test","bbox":[50,50,100,30]}]`, // no confidence
+			"done":       true,
+			"created_at": time.Now().Format(time.RFC3339),
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	processor := New(&Config{
+		OllamaEndpoint: server.URL,
+		Model:          "llava",
+	})
+
+	imgData := createTestImage(t, 200, 100)
+
+	pageOCR, err := processor.ProcessImage(imgData, 1)
+	if err != nil {
+		t.Fatalf("ProcessImage() error = %v", err)
+	}
+
+	if len(pageOCR.Words) != 1 {
+		t.Fatalf("expected 1 word, got %d", len(pageOCR.Words))
+	}
+
+	// Should use default confidence of 80.0
+	if pageOCR.Words[0].Confidence != 80.0 {
+		t.Errorf("expected default confidence 80.0, got %f", pageOCR.Words[0].Confidence)
+	}
+}
+
+func TestProcessImageWithCustomPrompt(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := map[string]interface{}{
+			"model":      "llava",
+			"response":   `[{"text":"Custom","bbox":[10,10,50,20],"confidence":0.9}]`,
+			"done":       true,
+			"created_at": time.Now().Format(time.RFC3339),
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	processor := New(&Config{
+		OllamaEndpoint: server.URL,
+		Model:          "llava",
+	})
+
+	imgData := createTestImage(t, 200, 100)
+	customPrompt := "Extract text from this custom image."
+
+	pageOCR, err := processor.ProcessImageWithCustomPrompt(imgData, 1, customPrompt)
+	if err != nil {
+		t.Fatalf("ProcessImageWithCustomPrompt() error = %v", err)
+	}
+
+	if len(pageOCR.Words) != 1 {
+		t.Fatalf("expected 1 word, got %d", len(pageOCR.Words))
+	}
+
+	if pageOCR.Words[0].Text != "Custom" {
+		t.Errorf("expected word 'Custom', got '%s'", pageOCR.Words[0].Text)
+	}
+
+	// Verify prompt template was restored
+	if processor.promptTemplate != ocrPromptTemplate {
+		t.Error("prompt template should be restored after custom prompt use")
+	}
+}
+
+func TestHealthCheck_Success(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "" || r.URL.Path == "/" {
+			// Health check endpoint
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		if r.URL.Path == "/api/tags" {
+			// List models endpoint
+			response := map[string]interface{}{
+				"models": []map[string]interface{}{
+					{
+						"name":        "llava:latest",
+						"modified_at": time.Now().Format(time.RFC3339),
+						"size":        1234567890,
+						"digest":      "abc123",
+					},
+				},
+			}
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+	}))
+	defer server.Close()
+
+	processor := New(&Config{
+		OllamaEndpoint: server.URL,
+		Model:          "llava",
+	})
+
+	err := processor.HealthCheck()
+	if err != nil {
+		t.Errorf("HealthCheck() error = %v", err)
+	}
+}
+
+func TestHealthCheck_OllamaDown(t *testing.T) {
+	// Use invalid endpoint
+	processor := New(&Config{
+		OllamaEndpoint: "http://localhost:99999",
+		Model:          "llava",
+		MaxRetries:     0,
+	})
+
+	err := processor.HealthCheck()
 	if err == nil {
-		t.Error("ProcessImage() should error with invalid image data")
+		t.Error("HealthCheck() should error when Ollama is down")
+	}
+}
+
+func TestHealthCheck_ModelNotFound(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "" || r.URL.Path == "/" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		if r.URL.Path == "/api/tags" {
+			// Return empty model list
+			response := map[string]interface{}{
+				"models": []map[string]interface{}{},
+			}
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		if r.URL.Path == "/api/pull" {
+			// Simulate pull failure
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": "failed to pull model",
+			})
+			return
+		}
+	}))
+	defer server.Close()
+
+	processor := New(&Config{
+		OllamaEndpoint: server.URL,
+		Model:          "nonexistent",
+		MaxRetries:     0,
+	})
+
+	err := processor.HealthCheck()
+	if err == nil {
+		t.Error("HealthCheck() should error when model cannot be pulled")
+	}
+
+	if !strings.Contains(err.Error(), "not found") && !strings.Contains(err.Error(), "pull failed") {
+		t.Errorf("error should mention model not found or pull failure, got: %v", err)
+	}
+}
+
+func TestModel(t *testing.T) {
+	processor := New(&Config{
+		Model: "test-model",
+	})
+
+	if processor.Model() != "test-model" {
+		t.Errorf("Model() = %s, want test-model", processor.Model())
+	}
+}
+
+func TestParseOllamaResponse(t *testing.T) {
+	tests := []struct {
+		name        string
+		jsonResp    string
+		wantWords   int
+		wantErr     bool
+		checkFirst  bool
+		firstText   string
+		firstBBox   []int
+		firstConf   float64
+	}{
+		{
+			name:       "valid response",
+			jsonResp:   `{"words":[{"text":"Hello","bbox":[10,20,50,30],"confidence":0.95}]}`,
+			wantWords:  1,
+			wantErr:    false,
+			checkFirst: true,
+			firstText:  "Hello",
+			firstBBox:  []int{10, 20, 50, 30},
+			firstConf:  0.95,
+		},
+		{
+			name:      "empty response",
+			jsonResp:  `{"words":[]}`,
+			wantWords: 0,
+			wantErr:   false,
+		},
+		{
+			name:     "invalid JSON",
+			jsonResp: `not json`,
+			wantErr:  true,
+		},
+		{
+			name:       "multiple words",
+			jsonResp:   `{"words":[{"text":"One","bbox":[1,2,3,4],"confidence":0.9},{"text":"Two","bbox":[5,6,7,8],"confidence":0.8}]}`,
+			wantWords:  2,
+			wantErr:    false,
+			checkFirst: true,
+			firstText:  "One",
+			firstBBox:  []int{1, 2, 3, 4},
+			firstConf:  0.9,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			words, err := parseOllamaResponse(tt.jsonResp)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseOllamaResponse() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.wantErr {
+				return
+			}
+
+			if len(words) != tt.wantWords {
+				t.Errorf("got %d words, want %d", len(words), tt.wantWords)
+				return
+			}
+
+			if tt.checkFirst && len(words) > 0 {
+				word := words[0]
+				if word.Text != tt.firstText {
+					t.Errorf("first word text = %s, want %s", word.Text, tt.firstText)
+				}
+				if len(word.BBox) != len(tt.firstBBox) {
+					t.Errorf("first word bbox length = %d, want %d", len(word.BBox), len(tt.firstBBox))
+				} else {
+					for i, v := range tt.firstBBox {
+						if word.BBox[i] != v {
+							t.Errorf("first word bbox[%d] = %d, want %d", i, word.BBox[i], v)
+						}
+					}
+				}
+				if word.Confidence != tt.firstConf {
+					t.Errorf("first word confidence = %f, want %f", word.Confidence, tt.firstConf)
+				}
+			}
+		})
 	}
 }
 
 // Helper functions
 
-func isTesseractInstalled() bool {
-	// Try to create a client to check if Tesseract is available
-	client := gosseract.NewClient()
-	defer client.Close()
-
-	// Try to set a language - this will fail if Tesseract is not installed
-	err := client.SetLanguage("eng")
-	return err == nil
-}
-
-func createTestImage(t *testing.T, text string, width, height int) []byte {
+func createTestImage(t *testing.T, width, height int) []byte {
 	t.Helper()
 
 	// Create a white image
@@ -264,10 +526,6 @@ func createTestImage(t *testing.T, text string, width, height int) []byte {
 			img.Set(x, y, white)
 		}
 	}
-
-	// Note: Drawing text on the image requires a font rendering library
-	// For now, we'll create a blank image and rely on Tesseract detecting nothing
-	// A real implementation would draw the text using golang.org/x/image/font
 
 	// Encode to PNG
 	tmpDir := t.TempDir()
@@ -290,4 +548,58 @@ func createTestImage(t *testing.T, text string, width, height int) []byte {
 	}
 
 	return data
+}
+
+// Benchmark for ProcessImage
+func BenchmarkProcessImage(b *testing.B) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := map[string]interface{}{
+			"model":      "llava",
+			"response":   `[{"text":"Benchmark","bbox":[50,50,100,30],"confidence":0.95}]`,
+			"done":       true,
+			"created_at": time.Now().Format(time.RFC3339),
+		}
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	processor := New(&Config{
+		OllamaEndpoint: server.URL,
+		Model:          "llava",
+	})
+
+	imgData := createBenchmarkImage(200, 100)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := processor.ProcessImage(imgData, 1)
+		if err != nil {
+			b.Fatalf("ProcessImage() error = %v", err)
+		}
+	}
+}
+
+func createBenchmarkImage(width, height int) []byte {
+	img := image.NewRGBA(image.Rect(0, 0, width, height))
+	white := color.RGBA{255, 255, 255, 255}
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			img.Set(x, y, white)
+		}
+	}
+
+	// Use in-memory buffer for benchmark
+	var buf []byte
+	_ = png.Encode(&writerAdapter{buf: &buf}, img)
+	return buf
+}
+
+type writerAdapter struct {
+	buf *[]byte
+}
+
+func (w *writerAdapter) Write(p []byte) (n int, err error) {
+	*w.buf = append(*w.buf, p...)
+	return len(p), nil
 }
