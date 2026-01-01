@@ -61,15 +61,12 @@ The orchestrator follows this workflow for each sync operation:
    - Generate standard PDF file
 
    **c. OCR** (Optional, if enabled)
-   - Render PDF pages to images
-   - Perform OCR using Tesseract
-   - Extract text with bounding boxes and confidence scores
-   - *Note: PDF-to-image rendering not yet implemented*
-
-   **d. Enhance** (If OCR performed)
-   - Add invisible text layer to PDF
-   - Position text at OCR bounding box coordinates
-   - Makes PDF searchable without changing appearance
+   - The converter handles OCR internally when configured with `EnableOCR: true`
+   - Renders PDF pages to images at 300 DPI for optimal OCR accuracy
+   - Performs OCR using Ollama vision models (llava, mistral-small3.1, etc.)
+   - Extracts text with bounding boxes and confidence scores
+   - Adds invisible searchable text layer to PDF automatically
+   - Makes PDF searchable without changing visual appearance
 
    **e. Save**
    - Move final PDF to configured output directory

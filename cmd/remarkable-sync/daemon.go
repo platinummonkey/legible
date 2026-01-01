@@ -106,7 +106,9 @@ func runDaemon(_ *cobra.Command, _ []string) error {
 	}
 
 	conv := converter.New(&converter.Config{
-		Logger: log,
+		Logger:       log,
+		EnableOCR:    cfg.OCREnabled,
+		OCRLanguages: []string{"eng"}, // Can be extended to support multiple languages
 	})
 
 	pdfEnhancer := pdfenhancer.New(&pdfenhancer.Config{

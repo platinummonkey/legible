@@ -247,32 +247,11 @@ func (o *Orchestrator) processDocument(_ context.Context, doc rmclient.Document,
 	}
 	result.PageCount = convResult.PageCount
 
-	// Stage 3: OCR processing (if enabled and OCR processor available)
-	var ocrResults *ocr.DocumentOCR
-	if o.config.OCREnabled && o.ocrProc != nil {
-		o.logger.WithFields("document", docNum, "total", totalDocs).
-			Info("Performing OCR")
+	// Note: OCR processing is handled internally by the converter when enabled
+	// The converter will render PDF pages to images, perform OCR via Ollama,
+	// and add a searchable text layer to the PDF automatically
 
-		// TODO: Implement PDF-to-image rendering for OCR
-		// For now, we skip OCR and log a warning
-		o.logger.Warn("OCR requested but PDF-to-image rendering not yet implemented")
-	}
-
-	// Stage 4: Add text layer (if OCR was performed)
-	finalPath := pdfPath
-	if ocrResults != nil && len(ocrResults.Pages) > 0 {
-		o.logger.WithFields("document", docNum, "total", totalDocs).
-			Info("Adding OCR text layer")
-
-		enhancedPath := filepath.Join(tmpDir, fmt.Sprintf("%s_ocr.pdf", doc.ID))
-		if err := o.pdfEnhancer.AddTextLayer(pdfPath, enhancedPath, ocrResults); err != nil {
-			o.logger.WithFields("error", err).Warn("Failed to add text layer, using original PDF")
-		} else {
-			finalPath = enhancedPath
-		}
-	}
-
-	// Stage 5: Determine output path with folder structure
+	// Stage 3: Determine output path with folder structure
 	// Get the folder path for this document from reMarkable
 	folderPath, err := o.rmClient.GetFolderPath(doc.ID)
 	if err != nil {
@@ -297,8 +276,8 @@ func (o *Orchestrator) processDocument(_ context.Context, doc rmclient.Document,
 	outputFilename := fmt.Sprintf("%s.pdf", sanitizeFilename(doc.Name))
 	outputPath := filepath.Join(outputDir, outputFilename)
 
-	// Copy final PDF to output location
-	if err := copyFile(finalPath, outputPath); err != nil {
+	// Copy final PDF (with OCR text layer if enabled) to output location
+	if err := copyFile(pdfPath, outputPath); err != nil {
 		return nil, fmt.Errorf("failed to copy to output directory: %w", err)
 	}
 

@@ -104,9 +104,11 @@ func runSync(_ *cobra.Command, _ []string) error {
 		}
 	}
 
-	// Initialize converter
+	// Initialize converter with OCR support
 	conv := converter.New(&converter.Config{
-		Logger: log,
+		Logger:       log,
+		EnableOCR:    cfg.OCREnabled,
+		OCRLanguages: []string{"eng"}, // Can be extended to support multiple languages
 	})
 
 	// Initialize PDF enhancer
