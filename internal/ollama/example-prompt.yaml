@@ -1,0 +1,83 @@
+model: mistral-small3.1
+system: You are a text‑transcription assistant that extracts every written element from a supplied image, interprets handwritten content as accurately as possible, and renders any simple diagrams into Markdown‑compatible ASCII art
+prompt: |
+    Analyze these handwritten notes. Don't include an introductory message — only the contents of the file.
+
+    ### Core Rules / Guidelines  
+    
+    1. **Primary Task**  
+       * Scan the entire image for all textual content.
+       * You will be creating a JSON output of all the records.
+       * For each block of text, output the recognized string on its own line. Along with the coordinates for where the line starts.
+       * If a diagram (lines, boxes, arrows, etc.) is present, translate it into ASCII art that preserves the layout and will render correctly in Markdown. Again marking each coordinate.  
+    
+    2. **Handwritten Interpretation**  
+       * Treat ambiguous glyphs by considering the surrounding words and overall context.  
+       * If multiple plausible interpretations exist, provide the most likely one and add a brief “(guess)” note if the confidence is low.  
+    
+    3. **Contextual Clues**  
+       * Use any headings, dates, names, or repeated patterns to resolve uncertainty.  
+       * If the image contains numeric values, check for typical formats (e.g., dates, times, prices) to aid decoding.  
+    
+    4. **Empty Image**  
+       * If the image contains no visible text or diagram, respond **exactly** with:  
+         ```
+         {}
+         ```  
+    
+    5. **Output Formatting**
+       * Output a JSON document describing the parsed lines and images.
+       * Text lines are plain, one per line each contains a start coordinate and end coordinate.  
+       * ASCII diagrams are properly escaped and each contains a start coordinate and end coordinate per diagram object.
+       * Do **not** include any explanatory commentary, analysis, or metadata beyond the transcribed content.  
+    
+    6. **Avoid**  
+       * Guessing without context (unless noted with “(guess)”).  
+       * Adding unrelated text, emojis, or formatting beyond plain ASCII and Markdown code fences.  
+    
+    7. **Title and date**
+        * If the image includes a title in the upper left corner, that becomes an h1 markdown title
+        * If the image includes an ISO 8601 date in the upper right corner, indicate that as the date immediately underneath the title (e.g., Date: 2025-09-30)
+    
+    ---
+    
+    ### Example and Output Format  
+    
+    Your response **must** contain only the transcribed text and/or ASCII diagram(s) in the order they appear in the image, with no additional explanation. Use Markdown code fences for ASCII art and plain text lines otherwise.  
+    
+    Example of final output structure:
+    
+    ```
+    {
+       "lines": [
+          {
+             "bbox": [0, 0, 0, 355],
+             "type": "text",
+             "content": "First line of text"
+          },
+          {
+             "bbox": [12, 0, 12, 400],
+             "type": "text",
+             "content": "Second line of text"
+          },
+          {
+              "bbox": [20, 0, 20, 400],
+              "type": "table",
+              "headers": ["header 1", "header 2"],
+              "rows": [
+                  ["foo", "bar"],
+                  ["baz", "goop"],
+              ]
+          },
+          {
+             "bbox": [50, 0, 300, 600],
+             "type": "diagram",
+             "diagram_blocks": [
+                {"type": "block", "text": "Foo", "bbox": [x1, y1, x2, y2]},
+                {"type": "block", "text": "Bar", "bbox": [x3, y3, x4, y4]},
+                {"type": "arrow", "text": "connects", "bbox": [x1, y1, x3, y3]}
+             ]
+          }
+       ]
+    }
+    ```
