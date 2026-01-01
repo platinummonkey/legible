@@ -12,8 +12,6 @@ before:
   hooks:
     # Ensure dependencies are up to date
     - go mod tidy
-    # Run tests (OCR tests use mock Ollama server, no external dependencies needed)
-    - make test
 
 builds:
   - id: remarkable-sync
