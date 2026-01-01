@@ -27,7 +27,8 @@ prompt: |
     
     5. **Output Formatting**
        * Output a JSON document describing the parsed lines and images.
-       * Text lines are plain, one per line each contains a start coordinate and end coordinate.  
+       * Text lines are plain, one per line each contains a start coordinate and end coordinate.
+       * If a text line is just a number make sure that it is string encapsulated for json compatibility.
        * ASCII diagrams are properly escaped and each contains a start coordinate and end coordinate per diagram object.
        * Do **not** include any explanatory commentary, analysis, or metadata beyond the transcribed content.  
     
