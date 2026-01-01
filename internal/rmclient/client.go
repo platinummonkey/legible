@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/golang-jwt/jwt"
 	"github.com/google/uuid"
 	"github.com/juruen/rmapi/api"
 	"github.com/juruen/rmapi/config"
@@ -61,6 +62,79 @@ func maskToken(token string) string {
 		return "****"
 	}
 	return token[:4] + "..." + token[len(token)-4:]
+}
+
+// tokenExpirationBuffer is the time before expiration to consider a token expired
+// This prevents using tokens that are about to expire
+const tokenExpirationBuffer = 5 * time.Minute
+
+// isTokenExpired checks if a JWT token is expired or about to expire
+// Returns true if the token is expired, invalid, or expires within the buffer period
+func isTokenExpired(token string) bool {
+	if token == "" {
+		return true
+	}
+
+	// Parse token without verification (we just need to check expiration)
+	parser := jwt.Parser{}
+	claims := jwt.MapClaims{}
+	_, _, err := parser.ParseUnverified(token, claims)
+	if err != nil {
+		// If we can't parse the token, consider it expired
+		return true
+	}
+
+	// Check if exp claim exists
+	exp, ok := claims["exp"]
+	if !ok {
+		// No expiration claim, consider it expired for safety
+		return true
+	}
+
+	// Convert exp to time.Time
+	var expTime time.Time
+	switch v := exp.(type) {
+	case float64:
+		expTime = time.Unix(int64(v), 0)
+	case int64:
+		expTime = time.Unix(v, 0)
+	default:
+		// Unknown format, consider expired
+		return true
+	}
+
+	// Check if token is expired or about to expire
+	now := time.Now()
+	return now.Add(tokenExpirationBuffer).After(expTime)
+}
+
+// getTokenExpiration returns the expiration time of a JWT token
+// Returns zero time if the token is invalid or has no expiration
+func getTokenExpiration(token string) time.Time {
+	if token == "" {
+		return time.Time{}
+	}
+
+	parser := jwt.Parser{}
+	claims := jwt.MapClaims{}
+	_, _, err := parser.ParseUnverified(token, claims)
+	if err != nil {
+		return time.Time{}
+	}
+
+	exp, ok := claims["exp"]
+	if !ok {
+		return time.Time{}
+	}
+
+	switch v := exp.(type) {
+	case float64:
+		return time.Unix(int64(v), 0)
+	case int64:
+		return time.Unix(v, 0)
+	default:
+		return time.Time{}
+	}
 }
 
 // Client wraps the reMarkable cloud API for document synchronization
@@ -359,13 +433,31 @@ func (c *Client) initializeAPIClient() error {
 		"has_user_token", tokens.UserToken != "",
 	).Debug("Loaded tokens")
 
-	// If we don't have a user token or it's expired, renew it
+	// Check if we need to renew the user token (empty or expired)
 	userToken := tokens.UserToken
+	needsRenewal := false
 	if userToken == "" {
 		c.logger.Info("No user token found, need to renew from device token")
+		needsRenewal = true
+	} else if isTokenExpired(userToken) {
+		expTime := getTokenExpiration(userToken)
+		c.logger.WithFields(
+			"expiration", expTime,
+			"time_until_expiry", time.Until(expTime),
+		).Info("User token is expired or about to expire, need to renew")
+		needsRenewal = true
+	} else {
+		expTime := getTokenExpiration(userToken)
+		c.logger.WithFields(
+			"expiration", expTime,
+			"time_until_expiry", time.Until(expTime),
+		).Debug("Using existing valid user token from file")
+	}
+
+	if needsRenewal {
 		userToken, err = c.renewUserToken(tokens.DeviceToken)
 		if err != nil {
-			return fmt.Errorf("failed to get user token: %w", err)
+			return fmt.Errorf("failed to renew user token: %w", err)
 		}
 
 		// Save the new user token
@@ -374,10 +466,12 @@ func (c *Client) initializeAPIClient() error {
 		if err := tokenStore.Save(*tokens); err != nil {
 			c.logger.WithError(err).Warn("Failed to save user token to file")
 		} else {
-			c.logger.Debug("User token saved successfully")
+			expTime := getTokenExpiration(userToken)
+			c.logger.WithFields(
+				"expiration", expTime,
+				"valid_for", time.Until(expTime),
+			).Info("User token renewed and saved successfully")
 		}
-	} else {
-		c.logger.Debug("Using existing user token from file")
 	}
 
 	// Parse token to get user info and sync version
@@ -489,6 +583,68 @@ func (c *Client) IsAuthenticated() bool {
 	return c.token != ""
 }
 
+// ensureValidToken checks if the current user token is valid and renews it if necessary
+// This should be called before making API requests to prevent mid-operation token expiration
+func (c *Client) ensureValidToken() error {
+	if c.apiCtx == nil {
+		return fmt.Errorf("API client not initialized")
+	}
+
+	// Get current tokens
+	tokenStore := &jsonTokenStore{tokenPath: c.tokenPath}
+	tokens, err := tokenStore.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load tokens: %w", err)
+	}
+
+	// Check if user token needs renewal
+	if tokens.UserToken == "" || isTokenExpired(tokens.UserToken) {
+		c.logger.Info("User token expired or missing, renewing before API call")
+
+		userToken, err := c.renewUserToken(tokens.DeviceToken)
+		if err != nil {
+			return fmt.Errorf("failed to renew user token: %w", err)
+		}
+
+		// Update tokens
+		tokens.UserToken = userToken
+		if err := tokenStore.Save(*tokens); err != nil {
+			c.logger.WithError(err).Warn("Failed to save renewed token")
+		}
+
+		// Update API context with new token
+		// We need to recreate the HTTP context with the new token
+		httpClient := wrapHTTPClient(&http.Client{
+			Timeout: 60 * time.Second,
+		})
+
+		httpCtx := &transport.HttpClientCtx{
+			Client: httpClient,
+			Tokens: model.AuthTokens{
+				DeviceToken: tokens.DeviceToken,
+				UserToken:   userToken,
+			},
+		}
+
+		// Parse token to get sync version
+		userInfo, err := api.ParseToken(userToken)
+		if err != nil {
+			return fmt.Errorf("failed to parse renewed token: %w", err)
+		}
+
+		// Recreate API context
+		apiCtx, err := api.CreateApiCtx(httpCtx, userInfo.SyncVersion)
+		if err != nil {
+			return fmt.Errorf("failed to recreate API context: %w", err)
+		}
+
+		c.apiCtx = apiCtx
+		c.logger.Info("User token renewed successfully")
+	}
+
+	return nil
+}
+
 // ListDocuments lists all documents, optionally filtered by labels
 // Returns a list of Document objects representing documents in the reMarkable cloud
 func (c *Client) ListDocuments(labels []string) ([]Document, error) {
@@ -498,6 +654,11 @@ func (c *Client) ListDocuments(labels []string) ([]Document, error) {
 
 	if c.apiCtx == nil {
 		return nil, fmt.Errorf("API client not initialized, call Authenticate() first")
+	}
+
+	// Ensure token is valid before making API call
+	if err := c.ensureValidToken(); err != nil {
+		return nil, fmt.Errorf("failed to ensure valid token: %w", err)
 	}
 
 	c.logger.WithFields("labels", labels).Debug("Listing documents")
@@ -583,6 +744,11 @@ func (c *Client) GetDocumentMetadata(id string) (*Document, error) {
 		return nil, fmt.Errorf("API client not initialized, call Authenticate() first")
 	}
 
+	// Ensure token is valid before making API call
+	if err := c.ensureValidToken(); err != nil {
+		return nil, fmt.Errorf("failed to ensure valid token: %w", err)
+	}
+
 	c.logger.WithDocumentID(id).Debug("Getting document metadata")
 
 	// Get the file tree
@@ -622,6 +788,11 @@ func (c *Client) DownloadDocument(id, outputPath string) error {
 
 	if c.apiCtx == nil {
 		return fmt.Errorf("API client not initialized, call Authenticate() first")
+	}
+
+	// Ensure token is valid before making API call
+	if err := c.ensureValidToken(); err != nil {
+		return fmt.Errorf("failed to ensure valid token: %w", err)
 	}
 
 	c.logger.WithDocumentID(id).WithFields("output_path", outputPath).Info("Downloading document")
@@ -665,6 +836,11 @@ func (c *Client) GetFolderPath(documentID string) (string, error) {
 
 	if c.apiCtx == nil {
 		return "", fmt.Errorf("API client not initialized, call Authenticate() first")
+	}
+
+	// Ensure token is valid before making API call
+	if err := c.ensureValidToken(); err != nil {
+		return "", fmt.Errorf("failed to ensure valid token: %w", err)
 	}
 
 	// Get the file tree

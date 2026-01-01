@@ -1,11 +1,13 @@
 package rmclient
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/platinummonkey/remarkable-sync/internal/logger"
 )
@@ -870,3 +872,121 @@ func TestIsValidFolderName(t *testing.T) {
 // 4. Circular reference detection -> returns error
 // 5. Document not found -> returns error
 // These would be covered by integration tests or with a proper mock of api.ApiCtx and model.Filetree
+
+func TestIsTokenExpired(t *testing.T) {
+	tests := []struct {
+		name     string
+		token    string
+		expected bool
+	}{
+		{
+			name:     "empty token",
+			token:    "",
+			expected: true,
+		},
+		{
+			name:     "invalid JWT format",
+			token:    "not-a-jwt-token",
+			expected: true,
+		},
+		{
+			name:     "valid token with future expiration",
+			token:    createTestJWT(t, time.Now().Add(1*time.Hour)),
+			expected: false,
+		},
+		{
+			name:     "expired token",
+			token:    createTestJWT(t, time.Now().Add(-1*time.Hour)),
+			expected: true,
+		},
+		{
+			name:     "token expiring within buffer period",
+			token:    createTestJWT(t, time.Now().Add(2*time.Minute)),
+			expected: true,
+		},
+		{
+			name:     "token expiring just outside buffer period",
+			token:    createTestJWT(t, time.Now().Add(10*time.Minute)),
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isTokenExpired(tt.token)
+			if result != tt.expected {
+				t.Errorf("isTokenExpired() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestGetTokenExpiration(t *testing.T) {
+	tests := []struct {
+		name     string
+		token    string
+		hasTime  bool
+	}{
+		{
+			name:    "empty token",
+			token:   "",
+			hasTime: false,
+		},
+		{
+			name:    "invalid JWT format",
+			token:   "not-a-jwt-token",
+			hasTime: false,
+		},
+		{
+			name:    "valid token with expiration",
+			token:   createTestJWT(t, time.Now().Add(1*time.Hour)),
+			hasTime: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getTokenExpiration(tt.token)
+			if tt.hasTime && result.IsZero() {
+				t.Error("expected non-zero time, got zero time")
+			}
+			if !tt.hasTime && !result.IsZero() {
+				t.Error("expected zero time, got non-zero time")
+			}
+		})
+	}
+}
+
+// createTestJWT creates a simple JWT token for testing
+// Note: This is a minimal JWT for testing purposes only
+func createTestJWT(t *testing.T, expiration time.Time) string {
+	t.Helper()
+
+	// Create a simple JWT header and payload
+	header := map[string]interface{}{
+		"alg": "none",
+		"typ": "JWT",
+	}
+	payload := map[string]interface{}{
+		"exp": expiration.Unix(),
+		"sub": "test-user",
+	}
+
+	// Marshal to JSON
+	headerJSON, err := json.Marshal(header)
+	if err != nil {
+		t.Fatalf("failed to marshal header: %v", err)
+	}
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("failed to marshal payload: %v", err)
+	}
+
+	// Base64 encode (URL safe, no padding)
+	headerB64 := base64.RawURLEncoding.EncodeToString(headerJSON)
+	payloadB64 := base64.RawURLEncoding.EncodeToString(payloadJSON)
+
+	// Create JWT (header.payload.signature)
+	// For testing, we don't need a real signature
+	return headerB64 + "." + payloadB64 + "."
+}
