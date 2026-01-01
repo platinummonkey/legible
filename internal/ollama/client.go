@@ -235,12 +235,24 @@ func (c *Client) GenerateOCR(ctx context.Context, model string, imageData string
 		return nil, fmt.Errorf("failed to generate OCR: %w", err)
 	}
 
+	// Try parsing as array first (expected format)
 	var words []OCRWord
-	if err := json.Unmarshal([]byte(resp.Response), &words); err != nil {
-		return nil, fmt.Errorf("failed to parse OCR response: %w", err)
+	if err := json.Unmarshal([]byte(resp.Response), &words); err == nil {
+		return words, nil
 	}
 
-	return words, nil
+	// If that fails, try parsing as object with "words" field
+	// Some vision models wrap the array in an object despite the prompt
+	var wrappedResponse struct {
+		Words []OCRWord `json:"words"`
+	}
+	if err := json.Unmarshal([]byte(resp.Response), &wrappedResponse); err != nil {
+		// Log the actual response for debugging
+		c.logger.WithFields("response", resp.Response).Debug("Failed to parse OCR response in any format")
+		return nil, fmt.Errorf("failed to parse OCR response as array or object: %w", err)
+	}
+
+	return wrappedResponse.Words, nil
 }
 
 // ListModels lists available models

@@ -222,6 +222,17 @@ func TestClient_GenerateOCR(t *testing.T) {
 			wantErr:   false,
 		},
 		{
+			name: "wrapped object format",
+			mockBody: `{
+				"model": "llava",
+				"response": "{\"words\":[{\"text\":\"Hello\",\"bbox\":[10,20,50,30]},{\"text\":\"World\",\"bbox\":[70,20,50,30]}]}",
+				"done": true,
+				"created_at": "2025-12-31T12:00:00Z"
+			}`,
+			wantWords: 2,
+			wantErr:   false,
+		},
+		{
 			name: "invalid JSON response",
 			mockBody: `{
 				"model": "llava",
