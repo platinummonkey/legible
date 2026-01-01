@@ -28,6 +28,35 @@ type OCRWord struct {
 	Confidence float64 `json:"confidence,omitempty"`
 }
 
+// PromptConfig represents the YAML configuration for OCR prompts
+type PromptConfig struct {
+	Model  string `yaml:"model"`
+	System string `yaml:"system"`
+	Prompt string `yaml:"prompt"`
+}
+
+// StructuredOCRResponse represents the structured response from advanced OCR prompt
+type StructuredOCRResponse struct {
+	Lines []OCRLine `json:"lines"`
+}
+
+// OCRLine represents a line of text, table, or diagram from the OCR
+type OCRLine struct {
+	BBox     []int    `json:"bbox"` // [x1, y1, x2, y2]
+	Type     string   `json:"type"` // "text", "table", "diagram"
+	Content  string   `json:"content,omitempty"`
+	Headers  []string `json:"headers,omitempty"`  // for tables
+	Rows     [][]string `json:"rows,omitempty"`    // for tables
+	DiagramBlocks []DiagramBlock `json:"diagram_blocks,omitempty"` // for diagrams
+}
+
+// DiagramBlock represents a block within a diagram
+type DiagramBlock struct {
+	Type string `json:"type"` // "block", "arrow", etc.
+	Text string `json:"text"`
+	BBox []int  `json:"bbox"` // [x1, y1, x2, y2]
+}
+
 // Model represents an Ollama model
 type Model struct {
 	Name       string    `json:"name"`

@@ -3,6 +3,7 @@ package ollama
 import (
 	"bytes"
 	"context"
+	"embed"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -12,9 +13,12 @@ import (
 	"image/png"
 	"io"
 	"net/http"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/platinummonkey/remarkable-sync/internal/logger"
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -29,7 +33,13 @@ const (
 
 	// DefaultRetryDelay is the initial delay between retries
 	DefaultRetryDelay = 1 * time.Second
+
+	// DefaultPromptPath is the path to the default OCR prompt YAML
+	DefaultPromptPath = "example-prompt.yaml"
 )
+
+//go:embed example-prompt.yaml
+var promptFS embed.FS
 
 // OCRPrompt is the prompt template for OCR with bounding boxes
 const OCRPrompt = `Extract all handwritten text from this image of a reMarkable tablet note.
@@ -48,11 +58,12 @@ If no text is found, return an empty array: []`
 
 // Client is an HTTP client for the Ollama API
 type Client struct {
-	endpoint   string
-	httpClient *http.Client
-	logger     *logger.Logger
-	maxRetries int
-	retryDelay time.Duration
+	endpoint            string
+	httpClient          *http.Client
+	logger              *logger.Logger
+	maxRetries          int
+	retryDelay          time.Duration
+	useSimpleOCR        bool  // If true, skip structured OCR and use simple format
 }
 
 // ClientOption is a function that configures a Client
@@ -90,6 +101,13 @@ func WithMaxRetries(maxRetries int) ClientOption {
 func WithRetryDelay(delay time.Duration) ClientOption {
 	return func(c *Client) {
 		c.retryDelay = delay
+	}
+}
+
+// WithSimpleOCR forces the client to use simple OCR format (for testing or compatibility)
+func WithSimpleOCR(useSimple bool) ClientOption {
+	return func(c *Client) {
+		c.useSimpleOCR = useSimple
 	}
 }
 
@@ -229,7 +247,37 @@ func (c *Client) GenerateWithVision(ctx context.Context, model string, prompt st
 }
 
 // GenerateOCR performs OCR on an image using a vision model
+// Now uses the advanced structured prompt by default for better recognition
 func (c *Client) GenerateOCR(ctx context.Context, model string, imageData string) ([]OCRWord, error) {
+	// If simple OCR is forced (e.g., for testing), use it directly
+	if c.useSimpleOCR {
+		return c.generateSimpleOCR(ctx, model, imageData)
+	}
+
+	// Try loading the advanced prompt configuration
+	promptConfig, err := LoadPromptConfig("")
+	if err != nil {
+		c.logger.WithError(err).Warn("Failed to load structured prompt, falling back to simple OCR")
+		return c.generateSimpleOCR(ctx, model, imageData)
+	}
+
+	// Use structured OCR for better recognition
+	structured, err := c.GenerateStructuredOCR(ctx, imageData, promptConfig)
+	if err != nil {
+		c.logger.WithError(err).Warn("Structured OCR failed, falling back to simple OCR")
+		return c.generateSimpleOCR(ctx, model, imageData)
+	}
+
+	// Convert structured output to word-level format
+	words := ConvertStructuredToWords(structured)
+	c.logger.WithFields("lines", len(structured.Lines), "words", len(words)).
+		Debug("Converted structured OCR to word format")
+
+	return words, nil
+}
+
+// generateSimpleOCR is the original simple OCR implementation (fallback)
+func (c *Client) generateSimpleOCR(ctx context.Context, model string, imageData string) ([]OCRWord, error) {
 	resp, err := c.GenerateWithVision(ctx, model, OCRPrompt, []string{imageData})
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate OCR: %w", err)
@@ -321,4 +369,137 @@ func EncodeImageToBase64(img image.Image, format string) (string, error) {
 // EncodeBytesToBase64 encodes raw bytes to base64 string
 func EncodeBytesToBase64(data []byte) string {
 	return base64.StdEncoding.EncodeToString(data)
+}
+
+// LoadPromptConfig loads the OCR prompt configuration from a YAML file
+// If path is empty, loads the embedded default prompt
+func LoadPromptConfig(path string) (*PromptConfig, error) {
+	var data []byte
+	var err error
+
+	if path == "" {
+		// Load embedded default prompt
+		data, err = promptFS.ReadFile(DefaultPromptPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read embedded prompt: %w", err)
+		}
+	} else {
+		// Load from file system
+		data, err = os.ReadFile(path)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read prompt file: %w", err)
+		}
+	}
+
+	var config PromptConfig
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("failed to parse prompt YAML: %w", err)
+	}
+
+	return &config, nil
+}
+
+// GenerateStructuredOCR performs OCR using the advanced structured prompt
+// Returns structured OCR response with lines, tables, and diagrams
+func (c *Client) GenerateStructuredOCR(ctx context.Context, imageData string, promptConfig *PromptConfig) (*StructuredOCRResponse, error) {
+	// Use configured model or fallback to llava
+	model := promptConfig.Model
+	if model == "" {
+		model = "llava"
+	}
+
+	// Build full prompt with system message
+	fullPrompt := promptConfig.Prompt
+	if promptConfig.System != "" {
+		fullPrompt = promptConfig.System + "\n\n" + promptConfig.Prompt
+	}
+
+	resp, err := c.GenerateWithVision(ctx, model, fullPrompt, []string{imageData})
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate structured OCR: %w", err)
+	}
+
+	// Parse structured response
+	var structuredResp StructuredOCRResponse
+	if err := json.Unmarshal([]byte(resp.Response), &structuredResp); err != nil {
+		c.logger.WithFields("response", resp.Response).Debug("Failed to parse structured OCR response")
+		return nil, fmt.Errorf("failed to parse structured OCR response: %w", err)
+	}
+
+	return &structuredResp, nil
+}
+
+// ConvertStructuredToWords converts structured OCR response to word-level format
+// This allows using the advanced prompt while maintaining compatibility with existing PDF text layer code
+func ConvertStructuredToWords(structured *StructuredOCRResponse) []OCRWord {
+	var words []OCRWord
+
+	for _, line := range structured.Lines {
+		switch line.Type {
+		case "text":
+			// Split text content into words and estimate bounding boxes
+			if line.Content == "" {
+				continue
+			}
+
+			// For text lines, we have line-level bbox [x1, y1, x2, y2]
+			// Convert to word-level by splitting the content
+			textWords := strings.Fields(line.Content)
+			if len(textWords) == 0 {
+				continue
+			}
+
+			// Estimate word positions by dividing the line width
+			lineWidth := line.BBox[2] - line.BBox[0]
+			lineHeight := line.BBox[3] - line.BBox[1]
+			wordWidth := lineWidth / len(textWords)
+
+			for i, text := range textWords {
+				// Estimate word bbox: [x, y, width, height]
+				x := line.BBox[0] + (i * wordWidth)
+				y := line.BBox[1]
+				words = append(words, OCRWord{
+					Text:       text,
+					BBox:       []int{x, y, wordWidth, lineHeight},
+					Confidence: 0.85, // Default confidence for structured output
+				})
+			}
+
+		case "table":
+			// Convert table to text representation
+			// Headers
+			if len(line.Headers) > 0 {
+				headerText := strings.Join(line.Headers, " | ")
+				words = append(words, OCRWord{
+					Text:       headerText,
+					BBox:       line.BBox,
+					Confidence: 0.85,
+				})
+			}
+
+			// Rows
+			for _, row := range line.Rows {
+				rowText := strings.Join(row, " | ")
+				words = append(words, OCRWord{
+					Text:       rowText,
+					BBox:       line.BBox,
+					Confidence: 0.85,
+				})
+			}
+
+		case "diagram":
+			// Extract text from diagram blocks
+			for _, block := range line.DiagramBlocks {
+				if block.Text != "" {
+					words = append(words, OCRWord{
+						Text:       block.Text,
+						BBox:       block.BBox,
+						Confidence: 0.80, // Slightly lower for diagrams
+					})
+				}
+			}
+		}
+	}
+
+	return words
 }

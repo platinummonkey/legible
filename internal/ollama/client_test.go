@@ -252,7 +252,8 @@ func TestClient_GenerateOCR(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := NewClient(WithEndpoint(server.URL))
+			// Use simple OCR for these tests to avoid trying to load embedded YAML
+			client := NewClient(WithEndpoint(server.URL), WithSimpleOCR(true))
 			ctx := context.Background()
 
 			words, err := client.GenerateOCR(ctx, "llava", "base64data")
