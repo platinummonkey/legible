@@ -309,3 +309,4 @@ dockers_v2:
     extra_files:
       - go.mod
       - go.sum
+      - docker-entrypoint.sh
