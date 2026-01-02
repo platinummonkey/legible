@@ -141,6 +141,96 @@ func TestIdentifyDocumentsToSync(t *testing.T) {
 	}
 }
 
+func TestIdentifyDocumentsToSync_MissingLocalFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	orch := &Orchestrator{
+		config: &config.Config{
+			OutputDir: tmpDir,
+		},
+		logger: logger.Get(),
+	}
+
+	// Create a test file that exists
+	existingFilePath := filepath.Join(tmpDir, "existing.pdf")
+	if err := os.WriteFile(existingFilePath, []byte("test"), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	// Create state with documents in various states
+	currentState := state.NewSyncState()
+
+	// Doc 1: Exists in state with valid local file (should NOT sync)
+	currentState.AddDocument(&state.DocumentState{
+		ID:        "doc1",
+		Version:   1,
+		LocalPath: existingFilePath,
+	})
+
+	// Doc 2: Exists in state with missing local file (should sync)
+	missingFilePath := filepath.Join(tmpDir, "missing.pdf")
+	currentState.AddDocument(&state.DocumentState{
+		ID:        "doc2",
+		Version:   1,
+		LocalPath: missingFilePath,
+	})
+
+	// Doc 3: Exists in state with empty LocalPath (should NOT sync)
+	currentState.AddDocument(&state.DocumentState{
+		ID:        "doc3",
+		Version:   1,
+		LocalPath: "",
+	})
+
+	// API returns these documents
+	docs := []rmclient.Document{
+		{ID: "doc1", Version: 1}, // File exists
+		{ID: "doc2", Version: 1}, // File missing
+		{ID: "doc3", Version: 1}, // No local path
+	}
+
+	toSync := orch.identifyDocumentsToSync(docs, currentState)
+
+	// Should only sync doc2 (missing file)
+	if len(toSync) != 1 {
+		t.Errorf("expected 1 document to sync, got %d", len(toSync))
+	}
+
+	if len(toSync) > 0 && toSync[0].ID != "doc2" {
+		t.Errorf("expected doc2 to be synced, got %s", toSync[0].ID)
+	}
+}
+
+func TestIdentifyDocumentsToSync_MissingFileAndVersionChange(t *testing.T) {
+	tmpDir := t.TempDir()
+	orch := &Orchestrator{
+		config: &config.Config{
+			OutputDir: tmpDir,
+		},
+		logger: logger.Get(),
+	}
+
+	// Create state with a document that has both missing file AND version change
+	currentState := state.NewSyncState()
+	missingFilePath := filepath.Join(tmpDir, "missing.pdf")
+	currentState.AddDocument(&state.DocumentState{
+		ID:        "doc1",
+		Version:   1,
+		LocalPath: missingFilePath,
+	})
+
+	// API returns document with newer version
+	docs := []rmclient.Document{
+		{ID: "doc1", Version: 2}, // Both missing file and version changed
+	}
+
+	toSync := orch.identifyDocumentsToSync(docs, currentState)
+
+	// Should sync because of version change (checked first)
+	if len(toSync) != 1 {
+		t.Errorf("expected 1 document to sync, got %d", len(toSync))
+	}
+}
+
 func TestSanitizeFilename(t *testing.T) {
 	tests := []struct {
 		input    string

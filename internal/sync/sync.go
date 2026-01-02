@@ -176,6 +176,16 @@ func (o *Orchestrator) identifyDocumentsToSync(docs []rmclient.Document, current
 		// Sync if document is new or version changed
 		if docState == nil || docState.Version != doc.Version {
 			toSync = append(toSync, doc)
+			continue
+		}
+
+		// Check if local file is missing (requires resync)
+		if docState.LocalPath != "" {
+			if _, err := os.Stat(docState.LocalPath); os.IsNotExist(err) {
+				o.logger.WithFields("id", doc.ID, "path", docState.LocalPath).
+					Info("Local file missing, will re-sync")
+				toSync = append(toSync, doc)
+			}
 		}
 	}
 
