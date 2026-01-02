@@ -264,13 +264,13 @@ legible sync --config /etc/legible.yaml
 
 ## Environment Variables
 
-Configuration can also be set via environment variables with the `RMSYNC_` prefix:
+Configuration can also be set via environment variables with the `LEGIBLE_` prefix:
 
 ```bash
-export RMSYNC_OUTPUT_DIR=~/Documents/ReMarkable
-export RMSYNC_LABELS=work,personal
-export RMSYNC_LOG_LEVEL=debug
-export RMSYNC_OCR_ENABLED=true
+export LEGIBLE_OUTPUT_DIR=~/Documents/Legible
+export LEGIBLE_LABELS=work,personal
+export LEGIBLE_LOG_LEVEL=debug
+export LEGIBLE_OCR_ENABLED=true
 
 legible sync
 ```
@@ -282,18 +282,18 @@ Run as a systemd service for automatic startup:
 **`/etc/systemd/system/legible.service`:**
 ```ini
 [Unit]
-Description=reMarkable Sync Daemon
+Description=Legible Sync Daemon
 After=network.target
 
 [Service]
 Type=simple
-User=remarkable
-Group=remarkable
+User=legible
+Group=legible
 ExecStart=/usr/local/bin/legible daemon
 Restart=on-failure
 RestartSec=10s
-Environment="RMSYNC_OUTPUT_DIR=/home/legible/Documents/ReMarkable"
-Environment="RMSYNC_LABELS=work"
+Environment="LEGIBLE_OUTPUT_DIR=/home/legible/Documents/Legible"
+Environment="LEGIBLE_LABELS=work"
 
 [Install]
 WantedBy=multi-user.target
@@ -333,8 +333,8 @@ docker run -d \
   --name legible \
   -p 8080:8080 \
   -v ~/.legible.yaml:/root/.legible.yaml:ro \
-  -v ~/Documents/ReMarkable:/data/output \
-  -e RMSYNC_OUTPUT_DIR=/data/output \
+  -v ~/Documents/Legible:/data/output \
+  -e LEGIBLE_OUTPUT_DIR=/data/output \
   legible
 ```
 

@@ -175,7 +175,7 @@ func main() {
 
 	// Load configuration
 	cfg := &config.Config{
-		OutputDir:  "/home/user/remarkable-pdfs",
+		OutputDir:  "/home/user/Legible",
 		Labels:     []string{"work"},
 		OCREnabled: false,
 	}
@@ -437,13 +437,13 @@ go test -v ./internal/daemon
 
 ```ini
 [Unit]
-Description=reMarkable Sync Daemon
+Description=Legible Sync Daemon
 After=network.target
 
 [Service]
 Type=simple
-User=remarkable
-Group=remarkable
+User=legible
+Group=legible
 ExecStart=/usr/local/bin/legible daemon
 Restart=on-failure
 RestartSec=10s
