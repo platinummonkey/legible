@@ -22,7 +22,7 @@ GOINSTALL=$(GOCMD) install
 export CGO_ENABLED=0
 
 # Build directory
-BUILD_DIR=./bin
+BUILD_DIR=./dist
 
 all: lint test build-local
 
@@ -38,13 +38,13 @@ build-local: ## Build binary for current platform using goreleaser (recommended)
 	@echo "Building with goreleaser for current platform..."
 	@which goreleaser > /dev/null || (echo "goreleaser not found. Install from https://goreleaser.com/install/" && exit 1)
 	goreleaser build --snapshot --clean --single-target
-	@echo "Binary available in dist/$(BINARY_NAME)_*/$(BINARY_NAME)"
+	@echo "Binary available in ${BUILD_DIR}/$(BINARY_NAME)_*/$(BINARY_NAME)"
 
 build-all: ## Build for all platforms using goreleaser
 	@echo "Building for all platforms with goreleaser..."
 	@which goreleaser > /dev/null || (echo "goreleaser not found. Install from https://goreleaser.com/install/" && exit 1)
 	goreleaser build --snapshot --clean
-	@echo "Binaries available in dist/$(BINARY_NAME)_*/"
+	@echo "Binaries available in ${BUILD_DIR}/$(BINARY_NAME)_*/"
 
 build-release: ## Create a release build (requires git tag)
 	@echo "Creating release build..."
