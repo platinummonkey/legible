@@ -86,11 +86,6 @@ sboms:
     documents:
       - "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}.sbom.spdx.json"
 
-  - id: binary
-    artifacts: binary
-    documents:
-      - "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}.sbom.spdx.json"
-
   - id: source
     artifacts: source
     documents:
