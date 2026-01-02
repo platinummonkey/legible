@@ -108,57 +108,6 @@ func TestNew_MissingDependencies(t *testing.T) {
 	}
 }
 
-func TestFilterDocumentsByLabels(t *testing.T) {
-	tmpDir := t.TempDir()
-	orch := &Orchestrator{
-		config: &config.Config{
-			OutputDir: tmpDir,
-			Labels:    []string{"work", "personal"},
-		},
-		logger: logger.Get(),
-	}
-
-	docs := []rmclient.Document{
-		{ID: "1", Name: "Work Doc"},
-		{ID: "2", Name: "Personal Doc"},
-		{ID: "3", Name: "Project Doc"},
-		{ID: "4", Name: "Mixed Doc"},
-	}
-
-	filtered := orch.filterDocumentsByLabels(docs)
-
-	// NOTE: With the new API, label filtering happens at the ListDocuments level,
-	// so this function now returns all documents passed to it.
-	// The API itself handles the filtering before documents are returned.
-	if len(filtered) != len(docs) {
-		t.Errorf("expected %d documents, got %d", len(docs), len(filtered))
-	}
-}
-
-func TestFilterDocumentsByLabels_NoFilter(t *testing.T) {
-	tmpDir := t.TempDir()
-	orch := &Orchestrator{
-		config: &config.Config{
-			OutputDir: tmpDir,
-			Labels:    []string{}, // No filter
-		},
-		logger: logger.Get(),
-	}
-
-	docs := []rmclient.Document{
-		{ID: "1", Name: "Doc 1"},
-		{ID: "2", Name: "Doc 2"},
-		{ID: "3", Name: "Doc 3"},
-	}
-
-	filtered := orch.filterDocumentsByLabels(docs)
-
-	// Should return all documents when no filter is configured
-	if len(filtered) != len(docs) {
-		t.Errorf("expected %d documents, got %d", len(docs), len(filtered))
-	}
-}
-
 func TestIdentifyDocumentsToSync(t *testing.T) {
 	tmpDir := t.TempDir()
 	orch := &Orchestrator{

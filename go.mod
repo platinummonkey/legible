@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/uuid v1.6.0
-	github.com/juruen/rmapi v0.0.32
+	github.com/juruen/rmapi v0.0.33-0.20251207224306-73b296193503
 	github.com/pdfcpu/pdfcpu v0.11.1
 	github.com/signintech/gopdf v0.34.0
 	github.com/spf13/cobra v1.10.2
@@ -61,4 +61,4 @@ require (
 )
 
 // Use active fork maintained by ddvk instead of archived upstream
-replace github.com/juruen/rmapi => github.com/ddvk/rmapi v0.0.32
+replace github.com/juruen/rmapi => github.com/ddvk/rmapi v0.0.33-0.20251207224306-73b296193503

@@ -24,6 +24,9 @@ type Document struct {
 
 	// Parent is the ID of the parent collection (empty string for root)
 	Parent string
+
+	// Tags is the list of tags applied to this document
+	Tags []string
 }
 
 // Metadata represents document metadata from .metadata files

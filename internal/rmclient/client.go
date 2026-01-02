@@ -710,11 +710,35 @@ func (c *Client) collectDocuments(node *model.Node, labels []string, documents *
 	if node.IsFile() && node.Document != nil {
 		doc := node.Document
 
-		// Note: Label filtering not yet implemented.
-		// rmapi doesn't directly expose labels/tags in the Document model.
-		// Labels would need to be checked via metadata or parent folder names.
-		// TODO: Implement proper label filtering when metadata structure is clarified.
-		_ = labels // Avoid unused parameter warning for now
+		// If label filters are specified, check if document has matching tags
+		if len(labels) > 0 {
+			hasMatchingTag := false
+			for _, label := range labels {
+				for _, tag := range doc.Tags {
+					if tag == label {
+						hasMatchingTag = true
+						break
+					}
+				}
+				if hasMatchingTag {
+					break
+				}
+			}
+
+			// Skip this document if it doesn't have any matching tags
+			if !hasMatchingTag {
+				c.logger.WithFields("id", doc.ID, "name", doc.Name, "tags", doc.Tags).
+					Debug("Skipping document without matching tags")
+				// Still process children (for collections)
+				for _, child := range node.Children {
+					c.collectDocuments(child, labels, documents)
+				}
+				return
+			}
+		}
+
+		c.logger.WithFields("id", doc.ID, "name", doc.Name, "tags", doc.Tags).
+			Debug("Including document")
 
 		*documents = append(*documents, Document{
 			ID:             doc.ID,
@@ -724,6 +748,7 @@ func (c *Client) collectDocuments(node *model.Node, labels []string, documents *
 			ModifiedClient: parseTime(doc.ModifiedClient),
 			Parent:         doc.Parent,
 			CurrentPage:    doc.CurrentPage,
+			Tags:           doc.Tags,
 		})
 	}
 
@@ -777,6 +802,7 @@ func (c *Client) GetDocumentMetadata(id string) (*Document, error) {
 		ModifiedClient: parseTime(doc.ModifiedClient),
 		Parent:         doc.Parent,
 		CurrentPage:    doc.CurrentPage,
+		Tags:           doc.Tags,
 	}, nil
 }
 

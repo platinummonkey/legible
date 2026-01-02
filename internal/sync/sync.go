@@ -85,30 +85,31 @@ func (o *Orchestrator) Sync(ctx context.Context) (*Result, error) {
 
 	result := NewResult()
 
-	// Step 1: List documents from API
+	// Step 1: List documents from API (already filtered by labels in rmClient)
 	o.logger.Info("Listing documents from reMarkable API")
 	docs, err := o.rmClient.ListDocuments(o.config.Labels)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list documents: %w", err)
 	}
-	o.logger.WithFields("count", len(docs)).Info("Retrieved documents from API")
 
-	// Step 2: Filter by labels if configured
-	filteredDocs := o.filterDocumentsByLabels(docs)
-	o.logger.WithFields("original", len(docs), "filtered", len(filteredDocs)).
-		Info("Filtered documents by labels")
+	if len(o.config.Labels) > 0 {
+		o.logger.WithFields("count", len(docs), "labels", o.config.Labels).
+			Info("Retrieved and filtered documents from API")
+	} else {
+		o.logger.WithFields("count", len(docs)).Info("Retrieved documents from API")
+	}
 
-	// Step 3: Load current sync state
+	// Step 2: Load current sync state
 	if err := o.stateStore.Load(); err != nil {
 		o.logger.WithFields("error", err).Warn("Failed to load state, starting fresh")
 	}
 	currentState := o.stateStore.GetState()
 
-	// Step 4: Identify new/changed documents
-	docsToSync := o.identifyDocumentsToSync(filteredDocs, currentState)
+	// Step 3: Identify new/changed documents
+	docsToSync := o.identifyDocumentsToSync(docs, currentState)
 	o.logger.WithFields("count", len(docsToSync)).Info("Identified documents to sync")
 
-	// Step 5: Process each document
+	// Step 4: Process each document
 	for i, doc := range docsToSync {
 		docNum := i + 1
 		totalDocs := len(docsToSync)
@@ -148,9 +149,9 @@ func (o *Orchestrator) Sync(ctx context.Context) (*Result, error) {
 		}
 	}
 
-	// Step 6: Finalize result
+	// Step 5: Finalize result
 	result.Duration = time.Since(startTime)
-	result.TotalDocuments = len(filteredDocs)
+	result.TotalDocuments = len(docs)
 	result.ProcessedDocuments = len(docsToSync)
 
 	o.logger.WithFields(
@@ -162,35 +163,6 @@ func (o *Orchestrator) Sync(ctx context.Context) (*Result, error) {
 	).Info("Sync workflow completed")
 
 	return result, nil
-}
-
-// filterDocumentsByLabels filters documents by configured labels
-func (o *Orchestrator) filterDocumentsByLabels(docs []rmclient.Document) []rmclient.Document {
-	// If no label filters configured, return all documents
-	if len(o.config.Labels) == 0 {
-		return docs
-	}
-
-	// Build label filter map for fast lookup
-	labelFilter := make(map[string]bool)
-	for _, label := range o.config.Labels {
-		labelFilter[label] = true
-	}
-
-	// Filter documents
-	var filtered []rmclient.Document
-	for _, doc := range docs {
-		// TODO: Document labels are not available in the current API
-		// The API now filters by labels at the ListDocuments call level
-		// For now, accept all documents returned by the API
-		hasMatchingLabel := true
-
-		if hasMatchingLabel {
-			filtered = append(filtered, doc)
-		}
-	}
-
-	return filtered
 }
 
 // identifyDocumentsToSync compares API documents with state to find new/changed documents
