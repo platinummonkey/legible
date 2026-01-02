@@ -31,13 +31,13 @@ services:
     # Volumes for persistent data
     volumes:
       # reMarkable API credentials (created during auth)
-      - ./credentials:/home/remarkable/.rmapi
+      - ./credentials:/home/legible/.rmapi
 
       # Output directory for synced documents
       - ./output:/output
 
       # Ollama models cache (persists downloaded models)
-      - ollama-models:/home/remarkable/.ollama/models
+      - ollama-models:/home/legible/.ollama/models
 
     # Environment variables for Ollama configuration
     environment:
@@ -108,7 +108,7 @@ volumes:
 #       - OLLAMA_HOST=http://ollama:11434
 #       - OCR_MODEL=llava
 #     volumes:
-#       - ./credentials:/home/remarkable/.rmapi
+#       - ./credentials:/home/legible/.rmapi
 #       - ./output:/output
 #     command: >
 #       daemon
@@ -130,9 +130,9 @@ volumes:
 #     environment:
 #       - OCR_MODEL=mistral-small3.1
 #     volumes:
-#       - ./credentials:/home/remarkable/.rmapi
+#       - ./credentials:/home/legible/.rmapi
 #       - ./output:/output
-#       - ollama-models:/home/remarkable/.ollama/models
+#       - ollama-models:/home/legible/.ollama/models
 #     deploy:
 #       resources:
 #         limits:
@@ -159,12 +159,12 @@ volumes:
 #     environment:
 #       - OCR_MODEL=mistral-small3.1
 #     volumes:
-#       - ./credentials:/home/remarkable/.rmapi
+#       - ./credentials:/home/legible/.rmapi
 #       - ./output:/output
 #       # Mount host Ollama models (adjust path for your OS)
 #       # macOS/Linux: ~/.ollama/models
 #       # Windows: %USERPROFILE%\.ollama\models
-#       - ~/.ollama/models:/home/remarkable/.ollama/models:ro  # :ro = read-only
+#       - ~/.ollama/models:/home/legible/.ollama/models:ro  # :ro = read-only
 #     command: >
 #       daemon
 #       --interval 1h
@@ -180,9 +180,9 @@ volumes:
 #     environment:
 #       - OCR_MODEL=llava
 #     volumes:
-#       - ./credentials:/home/remarkable/.rmapi
+#       - ./credentials:/home/legible/.rmapi
 #       - ./output:/output
-#       - ollama-models:/home/remarkable/.ollama/models
+#       - ollama-models:/home/legible/.ollama/models
 #     command: >
 #       daemon
 #       --interval 1h
@@ -201,9 +201,9 @@ volumes:
 #     environment:
 #       - OCR_MODEL=llava
 #     volumes:
-#       - ./credentials:/home/remarkable/.rmapi
+#       - ./credentials:/home/legible/.rmapi
 #       - ./output:/output
-#       - ollama-models:/home/remarkable/.ollama/models
+#       - ollama-models:/home/legible/.ollama/models
 #     command: >
 #       daemon
 #       --interval 1h

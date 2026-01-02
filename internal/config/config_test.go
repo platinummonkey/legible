@@ -13,8 +13,8 @@ func TestLoad_Defaults(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Set environment variable for output dir to avoid creating in actual home
-	t.Setenv("REMARKABLE_SYNC_OUTPUT_DIR", tmpDir)
-	t.Setenv("REMARKABLE_SYNC_STATE_FILE", filepath.Join(tmpDir, "state.json"))
+	t.Setenv("LEGIBLE_OUTPUT_DIR", tmpDir)
+	t.Setenv("LEGIBLE_STATE_FILE", filepath.Join(tmpDir, "state.json"))
 
 	cfg, err := Load("")
 	if err != nil {
@@ -45,12 +45,12 @@ func TestLoad_Defaults(t *testing.T) {
 func TestLoad_EnvironmentVariables(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	t.Setenv("REMARKABLE_SYNC_OUTPUT_DIR", tmpDir)
-	t.Setenv("REMARKABLE_SYNC_STATE_FILE", filepath.Join(tmpDir, "state.json"))
-	t.Setenv("REMARKABLE_SYNC_OCR_ENABLED", "false")
-	t.Setenv("REMARKABLE_SYNC_OCR_LANGUAGES", "fra")
-	t.Setenv("REMARKABLE_SYNC_LOG_LEVEL", "debug")
-	t.Setenv("REMARKABLE_SYNC_LABELS", "work,personal")
+	t.Setenv("LEGIBLE_OUTPUT_DIR", tmpDir)
+	t.Setenv("LEGIBLE_STATE_FILE", filepath.Join(tmpDir, "state.json"))
+	t.Setenv("LEGIBLE_OCR_ENABLED", "false")
+	t.Setenv("LEGIBLE_OCR_LANGUAGES", "fra")
+	t.Setenv("LEGIBLE_LOG_LEVEL", "debug")
+	t.Setenv("LEGIBLE_LABELS", "work,personal")
 
 	cfg, err := Load("")
 	if err != nil {

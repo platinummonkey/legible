@@ -45,15 +45,15 @@ docker volume create ollama-models
 
 # Authenticate (one-time)
 docker run --rm -it \
-  -v remarkable-credentials:/home/remarkable/.rmapi \
+  -v remarkable-credentials:/home/legible/.rmapi \
   ghcr.io/platinummonkey/legible:latest auth
 
 # Run daemon
 docker run -d \
   --name legible \
-  -v remarkable-credentials:/home/remarkable/.rmapi \
+  -v remarkable-credentials:/home/legible/.rmapi \
   -v ./output:/output \
-  -v ollama-models:/home/remarkable/.ollama/models \
+  -v ollama-models:/home/legible/.ollama/models \
   -e OCR_MODEL=llava \
   ghcr.io/platinummonkey/legible:latest \
   daemon --interval 1h --output /output
@@ -69,7 +69,7 @@ Configure Ollama and OCR behavior with these environment variables:
 |----------|---------|-------------|
 | `OLLAMA_HOST` | `http://localhost:11434` | Ollama API endpoint |
 | `OCR_MODEL` | `llava` | Vision model for OCR (llava, mistral, etc.) |
-| `OLLAMA_MODELS` | `/home/remarkable/.ollama/models` | Model storage directory |
+| `OLLAMA_MODELS` | `/home/legible/.ollama/models` | Model storage directory |
 
 ### Volumes
 
@@ -77,9 +77,9 @@ Mount these volumes for persistent data:
 
 | Volume | Purpose | Required |
 |--------|---------|----------|
-| `/home/remarkable/.rmapi` | reMarkable credentials | Yes |
+| `/home/legible/.rmapi` | reMarkable credentials | Yes |
 | `/output` | Synced PDFs output | Yes |
-| `/home/remarkable/.ollama/models` | Ollama models cache | No (but recommended) |
+| `/home/legible/.ollama/models` | Ollama models cache | No (but recommended) |
 
 ## OCR Models
 
@@ -143,7 +143,7 @@ services:
       - OLLAMA_HOST=http://ollama:11434
       - OCR_MODEL=llava
     volumes:
-      - ./credentials:/home/remarkable/.rmapi
+      - ./credentials:/home/legible/.rmapi
       - ./output:/output
     command: daemon --interval 1h --output /output
 
@@ -208,9 +208,9 @@ docker build -t legible:local .
 
 # Run your local build
 docker run -d \
-  -v ./credentials:/home/remarkable/.rmapi \
+  -v ./credentials:/home/legible/.rmapi \
   -v ./output:/output \
-  -v ollama-models:/home/remarkable/.ollama/models \
+  -v ollama-models:/home/legible/.ollama/models \
   legible:local \
   daemon --interval 1h --output /output
 ```
@@ -302,7 +302,7 @@ docker exec legible whoami
 
 ### Credential Storage
 
-reMarkable API credentials are stored in `/home/remarkable/.rmapi`:
+reMarkable API credentials are stored in `/home/legible/.rmapi`:
 
 - **Mount as volume**: Credentials persist across container restarts
 - **Keep private**: Don't commit credentials to version control
@@ -352,7 +352,7 @@ Monitor disk usage for Ollama models:
 
 ```bash
 # Check model sizes
-docker exec legible du -sh /home/remarkable/.ollama/models/*
+docker exec legible du -sh /home/legible/.ollama/models/*
 
 # Clean up unused models
 docker exec legible ollama rm old-model-name

@@ -54,9 +54,9 @@ state-file: ~/.legible-state.json
 log-level: info
 
 # reMarkable API authentication token
-# WARNING: Keep this secure! Better to use REMARKABLE_SYNC_REMARKABLE_TOKEN env var
+# WARNING: Keep this secure! Better to use LEGIBLE_API_TOKEN env var
 # Default: ""
-remarkable-token: ""
+api-token: ""
 
 # Enable daemon mode for continuous sync operation
 # Requires sync-interval > 0

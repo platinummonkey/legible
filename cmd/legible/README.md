@@ -67,7 +67,7 @@ legible sync [flags]
 
 **Flags:**
 ```
---output string       Output directory for PDFs (default: ~/ReMarkable)
+--output string       Output directory for PDFs (default: ~/Legible)
 --labels strings      Filter documents by labels (comma-separated)
 --no-ocr              Disable OCR processing
 --force               Force re-sync all documents (ignore state)
@@ -292,7 +292,7 @@ Group=remarkable
 ExecStart=/usr/local/bin/legible daemon
 Restart=on-failure
 RestartSec=10s
-Environment="RMSYNC_OUTPUT_DIR=/home/remarkable/Documents/ReMarkable"
+Environment="RMSYNC_OUTPUT_DIR=/home/legible/Documents/ReMarkable"
 Environment="RMSYNC_LABELS=work"
 
 [Install]

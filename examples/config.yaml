@@ -72,7 +72,7 @@ state-file: ~/.legible/state.json
 # reMarkable authentication token (leave empty to use default location)
 # Token is automatically generated during 'legible auth'
 # Default: ~/.legible/token.json
-remarkable-token: ""
+api-token: ""
 
 # Daemon mode flag (set to true to enable daemon mode)
 # When true, runs continuously with sync-interval between syncs
@@ -133,13 +133,13 @@ daemon-mode: false
 # Environment Variables
 # ---
 # All config options can be overridden with environment variables
-# using the REMARKABLE_SYNC_ prefix and uppercased names:
+# using the LEGIBLE_ prefix and uppercased names:
 #
-# export REMARKABLE_SYNC_OUTPUT_DIR=~/Documents/remarkable
-# export REMARKABLE_SYNC_LABELS=work,personal
-# export REMARKABLE_SYNC_OCR_ENABLED=false
-# export REMARKABLE_SYNC_LOG_LEVEL=debug
-# export REMARKABLE_SYNC_SYNC_INTERVAL=15m
+# export LEGIBLE_OUTPUT_DIR=~/Legible
+# export LEGIBLE_LABELS=work,personal
+# export LEGIBLE_OCR_ENABLED=false
+# export LEGIBLE_LOG_LEVEL=debug
+# export LEGIBLE_SYNC_INTERVAL=15m
 
 # ---
 # Notes

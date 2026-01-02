@@ -111,7 +111,7 @@ Tests that load configuration from files and verify component behavior:
 ```go
 configPath := filepath.Join(tmpDir, "config.yaml")
 os.WriteFile(configPath, []byte(configYAML), 0644)
-os.Setenv("REMARKABLE_SYNC_CONFIG", configPath)
+os.Setenv("LEGIBLE_CONFIG", configPath)
 cfg, _ := config.Load()
 ```
 

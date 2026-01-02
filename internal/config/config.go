@@ -75,7 +75,7 @@ func Load(configFile string) (*Config, error) {
 	}
 
 	// Enable environment variable support
-	v.SetEnvPrefix("REMARKABLE_SYNC")
+	v.SetEnvPrefix("LEGIBLE")
 	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	v.AutomaticEnv()
 
@@ -89,7 +89,7 @@ func Load(configFile string) (*Config, error) {
 		StateFile:       v.GetString("state-file"),
 		TesseractPath:   v.GetString("tesseract-path"),
 		LogLevel:        v.GetString("log-level"),
-		RemarkableToken: v.GetString("remarkable-token"),
+		RemarkableToken: v.GetString("api-token"),
 		DaemonMode:      v.GetBool("daemon-mode"),
 	}
 
@@ -120,7 +120,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("state-file", defaultStateFile)
 	v.SetDefault("tesseract-path", "")
 	v.SetDefault("log-level", "info")
-	v.SetDefault("remarkable-token", "")
+	v.SetDefault("api-token", "")
 	v.SetDefault("daemon-mode", false)
 }
 

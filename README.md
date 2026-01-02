@@ -89,9 +89,9 @@ ollama pull mistral-small3.1
 
 # Then mount your host's Ollama models directory when running the container
 docker run --rm \
-  -v $HOME/.rmapi:/home/remarkable/.rmapi \
+  -v $HOME/.rmapi:/home/legible/.rmapi \
   -v $PWD/output:/output \
-  -v $HOME/.ollama/models:/home/remarkable/.ollama/models:ro \
+  -v $HOME/.ollama/models:/home/legible/.ollama/models:ro \
   -e OCR_MODEL=mistral-small3.1 \
   ghcr.io/platinummonkey/legible:latest sync --output /output
 ```
@@ -167,7 +167,7 @@ legible daemon --interval 10m --health-addr :8080
 
 ```bash
 docker run --rm -it \
-  -v $HOME/.rmapi:/home/remarkable/.rmapi \
+  -v $HOME/.rmapi:/home/legible/.rmapi \
   ghcr.io/platinummonkey/legible:latest auth
 ```
 
@@ -175,7 +175,7 @@ docker run --rm -it \
 
 ```bash
 docker run --rm \
-  -v $HOME/.rmapi:/home/remarkable/.rmapi \
+  -v $HOME/.rmapi:/home/legible/.rmapi \
   -v $PWD/output:/output \
   ghcr.io/platinummonkey/legible:latest sync --output /output
 ```
@@ -184,7 +184,7 @@ docker run --rm \
 
 ```bash
 docker run --rm \
-  -v $HOME/.rmapi:/home/remarkable/.rmapi \
+  -v $HOME/.rmapi:/home/legible/.rmapi \
   -v $PWD/output:/output \
   ghcr.io/platinummonkey/legible:latest sync \
     --output /output \
@@ -196,7 +196,7 @@ docker run --rm \
 ```bash
 docker run -d \
   --name legible \
-  -v $HOME/.rmapi:/home/remarkable/.rmapi \
+  -v $HOME/.rmapi:/home/legible/.rmapi \
   -v $PWD/output:/output \
   ghcr.io/platinummonkey/legible:latest daemon \
     --interval 30m \
@@ -216,7 +216,7 @@ services:
     container_name: legible
     restart: unless-stopped
     volumes:
-      - ./credentials:/home/remarkable/.rmapi
+      - ./credentials:/home/legible/.rmapi
       - ./output:/output
     command: daemon --interval 1h --output /output
 ```
@@ -233,7 +233,7 @@ docker-compose up -d
 legible sync [flags]
 
 Flags:
-  --output string      Output directory (default: ~/ReMarkable)
+  --output string      Output directory (default: ~/Legible)
   --labels strings     Filter by labels (comma-separated)
   --no-ocr            Skip OCR processing
   --force             Force re-sync all documents
@@ -322,7 +322,7 @@ legible sync --log-level debug --force
 legible sync --output ~/Dropbox/ReMarkable
 
 # Use config file for consistent setup
-legible --config ~/.remarkable-work.yaml sync
+legible --config ~/.legible-work.yaml sync
 ```
 
 ## How It Works
@@ -389,10 +389,10 @@ state-file: ~/.legible/state.json
 **Environment variables:**
 
 ```bash
-export REMARKABLE_SYNC_OUTPUT_DIR=~/Documents/remarkable
-export REMARKABLE_SYNC_LABELS=work,personal
-export REMARKABLE_SYNC_OCR_ENABLED=false
-export REMARKABLE_SYNC_LOG_LEVEL=debug
+export LEGIBLE_OUTPUT_DIR=~/Documents/remarkable
+export LEGIBLE_LABELS=work,personal
+export LEGIBLE_OCR_ENABLED=false
+export LEGIBLE_LOG_LEVEL=debug
 ```
 
 See [examples/config.yaml](examples/config.yaml) for a complete configuration template.

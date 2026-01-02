@@ -165,7 +165,7 @@ legible sync --labels work
 legible sync --labels "work,personal,meetings"
 
 # Use config file for consistent labels
-legible --config ~/.remarkable-work.yaml sync
+legible --config ~/.legible-work.yaml sync
 ```
 
 ### Daemon Mode
@@ -224,7 +224,7 @@ log-level: info
 
 ### Work Documents Only
 
-**File:** `~/.remarkable-work.yaml`
+**File:** `~/.legible-work.yaml`
 
 ```yaml
 output-dir: ~/work-documents
@@ -240,7 +240,7 @@ log-level: info
 
 ### Fast Backup (No OCR)
 
-**File:** `~/.remarkable-backup.yaml`
+**File:** `~/.legible-backup.yaml`
 
 ```yaml
 output-dir: ~/remarkable-backup
@@ -251,7 +251,7 @@ log-level: warn
 
 ### Multi-language OCR
 
-**File:** `~/.remarkable-multilang.yaml`
+**File:** `~/.legible-multilang.yaml`
 
 ```yaml
 output-dir: ~/Documents/remarkable

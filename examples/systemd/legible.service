@@ -1,5 +1,5 @@
 [Unit]
-Description=reMarkable Sync Daemon
+Description=Legible Sync Daemon
 Documentation=https://github.com/platinummonkey/legible
 After=network-online.target
 Wants=network-online.target
@@ -20,8 +20,8 @@ ExecStart=/usr/local/bin/legible daemon --interval 10m --health-addr :8080
 WorkingDirectory=/home/%i
 
 # Environment variables (optional)
-# Environment="REMARKABLE_SYNC_OUTPUT_DIR=/home/%i/Documents/remarkable"
-# Environment="REMARKABLE_SYNC_LOG_LEVEL=info"
+# Environment="LEGIBLE_OUTPUT_DIR=/home/%i/Documents/Legible"
+# Environment="LEGIBLE_LOG_LEVEL=info"
 
 # Restart policy
 Restart=on-failure
@@ -33,7 +33,7 @@ PrivateTmp=true
 NoNewPrivileges=true
 # ProtectSystem=strict
 # ProtectHome=read-only
-# ReadWritePaths=/home/%i/Documents/remarkable /home/%i/.legible
+# ReadWritePaths=/home/%i/Documents/Legible /home/%i/.legible
 
 # Resource limits (optional)
 # Limit CPU usage (100% = 1 core, 200% = 2 cores)

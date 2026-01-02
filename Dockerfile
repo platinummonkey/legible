@@ -16,11 +16,11 @@ RUN apk add --no-cache \
 RUN curl -fsSL https://ollama.ai/install.sh | sh
 
 # Create non-root user
-RUN adduser -D -u 1000 -h /home/remarkable remarkable
+RUN adduser -D -u 1000 -h /home/legible legible
 
 # Create directories with correct permissions
-RUN mkdir -p /home/remarkable/.rmapi /home/remarkable/.ollama/models /output && \
-    chown -R remarkable:remarkable /home/remarkable /output
+RUN mkdir -p /home/legible/.rmapi /home/legible/.ollama/models /output && \
+    chown -R legible:legible /home/legible /output
 
 # Copy pre-built binary from GoReleaser build context
 # $TARGETPLATFORM is provided by Docker buildx (e.g., linux/amd64, linux/arm64)
@@ -37,12 +37,12 @@ COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Switch to non-root user
-USER remarkable
-WORKDIR /home/remarkable
+USER legible
+WORKDIR /home/legible
 
 # Environment variables for Ollama configuration
 ENV OLLAMA_HOST=http://localhost:11434
-ENV OLLAMA_MODELS=/home/remarkable/.ollama/models
+ENV OLLAMA_MODELS=/home/legible/.ollama/models
 
 # Pre-download OCR model (controlled by OCR_MODEL build arg)
 # This increases image size but avoids download on first run
@@ -57,13 +57,13 @@ RUN if [ "$OCR_MODEL" != "none" ]; then \
         kill $OLLAMA_PID && \
         wait $OLLAMA_PID 2>/dev/null || true; \
     fi
-USER remarkable
+USER legible
 
 # Set the OCR_MODEL environment variable to the build arg value
 ENV OCR_MODEL=$OCR_MODEL
 
 # Set up volumes
-VOLUME ["/home/remarkable/.rmapi", "/home/remarkable/.ollama/models", "/output"]
+VOLUME ["/home/legible/.rmapi", "/home/legible/.ollama/models", "/output"]
 
 # Health check for Ollama service
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \

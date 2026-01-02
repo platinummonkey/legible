@@ -172,12 +172,12 @@ func loadConfig() (*config.Config, error) {
 	// Get output directory
 	outputDir := viper.GetString("output_dir")
 	if outputDir == "" {
-		// Default to ~/ReMarkable
+		// Default to ~/Legible
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get home directory: %w", err)
 		}
-		outputDir = filepath.Join(home, "ReMarkable")
+		outputDir = filepath.Join(home, "Legible")
 	}
 
 	// Ensure output directory exists
