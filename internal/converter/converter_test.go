@@ -444,7 +444,7 @@ func TestConvertRmdoc_PDFMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open PDF: %v", err)
 	}
-	defer pdfFile.Close()
+	defer func() { _ = pdfFile.Close() }()
 
 	pdfInfo, err := api.PDFInfo(pdfFile, outputPath, nil, false, model.NewDefaultConfiguration())
 	if err != nil {

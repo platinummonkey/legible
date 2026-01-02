@@ -72,6 +72,7 @@ func TestNew_CustomEndpoint(t *testing.T) {
 	}
 }
 
+//nolint:gocyclo // Test function with multiple validation steps
 func TestProcessImage_Success(t *testing.T) {
 	// Create mock Ollama server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -84,14 +85,14 @@ func TestProcessImage_Success(t *testing.T) {
 
 		// Mock OCR response
 		response := map[string]interface{}{
-			"model":    "llava",
-			"response": `[{"text":"Hello","bbox":[50,50,100,30],"confidence":0.95},{"text":"World","bbox":[160,50,100,30],"confidence":0.92}]`,
-			"done":     true,
+			"model":      "llava",
+			"response":   `[{"text":"Hello","bbox":[50,50,100,30],"confidence":0.95},{"text":"World","bbox":[160,50,100,30],"confidence":0.92}]`,
+			"done":       true,
 			"created_at": time.Now().Format(time.RFC3339),
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
@@ -153,7 +154,7 @@ func TestProcessImage_Success(t *testing.T) {
 
 func TestProcessImage_EmptyResult(t *testing.T) {
 	// Create mock Ollama server that returns empty results
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := map[string]interface{}{
 			"model":      "llava",
 			"response":   `[]`,
@@ -162,7 +163,7 @@ func TestProcessImage_EmptyResult(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
@@ -189,9 +190,9 @@ func TestProcessImage_EmptyResult(t *testing.T) {
 
 func TestProcessImage_OllamaError(t *testing.T) {
 	// Create mock Ollama server that returns an error
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"error": "model not found",
 		})
 	}))
@@ -217,7 +218,7 @@ func TestProcessImage_OllamaError(t *testing.T) {
 
 func TestProcessImage_InvalidBBox(t *testing.T) {
 	// Create mock Ollama server that returns invalid bounding box
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := map[string]interface{}{
 			"model":      "llava",
 			"response":   `[{"text":"Invalid","bbox":[50,50],"confidence":0.95}]`, // only 2 coords
@@ -226,7 +227,7 @@ func TestProcessImage_InvalidBBox(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
@@ -250,7 +251,7 @@ func TestProcessImage_InvalidBBox(t *testing.T) {
 
 func TestProcessImage_DefaultConfidence(t *testing.T) {
 	// Create mock Ollama server that returns words without confidence
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := map[string]interface{}{
 			"model":      "llava",
 			"response":   `[{"text":"Test","bbox":[50,50,100,30]}]`, // no confidence
@@ -259,7 +260,7 @@ func TestProcessImage_DefaultConfidence(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
@@ -286,7 +287,7 @@ func TestProcessImage_DefaultConfidence(t *testing.T) {
 }
 
 func TestProcessImageWithCustomPrompt(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := map[string]interface{}{
 			"model":      "llava",
 			"response":   `[{"text":"Custom","bbox":[10,10,50,20],"confidence":0.9}]`,
@@ -295,7 +296,7 @@ func TestProcessImageWithCustomPrompt(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
@@ -346,7 +347,7 @@ func TestHealthCheck_Success(t *testing.T) {
 				},
 			}
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(response)
+			_ = json.NewEncoder(w).Encode(response)
 			return
 		}
 	}))
@@ -389,13 +390,13 @@ func TestHealthCheck_ModelNotFound(t *testing.T) {
 				"models": []map[string]interface{}{},
 			}
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(response)
+			_ = json.NewEncoder(w).Encode(response)
 			return
 		}
 		if r.URL.Path == "/api/pull" {
 			// Simulate pull failure
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"error": "failed to pull model",
 			})
 			return
@@ -431,14 +432,14 @@ func TestModel(t *testing.T) {
 
 func TestParseOllamaResponse(t *testing.T) {
 	tests := []struct {
-		name        string
-		jsonResp    string
-		wantWords   int
-		wantErr     bool
-		checkFirst  bool
-		firstText   string
-		firstBBox   []int
-		firstConf   float64
+		name       string
+		jsonResp   string
+		wantWords  int
+		wantErr    bool
+		checkFirst bool
+		firstText  string
+		firstBBox  []int
+		firstConf  float64
 	}{
 		{
 			name:       "valid response",
@@ -535,7 +536,7 @@ func createTestImage(t *testing.T, width, height int) []byte {
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	if err := png.Encode(f, img); err != nil {
 		t.Fatalf("failed to encode PNG: %v", err)
@@ -552,7 +553,7 @@ func createTestImage(t *testing.T, width, height int) []byte {
 
 // Benchmark for ProcessImage
 func BenchmarkProcessImage(b *testing.B) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		response := map[string]interface{}{
 			"model":      "llava",
 			"response":   `[{"text":"Benchmark","bbox":[50,50,100,30],"confidence":0.95}]`,
@@ -560,7 +561,7 @@ func BenchmarkProcessImage(b *testing.B) {
 			"created_at": time.Now().Format(time.RFC3339),
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 

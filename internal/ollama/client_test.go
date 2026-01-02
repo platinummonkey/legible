@@ -132,7 +132,7 @@ func TestClient_Generate(t *testing.T) {
 				}
 
 				w.WriteHeader(tt.mockStatus)
-				w.Write([]byte(tt.mockBody))
+				_, _ = w.Write([]byte(tt.mockBody))
 			}))
 			defer server.Close()
 
@@ -171,7 +171,7 @@ func TestClient_GenerateWithVision(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"model": "llava",
 			"response": "This is an image",
 			"done": true,
@@ -194,10 +194,10 @@ func TestClient_GenerateWithVision(t *testing.T) {
 
 func TestClient_GenerateOCR(t *testing.T) {
 	tests := []struct {
-		name       string
-		mockBody   string
-		wantWords  int
-		wantErr    bool
+		name      string
+		mockBody  string
+		wantWords int
+		wantErr   bool
 	}{
 		{
 			name: "successful OCR",
@@ -246,9 +246,9 @@ func TestClient_GenerateOCR(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(tt.mockBody))
+				_, _ = w.Write([]byte(tt.mockBody))
 			}))
 			defer server.Close()
 
@@ -279,7 +279,7 @@ func TestClient_ListModels(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"models": [
 				{
 					"name": "llama2",
@@ -332,7 +332,7 @@ func TestClient_PullModel(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status": "success"}`))
+		_, _ = w.Write([]byte(`{"status": "success"}`))
 	}))
 	defer server.Close()
 
@@ -365,7 +365,7 @@ func TestClient_HealthCheck(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(tt.mockStatus)
 			}))
 			defer server.Close()
@@ -383,14 +383,14 @@ func TestClient_HealthCheck(t *testing.T) {
 
 func TestClient_Retry(t *testing.T) {
 	attempts := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		attempts++
 		if attempts < 3 {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"model": "llama2",
 			"response": "Success after retries",
 			"done": true,
@@ -423,7 +423,7 @@ func TestClient_Retry(t *testing.T) {
 }
 
 func TestClient_ContextCancellation(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		time.Sleep(100 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -495,9 +495,9 @@ func TestEncodeImageToBase64(t *testing.T) {
 
 func TestEncodeBytesToBase64(t *testing.T) {
 	tests := []struct {
-		name  string
-		data  []byte
-		want  string
+		name string
+		data []byte
+		want string
 	}{
 		{
 			name: "simple data",

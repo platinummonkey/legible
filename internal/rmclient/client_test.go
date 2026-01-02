@@ -923,9 +923,9 @@ func TestIsTokenExpired(t *testing.T) {
 
 func TestGetTokenExpiration(t *testing.T) {
 	tests := []struct {
-		name     string
-		token    string
-		hasTime  bool
+		name    string
+		token   string
+		hasTime bool
 	}{
 		{
 			name:    "empty token",

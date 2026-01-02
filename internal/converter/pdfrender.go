@@ -29,7 +29,7 @@ func (c *Converter) renderPDFPageToImage(pdfPath string, pageNum int, dpi int) (
 	if err != nil {
 		return nil, fmt.Errorf("failed to open PDF: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Parse PDF
 	pdfReader, err := unipdf.NewPdfReaderLazy(f)
@@ -119,14 +119,14 @@ func (c *Converter) imageToBytes(img image.Image) ([]byte, error) {
 		return nil, fmt.Errorf("failed to create temp file: %w", err)
 	}
 	tmpPath := tmpFile.Name()
-	defer os.Remove(tmpPath)
+	defer func() { _ = os.Remove(tmpPath) }()
 
 	// Encode image as PNG
 	if err := png.Encode(tmpFile, img); err != nil {
-		tmpFile.Close()
+		_ = tmpFile.Close()
 		return nil, fmt.Errorf("failed to encode image: %w", err)
 	}
-	tmpFile.Close()
+	_ = tmpFile.Close()
 
 	// Read back as bytes
 	data, err := os.ReadFile(tmpPath)

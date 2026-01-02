@@ -11,6 +11,7 @@ import (
 // BlockType represents the type of block in the .rm file
 type BlockType uint32
 
+// Block type constants for different types of data in .rm files
 const (
 	BlockTypeLayerDef  BlockType = 0x1010100 // Layer definition
 	BlockTypeLayerName BlockType = 0x2020100 // Layer names
@@ -21,20 +22,20 @@ const (
 
 // Point represents a single point in a stroke
 type Point struct {
-	X        float32 // X coordinate
-	Y        float32 // Y coordinate
-	Speed    uint8   // Speed
-	Width    uint8   // Width/thickness
-	Direction uint8  // Direction/tilt
-	Pressure uint8  // Pressure
+	X         float32 // X coordinate
+	Y         float32 // Y coordinate
+	Speed     uint8   // Speed
+	Width     uint8   // Width/thickness
+	Direction uint8   // Direction/tilt
+	Pressure  uint8   // Pressure
 }
 
 // Line represents a stroke/line with multiple points
 type Line struct {
-	PenType   uint32   // Pen type
-	Color     uint32   // Color
-	BrushSize float32  // Brush size
-	Points    []Point  // Array of points
+	PenType   uint32  // Pen type
+	Color     uint32  // Color
+	BrushSize float32 // Brush size
+	Points    []Point // Array of points
 }
 
 // Layer represents a layer with its lines
@@ -149,6 +150,8 @@ func ParseRM(filename string) (*RMFile, error) {
 }
 
 // parseLineDef parses a line definition block according to v6 format
+//
+//nolint:gocyclo // Binary parsing requires extensive validation
 func parseLineDef(data []byte) (Line, error) {
 	line := Line{}
 	offset := 0
@@ -289,8 +292,8 @@ func parseLineDef(data []byte) (Line, error) {
 			X:         math.Float32frombits(binary.LittleEndian.Uint32(data[offset : offset+4])),
 			Y:         math.Float32frombits(binary.LittleEndian.Uint32(data[offset+4 : offset+8])),
 			Speed:     data[offset+8],
-			Width:     data[offset+10],      // Note: offset 9 is padding
-			Direction: data[offset+12],      // Note: offset 11 is padding
+			Width:     data[offset+10], // Note: offset 9 is padding
+			Direction: data[offset+12], // Note: offset 11 is padding
 			Pressure:  data[offset+13],
 		}
 		line.Points = append(line.Points, point)

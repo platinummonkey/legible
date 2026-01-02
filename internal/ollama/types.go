@@ -6,9 +6,9 @@ import "time"
 type GenerateRequest struct {
 	Model   string                 `json:"model"`
 	Prompt  string                 `json:"prompt"`
-	Images  []string               `json:"images,omitempty"`  // base64 encoded
+	Images  []string               `json:"images,omitempty"` // base64 encoded
 	Stream  bool                   `json:"stream"`
-	Format  string                 `json:"format,omitempty"`  // "json" for structured output
+	Format  string                 `json:"format,omitempty"` // "json" for structured output
 	Options map[string]interface{} `json:"options,omitempty"`
 }
 
@@ -24,7 +24,7 @@ type GenerateResponse struct {
 // OCRWord represents extracted text with bounding box information
 type OCRWord struct {
 	Text       string  `json:"text"`
-	BBox       []int   `json:"bbox"`                // [x, y, width, height]
+	BBox       []int   `json:"bbox"` // [x, y, width, height]
 	Confidence float64 `json:"confidence,omitempty"`
 }
 
@@ -42,11 +42,11 @@ type StructuredOCRResponse struct {
 
 // OCRLine represents a line of text, table, or diagram from the OCR
 type OCRLine struct {
-	BBox     []int    `json:"bbox"` // [x1, y1, x2, y2]
-	Type     string   `json:"type"` // "text", "table", "diagram"
-	Content  string   `json:"content,omitempty"`
-	Headers  []string `json:"headers,omitempty"`  // for tables
-	Rows     [][]string `json:"rows,omitempty"`    // for tables
+	BBox          []int          `json:"bbox"` // [x1, y1, x2, y2]
+	Type          string         `json:"type"` // "text", "table", "diagram"
+	Content       string         `json:"content,omitempty"`
+	Headers       []string       `json:"headers,omitempty"`        // for tables
+	Rows          [][]string     `json:"rows,omitempty"`           // for tables
 	DiagramBlocks []DiagramBlock `json:"diagram_blocks,omitempty"` // for diagrams
 }
 

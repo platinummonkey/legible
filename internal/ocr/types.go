@@ -114,8 +114,8 @@ type DocumentOCR struct {
 	Language string
 }
 
-// OCRResult represents the result of an OCR operation
-type OCRResult struct {
+// Result represents the result of an OCR operation
+type Result struct {
 	// DocumentOCR contains the OCR results
 	DocumentOCR *DocumentOCR
 

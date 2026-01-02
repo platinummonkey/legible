@@ -485,7 +485,7 @@ func (pe *PDFEnhancer) ensurePageFonts(ctx *model.Context, pageDict types.Dict) 
 			}
 			dict, ok := obj.(types.Dict)
 			if !ok {
-				return fmt.Errorf("Resources is not a dictionary")
+				return fmt.Errorf("resources is not a dictionary")
 			}
 			resourcesDict = dict
 		default:
@@ -512,7 +512,7 @@ func (pe *PDFEnhancer) ensurePageFonts(ctx *model.Context, pageDict types.Dict) 
 			}
 			dict, ok := obj.(types.Dict)
 			if !ok {
-				return fmt.Errorf("Font is not a dictionary")
+				return fmt.Errorf("font is not a dictionary")
 			}
 			fontDict = dict
 		default:

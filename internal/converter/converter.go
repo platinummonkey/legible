@@ -38,6 +38,11 @@ type Config struct {
 
 // New creates a new converter instance
 func New(cfg *Config) *Converter {
+	// Handle nil config
+	if cfg == nil {
+		cfg = &Config{}
+	}
+
 	log := cfg.Logger
 	if log == nil {
 		log = logger.Get()
@@ -45,7 +50,7 @@ func New(cfg *Config) *Converter {
 
 	// Enable OCR by default
 	enableOCR := cfg.EnableOCR
-	if cfg == nil || (!cfg.EnableOCR && cfg.OCRLanguages == nil) {
+	if !cfg.EnableOCR && cfg.OCRLanguages == nil {
 		// If not explicitly configured, enable by default
 		enableOCR = true
 	}
@@ -389,7 +394,7 @@ func (c *Converter) createPlaceholderPDF(outputPath string, pageCount int) error
 	}
 	tmpPath := tmpFile.Name()
 	_ = tmpFile.Close()
-	defer os.Remove(tmpPath)
+	defer func() { _ = os.Remove(tmpPath) }()
 
 	// Create a minimal valid PDF with one blank page
 	// This uses proper PDF structure with correct byte offsets
@@ -569,8 +574,8 @@ func (c *Converter) addOCRTextLayer(pdfPath string, pageCount int, result *Conve
 		return fmt.Errorf("failed to create temp file: %w", err)
 	}
 	tmpPath := tmpFile.Name()
-	tmpFile.Close()
-	defer os.Remove(tmpPath)
+	_ = tmpFile.Close()
+	defer func() { _ = os.Remove(tmpPath) }()
 
 	// Add text layer to PDF
 	if err := c.pdfEnhancer.AddTextLayer(pdfPath, tmpPath, docOCR); err != nil {
@@ -625,7 +630,7 @@ func (c *Converter) addPDFMetadata(pdfPath string, metadata *DocumentMetadata, t
 	}
 	tmpPath := tmpFile.Name()
 	_ = tmpFile.Close()
-	defer os.Remove(tmpPath)
+	defer func() { _ = os.Remove(tmpPath) }()
 
 	// Add properties
 	conf := model.NewDefaultConfiguration()
@@ -640,4 +645,3 @@ func (c *Converter) addPDFMetadata(pdfPath string, metadata *DocumentMetadata, t
 
 	return nil
 }
-

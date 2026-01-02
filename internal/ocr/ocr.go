@@ -1,3 +1,4 @@
+// Package ocr provides optical character recognition capabilities for document processing.
 package ocr
 
 import (
@@ -216,9 +217,9 @@ func (p *Processor) Model() string {
 // ollamaOCRResponse represents the JSON response from Ollama
 type ollamaOCRResponse struct {
 	Words []struct {
-		Text       string    `json:"text"`
-		BBox       []int     `json:"bbox"`
-		Confidence float64   `json:"confidence"`
+		Text       string  `json:"text"`
+		BBox       []int   `json:"bbox"`
+		Confidence float64 `json:"confidence"`
 	} `json:"words"`
 }
 

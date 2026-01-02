@@ -1,3 +1,4 @@
+// Package ollama provides a client for interacting with Ollama's local AI models.
 package ollama
 
 import (
@@ -58,12 +59,12 @@ If no text is found, return an empty array: []`
 
 // Client is an HTTP client for the Ollama API
 type Client struct {
-	endpoint            string
-	httpClient          *http.Client
-	logger              *logger.Logger
-	maxRetries          int
-	retryDelay          time.Duration
-	useSimpleOCR        bool  // If true, skip structured OCR and use simple format
+	endpoint     string
+	httpClient   *http.Client
+	logger       *logger.Logger
+	maxRetries   int
+	retryDelay   time.Duration
+	useSimpleOCR bool // If true, skip structured OCR and use simple format
 }
 
 // ClientOption is a function that configures a Client
@@ -146,6 +147,8 @@ func NewClient(opts ...ClientOption) *Client {
 }
 
 // doRequest performs an HTTP request with retry logic
+//
+//nolint:gocyclo // Retry logic and error handling requires branching
 func (c *Client) doRequest(ctx context.Context, method, path string, body interface{}, response interface{}) error {
 	var lastErr error
 
@@ -184,7 +187,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body interf
 			c.logger.Debugf("Request failed: %v", lastErr)
 			continue
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		respBody, err := io.ReadAll(resp.Body)
 		if err != nil {
@@ -337,7 +340,7 @@ func (c *Client) HealthCheck(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("ollama is not accessible: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("ollama health check failed with status: %d", resp.StatusCode)
