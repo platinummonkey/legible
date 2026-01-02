@@ -19,7 +19,7 @@ GOINSTALL=$(GOCMD) install
 # CGO configuration
 # OCR now uses Ollama (HTTP API) instead of Tesseract, so CGO is not required
 # Note: unipdf may still require CGO for some PDF operations
-export CGO_ENABLED=0
+export CGO_ENABLED=1
 
 # Build directory
 BUILD_DIR=./dist
