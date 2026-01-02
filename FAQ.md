@@ -2,9 +2,9 @@
 
 ## General Questions
 
-### What is reMarkable Sync?
+### What is Legible?
 
-reMarkable Sync is a tool that synchronizes documents from your reMarkable tablet to your computer and optionally adds OCR (Optical Character Recognition) to make handwritten notes searchable.
+Legible is a tool that synchronizes documents from your reMarkable tablet to your computer and optionally adds OCR (Optical Character Recognition) to make handwritten notes searchable.
 
 ### Do I need a reMarkable subscription?
 
@@ -30,7 +30,7 @@ Yes! OCR is optional. You can sync and convert documents without OCR by using th
 
 ### How do I authenticate with my reMarkable account?
 
-1. Run `remarkable-sync auth`
+1. Run `legible auth`
 2. The tool will prompt you to visit https://my.remarkable.com/device/desktop/connect
 3. Copy the 8-character one-time code displayed on the website
 4. Enter the code when prompted in the terminal
@@ -38,7 +38,7 @@ Yes! OCR is optional. You can sync and convert documents without OCR by using th
 
 ### Where are my authentication credentials stored?
 
-By default, credentials are stored in `~/.remarkable-sync/token.json`. This file contains your device token and should be kept secure.
+By default, credentials are stored in `~/.legible/token.json`. This file contains your device token and should be kept secure.
 
 ## Usage Questions
 
@@ -46,15 +46,15 @@ By default, credentials are stored in `~/.remarkable-sync/token.json`. This file
 
 By default, every 5 minutes. You can change this with `--interval`:
 ```bash
-remarkable-sync daemon --interval 15m  # Every 15 minutes
-remarkable-sync daemon --interval 1h   # Every hour
+legible daemon --interval 15m  # Every 15 minutes
+legible daemon --interval 1h   # Every hour
 ```
 
 ### Can I sync only specific documents?
 
 Yes! Use labels in the reMarkable app to organize your documents, then sync specific labels:
 ```bash
-remarkable-sync sync --labels "work,personal"
+legible sync --labels "work,personal"
 ```
 
 ### Does syncing modify my reMarkable documents?
@@ -69,7 +69,7 @@ Documents are converted to PDF format. OCR-enabled PDFs have an invisible text l
 
 Yes! Just specify your cloud storage folder as the output directory:
 ```bash
-remarkable-sync sync --output ~/Dropbox/ReMarkable
+legible sync --output ~/Dropbox/ReMarkable
 ```
 
 ### How much disk space do I need?
@@ -122,7 +122,7 @@ No additional language packs or configuration needed! The model handles language
 
 ### Can I use a different Ollama model?
 
-Yes! Configure the model in `~/.remarkable-sync.yaml`:
+Yes! Configure the model in `~/.legible.yaml`:
 
 ```yaml
 ollama:
@@ -145,7 +145,7 @@ Approximately 8-10GB for Ollama + a vision model like llava. This is a one-time 
 
 ### Does this work offline?
 
-No, reMarkable Sync requires internet access to sync with the reMarkable cloud. However, once documents are synced, you can view them offline.
+No, Legible requires internet access to sync with the reMarkable cloud. However, once documents are synced, you can view them offline.
 
 ## Privacy and Security
 
@@ -162,7 +162,7 @@ None. This tool does not collect, transmit, or store any analytics or telemetry.
 
 ### Can I audit the code?
 
-Yes! This is open-source software. You can review the code on GitHub: https://github.com/platinummonkey/remarkable-sync
+Yes! This is open-source software. You can review the code on GitHub: https://github.com/platinummonkey/legible
 
 ## Troubleshooting
 
@@ -171,8 +171,8 @@ Yes! This is open-source software. You can review the code on GitHub: https://gi
 **Solution:**
 1. Ensure cloud sync is enabled on your reMarkable (Settings → Storage → Connect)
 2. Get a fresh authentication code
-3. Clear old credentials: `rm -rf ~/.remarkable-sync`
-4. Re-authenticate: `remarkable-sync auth`
+3. Clear old credentials: `rm -rf ~/.legible`
+4. Re-authenticate: `legible auth`
 
 ### OCR produces garbage text or low-quality results
 
@@ -188,7 +188,7 @@ Yes! This is open-source software. You can review the code on GitHub: https://gi
   ollama pull mistral-small3.1
 
   # Update config
-  # ~/.remarkable-sync.yaml:
+  # ~/.legible.yaml:
   #   ollama:
   #     model: mistral-small3.1
   ```
@@ -208,7 +208,7 @@ Yes! This is open-source software. You can review the code on GitHub: https://gi
 
 **Check logs:**
 ```bash
-remarkable-sync daemon --log-level debug
+legible daemon --log-level debug
 ```
 
 ### Syncing takes forever on first run
@@ -230,7 +230,7 @@ Use `--no-ocr` for a much faster first sync, then enable OCR later.
 - Document hasn't synced to cloud yet
 
 **Solutions:**
-- Force re-sync: `remarkable-sync sync --force`
+- Force re-sync: `legible sync --force`
 - Wait for cloud sync to complete on your tablet
 - Check document still exists in reMarkable app
 
@@ -241,15 +241,15 @@ Use `--no-ocr` for a much faster first sync, then enable OCR later.
 Yes, but use different output directories and state files:
 ```bash
 # Instance 1: Work documents
-remarkable-sync daemon --output ~/work-remarkable --labels work
+legible daemon --output ~/work-remarkable --labels work
 
 # Instance 2: Personal documents
-remarkable-sync daemon --output ~/personal-remarkable --labels personal
+legible daemon --output ~/personal-remarkable --labels personal
 ```
 
 ### How do I run as a system service?
 
-See [examples/systemd/remarkable-sync.service](examples/systemd/remarkable-sync.service) for a systemd service file template.
+See [examples/systemd/legible.service](examples/systemd/legible.service) for a systemd service file template.
 
 ### Can I customize the output filenames?
 
@@ -267,7 +267,7 @@ Yes! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on contributing.
 
 ### How is this different from rmapi?
 
-[rmapi](https://github.com/ddvk/rmapi) is a lower-level tool for accessing the reMarkable cloud. reMarkable Sync builds on rmapi to provide:
+[rmapi](https://github.com/ddvk/rmapi) is a lower-level tool for accessing the reMarkable cloud. Legible builds on rmapi to provide:
 - Automatic PDF conversion
 - OCR text layer addition
 - Daemon mode for continuous sync
@@ -285,13 +285,13 @@ The official reMarkable desktop app is great, but doesn't offer:
 ## Still Have Questions?
 
 - **Check the documentation**: [README.md](README.md) has detailed usage information
-- **Search existing issues**: https://github.com/platinummonkey/remarkable-sync/issues
+- **Search existing issues**: https://github.com/platinummonkey/legible/issues
 - **Open a new issue**: If you found a bug or have a feature request
 - **Start a discussion**: For general questions or ideas
 
 ## Useful Links
 
-- [GitHub Repository](https://github.com/platinummonkey/remarkable-sync)
+- [GitHub Repository](https://github.com/platinummonkey/legible)
 - [reMarkable Official Site](https://remarkable.com)
 - [Ollama Official Site](https://ollama.ai/)
 - [Ollama Model Library](https://ollama.ai/library)

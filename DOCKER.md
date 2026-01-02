@@ -1,10 +1,10 @@
-# Docker Guide for remarkable-sync
+# Docker Guide for legible
 
-This guide explains how to use remarkable-sync with Docker and Ollama for OCR processing.
+This guide explains how to use legible with Docker and Ollama for OCR processing.
 
 ## System Requirements
 
-Before running remarkable-sync with Docker, ensure your system meets these requirements:
+Before running legible with Docker, ensure your system meets these requirements:
 
 - **Disk Space**: 8GB+ available (Ollama model is ~4-7GB)
 - **RAM**: 4GB+ recommended for OCR processing
@@ -15,20 +15,20 @@ Before running remarkable-sync with Docker, ensure your system meets these requi
 
 ### 1. Using Docker Compose (Recommended)
 
-The easiest way to run remarkable-sync is with Docker Compose:
+The easiest way to run legible is with Docker Compose:
 
 ```bash
 # Download the example docker-compose.yml
-curl -O https://raw.githubusercontent.com/platinummonkey/remarkable-sync/main/examples/docker-compose.yml
+curl -O https://raw.githubusercontent.com/platinummonkey/legible/main/examples/docker-compose.yml
 
 # Authenticate with reMarkable cloud (one-time)
-docker-compose run --rm remarkable-sync auth
+docker-compose run --rm legible auth
 
 # Start the daemon
 docker-compose up -d
 
 # View logs
-docker-compose logs -f remarkable-sync
+docker-compose logs -f legible
 
 # Stop the daemon
 docker-compose down
@@ -46,16 +46,16 @@ docker volume create ollama-models
 # Authenticate (one-time)
 docker run --rm -it \
   -v remarkable-credentials:/home/remarkable/.rmapi \
-  ghcr.io/platinummonkey/remarkable-sync:latest auth
+  ghcr.io/platinummonkey/legible:latest auth
 
 # Run daemon
 docker run -d \
-  --name remarkable-sync \
+  --name legible \
   -v remarkable-credentials:/home/remarkable/.rmapi \
   -v ./output:/output \
   -v ollama-models:/home/remarkable/.ollama/models \
   -e OCR_MODEL=llava \
-  ghcr.io/platinummonkey/remarkable-sync:latest \
+  ghcr.io/platinummonkey/legible:latest \
   daemon --interval 1h --output /output
 ```
 
@@ -100,7 +100,7 @@ To use a different model:
 ```yaml
 # docker-compose.yml
 services:
-  remarkable-sync:
+  legible:
     environment:
       - OCR_MODEL=llava:13b  # Use larger, more accurate model
 ```
@@ -135,8 +135,8 @@ services:
     ports:
       - "11434:11434"
 
-  remarkable-sync:
-    image: ghcr.io/platinummonkey/remarkable-sync:latest
+  legible:
+    image: ghcr.io/platinummonkey/legible:latest
     depends_on:
       - ollama
     environment:
@@ -157,7 +157,7 @@ Adjust resource limits based on your model and usage:
 
 ```yaml
 services:
-  remarkable-sync:
+  legible:
     deploy:
       resources:
         limits:
@@ -197,21 +197,21 @@ To build the Docker image locally:
 
 ```bash
 # Clone the repository
-git clone https://github.com/platinummonkey/remarkable-sync.git
-cd remarkable-sync
+git clone https://github.com/platinummonkey/legible.git
+cd legible
 
 # Build with GoReleaser for multi-platform support
 goreleaser build --snapshot --clean
 
 # Build Docker image
-docker build -t remarkable-sync:local .
+docker build -t legible:local .
 
 # Run your local build
 docker run -d \
   -v ./credentials:/home/remarkable/.rmapi \
   -v ./output:/output \
   -v ollama-models:/home/remarkable/.ollama/models \
-  remarkable-sync:local \
+  legible:local \
   daemon --interval 1h --output /output
 ```
 
@@ -225,7 +225,7 @@ docker run -d \
 1. Check available disk space (need 8GB+)
 2. Check available RAM (need 4GB+)
 3. Try increasing start-period in health check
-4. Check Docker logs: `docker logs remarkable-sync`
+4. Check Docker logs: `docker logs legible`
 
 ### Model Download Fails
 
@@ -236,11 +236,11 @@ docker run -d \
 2. Verify model name is correct (case-sensitive)
 3. Try downloading manually:
    ```bash
-   docker exec -it remarkable-sync ollama pull llava
+   docker exec -it legible ollama pull llava
    ```
 4. Check Ollama service status:
    ```bash
-   docker exec -it remarkable-sync curl http://localhost:11434/api/tags
+   docker exec -it legible curl http://localhost:11434/api/tags
    ```
 
 ### OCR Not Working
@@ -250,15 +250,15 @@ docker run -d \
 **Solutions**:
 1. Verify Ollama is running:
    ```bash
-   docker exec -it remarkable-sync curl http://localhost:11434/api/tags
+   docker exec -it legible curl http://localhost:11434/api/tags
    ```
 2. Check model is downloaded:
    ```bash
-   docker exec -it remarkable-sync ollama list
+   docker exec -it legible ollama list
    ```
 3. View logs for OCR errors:
    ```bash
-   docker logs remarkable-sync | grep -i ocr
+   docker logs legible | grep -i ocr
    ```
 4. Try a different model:
    ```bash
@@ -296,7 +296,7 @@ The container runs as a non-root user (`remarkable`) for security:
 
 ```bash
 # Verify user
-docker exec remarkable-sync whoami
+docker exec legible whoami
 # Output: remarkable
 ```
 
@@ -352,24 +352,24 @@ Monitor disk usage for Ollama models:
 
 ```bash
 # Check model sizes
-docker exec remarkable-sync du -sh /home/remarkable/.ollama/models/*
+docker exec legible du -sh /home/remarkable/.ollama/models/*
 
 # Clean up unused models
-docker exec remarkable-sync ollama rm old-model-name
+docker exec legible ollama rm old-model-name
 ```
 
 ## Monitoring
 
 ### Health Checks
 
-The container includes health checks for both Ollama and remarkable-sync:
+The container includes health checks for both Ollama and legible:
 
 ```bash
 # Check health status
-docker inspect --format='{{.State.Health.Status}}' remarkable-sync
+docker inspect --format='{{.State.Health.Status}}' legible
 
 # View health check logs
-docker inspect --format='{{range .State.Health.Log}}{{.Output}}{{end}}' remarkable-sync
+docker inspect --format='{{range .State.Health.Log}}{{.Output}}{{end}}' legible
 ```
 
 ### Logs
@@ -378,16 +378,16 @@ View comprehensive logs:
 
 ```bash
 # All logs
-docker logs remarkable-sync
+docker logs legible
 
 # Follow logs in real-time
-docker logs -f remarkable-sync
+docker logs -f legible
 
 # Last 100 lines
-docker logs --tail 100 remarkable-sync
+docker logs --tail 100 legible
 
 # Logs since 1 hour ago
-docker logs --since 1h remarkable-sync
+docker logs --since 1h legible
 ```
 
 ### Metrics
@@ -396,11 +396,11 @@ Monitor resource usage:
 
 ```bash
 # Real-time stats
-docker stats remarkable-sync
+docker stats legible
 
 # Current resource usage
-docker exec remarkable-sync ps aux
-docker exec remarkable-sync df -h
+docker exec legible ps aux
+docker exec legible df -h
 ```
 
 ## Migration from Tesseract
@@ -419,7 +419,7 @@ If you were using an older version with Tesseract:
 
 ### Migration Steps
 
-1. **Pull new image**: `docker pull ghcr.io/platinummonkey/remarkable-sync:latest`
+1. **Pull new image**: `docker pull ghcr.io/platinummonkey/legible:latest`
 2. **Update docker-compose.yml**: Add Ollama volumes and environment variables
 3. **First run**: Model will download automatically (may take several minutes)
 4. **Test**: Verify OCR quality on test documents
@@ -427,10 +427,10 @@ If you were using an older version with Tesseract:
 
 ## Support
 
-- **Issues**: https://github.com/platinummonkey/remarkable-sync/issues
-- **Discussions**: https://github.com/platinummonkey/remarkable-sync/discussions
-- **Documentation**: https://github.com/platinummonkey/remarkable-sync/blob/main/README.md
+- **Issues**: https://github.com/platinummonkey/legible/issues
+- **Discussions**: https://github.com/platinummonkey/legible/discussions
+- **Documentation**: https://github.com/platinummonkey/legible/blob/main/README.md
 
 ## License
 
-Part of remarkable-sync project. See project LICENSE for details.
+Part of legible project. See project LICENSE for details.

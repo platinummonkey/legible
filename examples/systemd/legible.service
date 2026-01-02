@@ -1,6 +1,6 @@
 [Unit]
 Description=reMarkable Sync Daemon
-Documentation=https://github.com/platinummonkey/remarkable-sync
+Documentation=https://github.com/platinummonkey/legible
 After=network-online.target
 Wants=network-online.target
 
@@ -9,12 +9,12 @@ Type=simple
 User=%i
 Group=%i
 
-# Path to the remarkable-sync binary
+# Path to the legible binary
 # Update this to match your installation location
-ExecStart=/usr/local/bin/remarkable-sync daemon --interval 10m --health-addr :8080
+ExecStart=/usr/local/bin/legible daemon --interval 10m --health-addr :8080
 
 # Configuration file (optional)
-# ExecStart=/usr/local/bin/remarkable-sync --config /home/%i/.remarkable-sync.yaml daemon
+# ExecStart=/usr/local/bin/legible --config /home/%i/.legible.yaml daemon
 
 # Working directory
 WorkingDirectory=/home/%i
@@ -33,7 +33,7 @@ PrivateTmp=true
 NoNewPrivileges=true
 # ProtectSystem=strict
 # ProtectHome=read-only
-# ReadWritePaths=/home/%i/Documents/remarkable /home/%i/.remarkable-sync
+# ReadWritePaths=/home/%i/Documents/remarkable /home/%i/.legible
 
 # Resource limits (optional)
 # Limit CPU usage (100% = 1 core, 200% = 2 cores)
@@ -44,7 +44,7 @@ NoNewPrivileges=true
 # Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=remarkable-sync
+SyslogIdentifier=legible
 
 # Process management
 KillMode=mixed

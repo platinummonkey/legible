@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/platinummonkey/remarkable-sync/internal/logger"
+	"github.com/platinummonkey/legible/internal/logger"
 	"gopkg.in/yaml.v3"
 )
 

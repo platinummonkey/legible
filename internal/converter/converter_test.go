@@ -465,7 +465,7 @@ func TestConvertRmdoc_PDFMetadata(t *testing.T) {
 	}
 
 	// Check for creator
-	if pdfInfo.Creator != "remarkable-sync" {
-		t.Errorf("expected Creator 'remarkable-sync', got '%s'", pdfInfo.Creator)
+	if pdfInfo.Creator != "legible" {
+		t.Errorf("expected Creator 'legible', got '%s'", pdfInfo.Creator)
 	}
 }

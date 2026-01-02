@@ -17,7 +17,7 @@ import (
 	"github.com/juruen/rmapi/config"
 	"github.com/juruen/rmapi/model"
 	"github.com/juruen/rmapi/transport"
-	"github.com/platinummonkey/remarkable-sync/internal/logger"
+	"github.com/platinummonkey/legible/internal/logger"
 )
 
 // urlFixingRoundTripper is a custom HTTP transport that fixes URLs containing doesnotexist.remarkable.com
@@ -225,7 +225,7 @@ func NewClient(cfg *Config) (*Client, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to get home directory: %w", err)
 		}
-		tokenPath = filepath.Join(home, ".remarkable-sync", "token.json")
+		tokenPath = filepath.Join(home, ".legible", "token.json")
 	}
 
 	// Set default logger if not provided

@@ -1,11 +1,11 @@
-# Example configuration file for remarkable-sync
-# Copy this file to ~/.remarkable-sync.yaml and customize as needed
+# Example configuration file for legible
+# Copy this file to ~/.legible.yaml and customize as needed
 #
 # Configuration precedence: CLI flags > Environment variables > Config file > Defaults
 
 # Directory where downloaded and processed files will be saved
-# Default: ~/remarkable-sync
-output-dir: ~/remarkable-sync
+# Default: ~/legible
+output-dir: ~/legible
 
 # Filter documents by reMarkable labels (empty array syncs all documents)
 # Default: [] (sync all)
@@ -45,8 +45,8 @@ ollama:
 sync-interval: 0s
 
 # Path to sync state persistence file
-# Default: ~/.remarkable-sync-state.json
-state-file: ~/.remarkable-sync-state.json
+# Default: ~/.legible-state.json
+state-file: ~/.legible-state.json
 
 # Logging verbosity level
 # Valid values: debug, info, warn, error

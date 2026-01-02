@@ -1,6 +1,6 @@
 # Logger Package
 
-Structured logging infrastructure for remarkable-sync using uber-go/zap.
+Structured logging infrastructure for legible using uber-go/zap.
 
 ## Features
 
@@ -16,7 +16,7 @@ Structured logging infrastructure for remarkable-sync using uber-go/zap.
 ### Initialize Logger
 
 ```go
-import "github.com/platinummonkey/remarkable-sync/internal/logger"
+import "github.com/platinummonkey/legible/internal/logger"
 
 // Initialize with config
 cfg := &logger.Config{
@@ -32,7 +32,7 @@ defer logger.Sync()
 ### Simple Logging
 
 ```go
-import "github.com/platinummonkey/remarkable-sync/internal/logger"
+import "github.com/platinummonkey/legible/internal/logger"
 
 // Package-level functions use the global logger
 logger.Info("Starting sync operation")
@@ -64,7 +64,7 @@ logger.WithError(err).Error("Operation failed")
 cfg := &logger.Config{
     Level:      "debug",
     Format:     "json",
-    OutputPath: "/var/log/remarkable-sync.log",
+    OutputPath: "/var/log/legible.log",
 }
 log, err := logger.New(cfg)
 if err != nil {
@@ -160,8 +160,8 @@ if err := processDocument(doc); err != nil {
 
 ```go
 import (
-    "github.com/platinummonkey/remarkable-sync/internal/config"
-    "github.com/platinummonkey/remarkable-sync/internal/logger"
+    "github.com/platinummonkey/legible/internal/config"
+    "github.com/platinummonkey/legible/internal/logger"
 )
 
 // Load application config
@@ -177,7 +177,7 @@ logCfg := &logger.Config{
 }
 if cfg.DaemonMode {
     logCfg.Format = "json"
-    logCfg.OutputPath = "/var/log/remarkable-sync.log"
+    logCfg.OutputPath = "/var/log/legible.log"
 }
 
 if err := logger.Init(logCfg); err != nil {

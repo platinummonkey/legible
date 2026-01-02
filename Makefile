@@ -1,7 +1,7 @@
 .PHONY: all build build-all test test-no-ocr test-coverage test-coverage-no-ocr lint fmt vet tidy install clean deps verify run dev version help
 
 # Binary name
-BINARY_NAME=remarkable-sync
+BINARY_NAME=legible
 VERSION?=$(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 GIT_COMMIT?=$(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 BUILD_DATE?=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ")

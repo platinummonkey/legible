@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/platinummonkey/remarkable-sync/internal/converter"
-	"github.com/platinummonkey/remarkable-sync/internal/logger"
+	"github.com/platinummonkey/legible/internal/converter"
+	"github.com/platinummonkey/legible/internal/logger"
 )
 
 // TestConverterPipeline tests the full conversion pipeline from .rmdoc to PDF

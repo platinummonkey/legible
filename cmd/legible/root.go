@@ -16,9 +16,9 @@ var (
 
 // rootCmd represents the base command
 var rootCmd = &cobra.Command{
-	Use:   "remarkable-sync",
+	Use:   "legible",
 	Short: "Sync and enhance reMarkable documents with OCR",
-	Long: `remarkable-sync synchronizes documents from your reMarkable tablet
+	Long: `legible synchronizes documents from your reMarkable tablet
 to your local machine, converting them to searchable PDFs with optional OCR.
 
 Features:
@@ -41,7 +41,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	// Global flags
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.remarkable-sync.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.legible.yaml)")
 	rootCmd.PersistentFlags().String("output", "", "output directory for PDFs")
 	rootCmd.PersistentFlags().StringSlice("labels", []string{}, "filter documents by labels (comma-separated)")
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
@@ -66,10 +66,10 @@ func initConfig() {
 			os.Exit(1)
 		}
 
-		// Search config in home directory with name ".remarkable-sync" (without extension)
+		// Search config in home directory with name ".legible" (without extension)
 		viper.AddConfigPath(home)
 		viper.SetConfigType("yaml")
-		viper.SetConfigName(".remarkable-sync")
+		viper.SetConfigName(".legible")
 	}
 
 	// Read environment variables with RMSYNC prefix

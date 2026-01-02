@@ -6,14 +6,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/platinummonkey/remarkable-sync/internal/converter"
-	"github.com/platinummonkey/remarkable-sync/internal/daemon"
-	"github.com/platinummonkey/remarkable-sync/internal/logger"
-	"github.com/platinummonkey/remarkable-sync/internal/ocr"
-	"github.com/platinummonkey/remarkable-sync/internal/pdfenhancer"
-	"github.com/platinummonkey/remarkable-sync/internal/rmclient"
-	"github.com/platinummonkey/remarkable-sync/internal/state"
-	"github.com/platinummonkey/remarkable-sync/internal/sync"
+	"github.com/platinummonkey/legible/internal/converter"
+	"github.com/platinummonkey/legible/internal/daemon"
+	"github.com/platinummonkey/legible/internal/logger"
+	"github.com/platinummonkey/legible/internal/ocr"
+	"github.com/platinummonkey/legible/internal/pdfenhancer"
+	"github.com/platinummonkey/legible/internal/rmclient"
+	"github.com/platinummonkey/legible/internal/state"
+	"github.com/platinummonkey/legible/internal/sync"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -22,7 +22,7 @@ import (
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
 	Short: "Run in daemon mode with periodic sync",
-	Long: `Run remarkable-sync as a long-running daemon process.
+	Long: `Run legible as a long-running daemon process.
 
 The daemon performs periodic synchronization at the specified interval.
 It handles signals gracefully and can be monitored via health check endpoints.
@@ -36,22 +36,22 @@ Features:
 
 Examples:
   # Run daemon with default 5 minute interval
-  remarkable-sync daemon
+  legible daemon
 
   # Run with custom interval
-  remarkable-sync daemon --interval 10m
+  legible daemon --interval 10m
 
   # Run with health check endpoint
-  remarkable-sync daemon --health-addr :8080
+  legible daemon --health-addr :8080
 
   # Run with PID file
-  remarkable-sync daemon --pid-file /var/run/remarkable-sync.pid
+  legible daemon --pid-file /var/run/legible.pid
 
   # Full example with all options
-  remarkable-sync daemon \
+  legible daemon \
     --interval 10m \
     --health-addr :8080 \
-    --pid-file /var/run/remarkable-sync.pid \
+    --pid-file /var/run/legible.pid \
     --output ~/Documents/ReMarkable \
     --labels work,personal`,
 	RunE: runDaemon,
@@ -99,7 +99,7 @@ func runDaemon(_ *cobra.Command, _ []string) error {
 		log.Fatal("Failed to create client:", err)
 	}
 
-	stateFile := filepath.Join(cfg.OutputDir, ".remarkable-sync-state.json")
+	stateFile := filepath.Join(cfg.OutputDir, ".legible-state.json")
 	stateStore, err := state.LoadOrCreate(stateFile)
 	if err != nil {
 		log.Fatal("Failed to initialize state:", err)

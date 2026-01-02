@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/platinummonkey/remarkable-sync/internal/logger"
-	"github.com/platinummonkey/remarkable-sync/internal/ollama"
+	"github.com/platinummonkey/legible/internal/logger"
+	"github.com/platinummonkey/legible/internal/ollama"
 )
 
 const (

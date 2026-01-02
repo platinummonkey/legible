@@ -18,7 +18,7 @@ The `ollama` package implements a robust HTTP client for the Ollama API with:
 ```go
 import (
     "context"
-    "github.com/platinummonkey/remarkable-sync/internal/ollama"
+    "github.com/platinummonkey/legible/internal/ollama"
 )
 
 // Create a client with default settings
@@ -251,7 +251,7 @@ go test -cover ./internal/ollama/...
 
 The package depends on:
 
-- `github.com/platinummonkey/remarkable-sync/internal/logger` - Logging utilities
+- `github.com/platinummonkey/legible/internal/logger` - Logging utilities
 - Standard library packages: `net/http`, `encoding/json`, `image`, etc.
 
 ## Thread Safety

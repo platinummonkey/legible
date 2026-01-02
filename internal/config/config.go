@@ -1,4 +1,4 @@
-// Package config provides configuration management for the remarkable-sync application.
+// Package config provides configuration management for the legible application.
 package config
 
 import (
@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Config holds all configuration settings for the remarkable-sync application.
+// Config holds all configuration settings for the legible application.
 // Configuration precedence: CLI flags > Environment variables > Config file > Defaults
 type Config struct {
 	// OutputDir is the directory where downloaded and processed files will be saved
@@ -61,7 +61,7 @@ func Load(configFile string) (*Config, error) {
 		home, err := os.UserHomeDir()
 		if err == nil {
 			v.AddConfigPath(home)
-			v.SetConfigName(".remarkable-sync")
+			v.SetConfigName(".legible")
 			v.SetConfigType("yaml")
 		}
 	}
@@ -109,8 +109,8 @@ func setDefaults(v *viper.Viper) {
 		home = "."
 	}
 
-	defaultOutputDir := filepath.Join(home, "remarkable-sync")
-	defaultStateFile := filepath.Join(home, ".remarkable-sync-state.json")
+	defaultOutputDir := filepath.Join(home, "legible")
+	defaultStateFile := filepath.Join(home, ".legible-state.json")
 
 	v.SetDefault("output-dir", defaultOutputDir)
 	v.SetDefault("labels", []string{})

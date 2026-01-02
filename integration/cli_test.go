@@ -15,9 +15,9 @@ func TestCLIBuild(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	binaryPath := filepath.Join(tmpDir, "remarkable-sync-test")
+	binaryPath := filepath.Join(tmpDir, "legible-test")
 
-	cmd := exec.Command("go", "build", "-o", binaryPath, "../cmd/remarkable-sync")
+	cmd := exec.Command("go", "build", "-o", binaryPath, "../cmd/legible")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Failed to build CLI: %v\nOutput: %s", err, output)
@@ -47,10 +47,10 @@ func TestCLIVersion(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	binaryPath := filepath.Join(tmpDir, "remarkable-sync-test")
+	binaryPath := filepath.Join(tmpDir, "legible-test")
 
 	// Build binary first
-	cmd := exec.Command("go", "build", "-o", binaryPath, "../cmd/remarkable-sync")
+	cmd := exec.Command("go", "build", "-o", binaryPath, "../cmd/legible")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build CLI: %v\nOutput: %s", err, output)
 	}
@@ -85,10 +85,10 @@ func TestCLIHelp(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	binaryPath := filepath.Join(tmpDir, "remarkable-sync-test")
+	binaryPath := filepath.Join(tmpDir, "legible-test")
 
 	// Build binary
-	cmd := exec.Command("go", "build", "-o", binaryPath, "../cmd/remarkable-sync")
+	cmd := exec.Command("go", "build", "-o", binaryPath, "../cmd/legible")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build CLI: %v\nOutput: %s", err, output)
 	}
@@ -127,10 +127,10 @@ func TestCLISyncCommandFlags(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	binaryPath := filepath.Join(tmpDir, "remarkable-sync-test")
+	binaryPath := filepath.Join(tmpDir, "legible-test")
 
 	// Build binary
-	cmd := exec.Command("go", "build", "-o", binaryPath, "../cmd/remarkable-sync")
+	cmd := exec.Command("go", "build", "-o", binaryPath, "../cmd/legible")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build CLI: %v\nOutput: %s", err, output)
 	}
@@ -170,10 +170,10 @@ func TestCLIDaemonCommandFlags(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	binaryPath := filepath.Join(tmpDir, "remarkable-sync-test")
+	binaryPath := filepath.Join(tmpDir, "legible-test")
 
 	// Build binary
-	cmd := exec.Command("go", "build", "-o", binaryPath, "../cmd/remarkable-sync")
+	cmd := exec.Command("go", "build", "-o", binaryPath, "../cmd/legible")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build CLI: %v\nOutput: %s", err, output)
 	}
@@ -210,10 +210,10 @@ func TestCLIAuthCommand(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	binaryPath := filepath.Join(tmpDir, "remarkable-sync-test")
+	binaryPath := filepath.Join(tmpDir, "legible-test")
 
 	// Build binary
-	cmd := exec.Command("go", "build", "-o", binaryPath, "../cmd/remarkable-sync")
+	cmd := exec.Command("go", "build", "-o", binaryPath, "../cmd/legible")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build CLI: %v\nOutput: %s", err, output)
 	}
@@ -244,7 +244,7 @@ func TestCLIConfigFile(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	binaryPath := filepath.Join(tmpDir, "remarkable-sync-test")
+	binaryPath := filepath.Join(tmpDir, "legible-test")
 	configPath := filepath.Join(tmpDir, "config.yaml")
 
 	// Create test config file
@@ -260,7 +260,7 @@ ocr-enabled: false
 	}
 
 	// Build binary
-	cmd := exec.Command("go", "build", "-o", binaryPath, "../cmd/remarkable-sync")
+	cmd := exec.Command("go", "build", "-o", binaryPath, "../cmd/legible")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build CLI: %v\nOutput: %s", err, output)
 	}
@@ -284,10 +284,10 @@ func TestCLIInvalidCommand(t *testing.T) {
 	}
 
 	tmpDir := t.TempDir()
-	binaryPath := filepath.Join(tmpDir, "remarkable-sync-test")
+	binaryPath := filepath.Join(tmpDir, "legible-test")
 
 	// Build binary
-	cmd := exec.Command("go", "build", "-o", binaryPath, "../cmd/remarkable-sync")
+	cmd := exec.Command("go", "build", "-o", binaryPath, "../cmd/legible")
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("Failed to build CLI: %v\nOutput: %s", err, output)
 	}

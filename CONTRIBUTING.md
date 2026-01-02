@@ -1,6 +1,6 @@
-# Contributing to reMarkable Sync
+# Contributing to Legible
 
-Thank you for your interest in contributing to reMarkable Sync! This document provides guidelines and instructions for contributing to the project.
+Thank you for your interest in contributing to Legible! This document provides guidelines and instructions for contributing to the project.
 
 ## Table of Contents
 
@@ -40,12 +40,12 @@ This project follows a standard code of conduct. Please be respectful and constr
 1. Fork the repository on GitHub
 2. Clone your fork locally:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/remarkable-sync.git
-   cd remarkable-sync
+   git clone https://github.com/YOUR_USERNAME/legible.git
+   cd legible
    ```
 3. Add the upstream repository:
    ```bash
-   git remote add upstream https://github.com/platinummonkey/remarkable-sync.git
+   git remote add upstream https://github.com/platinummonkey/legible.git
    ```
 
 ## Development Setup
@@ -75,7 +75,7 @@ We use goreleaser for consistent, production-quality builds:
 make build-local
 
 # The binary will be in:
-# dist/remarkable-sync_<os>_<arch>/remarkable-sync
+# dist/legible_<os>_<arch>/legible
 
 # Build for all platforms
 make build-all
@@ -344,7 +344,7 @@ What actually happened.
 **Environment:**
 - OS: [e.g., macOS 13.0, Ubuntu 22.04]
 - Go version: [e.g., 1.21.0]
-- remarkable-sync version: [e.g., v0.1.0]
+- legible version: [e.g., v0.1.0]
 - Tesseract version: [e.g., 5.3.0]
 
 **Logs**
@@ -390,7 +390,7 @@ Any other context, screenshots, or examples.
 
 ```bash
 # Run with debug logging
-remarkable-sync sync --log-level debug
+legible sync --log-level debug
 
 # Run with Go race detector
 go test -race ./...
@@ -403,9 +403,9 @@ go tool pprof cpu.prof
 ### Project Structure
 
 ```
-remarkable-sync/
+legible/
 ├── cmd/
-│   └── remarkable-sync/     # CLI entry point
+│   └── legible/     # CLI entry point
 ├── internal/
 │   ├── config/              # Configuration management
 │   ├── converter/           # .rmdoc to PDF conversion
@@ -463,7 +463,7 @@ syft packages . -o spdx-json=sbom.spdx.json
 syft packages . -o cyclonedx-json=sbom.cyclonedx.json
 
 # Generate from a built binary
-syft packages ./dist/remarkable-sync_linux_amd64/remarkable-sync -o spdx-json=binary.sbom.json
+syft packages ./dist/legible_linux_amd64/legible -o spdx-json=binary.sbom.json
 ```
 
 **Test with goreleaser:**
@@ -499,10 +499,10 @@ brew install grype
 grype sbom:./sbom.spdx.json
 
 # Scan binary directly
-grype ./dist/remarkable-sync_linux_amd64/remarkable-sync
+grype ./dist/legible_linux_amd64/legible
 
 # Scan container image
-grype ghcr.io/platinummonkey/remarkable-sync:latest
+grype ghcr.io/platinummonkey/legible:latest
 ```
 
 **SBOM Best Practices:**
@@ -517,13 +517,13 @@ grype ghcr.io/platinummonkey/remarkable-sync:latest
 
 ```bash
 # Build Docker image locally with SBOM
-docker buildx build --sbom=true --provenance=true -t remarkable-sync:test .
+docker buildx build --sbom=true --provenance=true -t legible:test .
 
 # Inspect SBOM metadata
-docker buildx imagetools inspect remarkable-sync:test --format "{{ json .SBOM }}"
+docker buildx imagetools inspect legible:test --format "{{ json .SBOM }}"
 
 # Export SBOM to file
-docker buildx imagetools inspect remarkable-sync:test --format "{{ json .SBOM }}" > container.sbom.json
+docker buildx imagetools inspect legible:test --format "{{ json .SBOM }}" > container.sbom.json
 ```
 
 ### Build System Details
@@ -560,4 +560,4 @@ Contributors are recognized in:
 - Release notes
 - GitHub contributors page
 
-Thank you for contributing to reMarkable Sync!
+Thank you for contributing to Legible!

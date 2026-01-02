@@ -1,6 +1,6 @@
 # Integration Tests
 
-This directory contains end-to-end integration tests for the remarkable-sync application.
+This directory contains end-to-end integration tests for the legible application.
 
 ## Overview
 
@@ -233,9 +233,9 @@ FAIL: TestCLIBuild - Failed to build CLI
 ```
 
 **Solution:**
-1. Check that `cmd/remarkable-sync/main.go` exists
+1. Check that `cmd/legible/main.go` exists
 2. Verify all dependencies are available: `go mod download`
-3. Try building manually: `go build ./cmd/remarkable-sync`
+3. Try building manually: `go build ./cmd/legible`
 
 ### Permission Errors
 

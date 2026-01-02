@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/platinummonkey/remarkable-sync/internal/logger"
+	"github.com/platinummonkey/legible/internal/logger"
 )
 
 func TestNewClient(t *testing.T) {

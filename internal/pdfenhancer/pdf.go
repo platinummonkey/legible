@@ -10,8 +10,8 @@ import (
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/types"
-	"github.com/platinummonkey/remarkable-sync/internal/logger"
-	"github.com/platinummonkey/remarkable-sync/internal/ocr"
+	"github.com/platinummonkey/legible/internal/logger"
+	"github.com/platinummonkey/legible/internal/ocr"
 )
 
 // PDFEnhancer provides utilities for reading and enhancing PDF files

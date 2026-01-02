@@ -1,4 +1,4 @@
-# reMarkable Sync
+# Legible
 
 Sync documents from your reMarkable tablet and add OCR text layers to make handwritten notes searchable.
 
@@ -54,10 +54,10 @@ Pull the official container image from GitHub Container Registry:
 
 ```bash
 # Pull latest version
-docker pull ghcr.io/platinummonkey/remarkable-sync:latest
+docker pull ghcr.io/platinummonkey/legible:latest
 
 # Or specific version
-docker pull ghcr.io/platinummonkey/remarkable-sync:v0.1.0
+docker pull ghcr.io/platinummonkey/legible:v0.1.0
 ```
 
 Multi-platform images available:
@@ -70,13 +70,13 @@ The default image includes the `mistral-small3.1` model (~7-8GB). To build with 
 
 ```bash
 # Build with llava for faster, lighter processing
-docker build --build-arg OCR_MODEL=llava -t remarkable-sync:llava .
+docker build --build-arg OCR_MODEL=llava -t legible:llava .
 
 # Build without pre-downloading models (smallest image, download on first run)
-docker build --build-arg OCR_MODEL=none -t remarkable-sync:minimal .
+docker build --build-arg OCR_MODEL=none -t legible:minimal .
 
 # Build with llava:13b for higher accuracy
-docker build --build-arg OCR_MODEL=llava:13b -t remarkable-sync:llava13b .
+docker build --build-arg OCR_MODEL=llava:13b -t legible:llava13b .
 ```
 
 **Using host-mounted Ollama models:**
@@ -93,7 +93,7 @@ docker run --rm \
   -v $PWD/output:/output \
   -v $HOME/.ollama/models:/home/remarkable/.ollama/models:ro \
   -e OCR_MODEL=mistral-small3.1 \
-  ghcr.io/platinummonkey/remarkable-sync:latest sync --output /output
+  ghcr.io/platinummonkey/legible:latest sync --output /output
 ```
 
 This approach:
@@ -104,25 +104,25 @@ This approach:
 ### Using Go Install
 
 ```bash
-go install github.com/platinummonkey/remarkable-sync/cmd/remarkable-sync@latest
+go install github.com/platinummonkey/legible/cmd/legible@latest
 ```
 
 ### Build from Source
 
 ```bash
-git clone https://github.com/platinummonkey/remarkable-sync.git
-cd remarkable-sync
+git clone https://github.com/platinummonkey/legible.git
+cd legible
 make build-local
 ```
 
-The binary will be available at `dist/remarkable-sync_*/remarkable-sync`.
+The binary will be available at `dist/legible_*/legible`.
 
 ## Configuration
 
 First time setup requires authenticating with your reMarkable account:
 
 ```bash
-remarkable-sync auth
+legible auth
 ```
 
 This will guide you through the authentication process:
@@ -138,19 +138,19 @@ This will guide you through the authentication process:
 **Sync all documents:**
 
 ```bash
-remarkable-sync sync
+legible sync
 ```
 
 **Sync documents with specific labels:**
 
 ```bash
-remarkable-sync sync --labels "work,personal"
+legible sync --labels "work,personal"
 ```
 
 **Specify output directory:**
 
 ```bash
-remarkable-sync sync --output ./my-remarkable-docs
+legible sync --output ./my-remarkable-docs
 ```
 
 **Run in daemon mode:**
@@ -158,7 +158,7 @@ remarkable-sync sync --output ./my-remarkable-docs
 For continuous background synchronization:
 
 ```bash
-remarkable-sync daemon --interval 10m --health-addr :8080
+legible daemon --interval 10m --health-addr :8080
 ```
 
 ### Using Docker
@@ -168,7 +168,7 @@ remarkable-sync daemon --interval 10m --health-addr :8080
 ```bash
 docker run --rm -it \
   -v $HOME/.rmapi:/home/remarkable/.rmapi \
-  ghcr.io/platinummonkey/remarkable-sync:latest auth
+  ghcr.io/platinummonkey/legible:latest auth
 ```
 
 **Sync documents:**
@@ -177,7 +177,7 @@ docker run --rm -it \
 docker run --rm \
   -v $HOME/.rmapi:/home/remarkable/.rmapi \
   -v $PWD/output:/output \
-  ghcr.io/platinummonkey/remarkable-sync:latest sync --output /output
+  ghcr.io/platinummonkey/legible:latest sync --output /output
 ```
 
 **Sync with labels:**
@@ -186,7 +186,7 @@ docker run --rm \
 docker run --rm \
   -v $HOME/.rmapi:/home/remarkable/.rmapi \
   -v $PWD/output:/output \
-  ghcr.io/platinummonkey/remarkable-sync:latest sync \
+  ghcr.io/platinummonkey/legible:latest sync \
     --output /output \
     --labels "work,personal"
 ```
@@ -195,10 +195,10 @@ docker run --rm \
 
 ```bash
 docker run -d \
-  --name remarkable-sync \
+  --name legible \
   -v $HOME/.rmapi:/home/remarkable/.rmapi \
   -v $PWD/output:/output \
-  ghcr.io/platinummonkey/remarkable-sync:latest daemon \
+  ghcr.io/platinummonkey/legible:latest daemon \
     --interval 30m \
     --output /output
 ```
@@ -211,9 +211,9 @@ Create a `docker-compose.yml`:
 version: '3.8'
 
 services:
-  remarkable-sync:
-    image: ghcr.io/platinummonkey/remarkable-sync:latest
-    container_name: remarkable-sync
+  legible:
+    image: ghcr.io/platinummonkey/legible:latest
+    container_name: legible
     restart: unless-stopped
     volumes:
       - ./credentials:/home/remarkable/.rmapi
@@ -230,7 +230,7 @@ docker-compose up -d
 
 **Sync command:**
 ```bash
-remarkable-sync sync [flags]
+legible sync [flags]
 
 Flags:
   --output string      Output directory (default: ~/ReMarkable)
@@ -238,12 +238,12 @@ Flags:
   --no-ocr            Skip OCR processing
   --force             Force re-sync all documents
   --log-level string  Log level: debug, info, warn, error (default: info)
-  --config string     Config file (default: ~/.remarkable-sync.yaml)
+  --config string     Config file (default: ~/.legible.yaml)
 ```
 
 **Daemon command:**
 ```bash
-remarkable-sync daemon [flags]
+legible daemon [flags]
 
 Flags:
   --interval duration   Sync interval (default: 5m)
@@ -256,9 +256,9 @@ Flags:
 
 **Other commands:**
 ```bash
-remarkable-sync auth      # Authenticate with reMarkable API
-remarkable-sync version   # Display version information
-remarkable-sync help      # Display help
+legible auth      # Authenticate with reMarkable API
+legible version   # Display version information
+legible help      # Display help
 ```
 
 ## Common Use Cases
@@ -267,13 +267,13 @@ remarkable-sync help      # Display help
 
 ```bash
 # 1. Authenticate with reMarkable cloud
-remarkable-sync auth
+legible auth
 
 # 2. Sync all documents (with OCR)
-remarkable-sync sync
+legible sync
 
 # 3. Check your documents
-ls ~/remarkable-sync/
+ls ~/legible/
 ```
 
 ### Selective Sync by Label
@@ -282,10 +282,10 @@ Organize your reMarkable documents with labels, then sync only what you need:
 
 ```bash
 # Sync only work documents
-remarkable-sync sync --labels work
+legible sync --labels work
 
 # Sync multiple label categories
-remarkable-sync sync --labels "work,personal,important"
+legible sync --labels "work,personal,important"
 ```
 
 ### Background Daemon Mode
@@ -294,10 +294,10 @@ Run continuous sync in the background:
 
 ```bash
 # Start daemon with 15-minute interval
-remarkable-sync daemon --interval 15m --log-level info
+legible daemon --interval 15m --log-level info
 
 # With health check endpoint (for monitoring)
-remarkable-sync daemon --interval 10m --health-addr :8080
+legible daemon --interval 10m --health-addr :8080
 
 # Check health status
 curl http://localhost:8080/health
@@ -309,20 +309,20 @@ For developers who want searchable notes without OCR overhead:
 
 ```bash
 # Quick sync without OCR (faster)
-remarkable-sync sync --no-ocr
+legible sync --no-ocr
 
 # Debug sync issues
-remarkable-sync sync --log-level debug --force
+legible sync --log-level debug --force
 ```
 
 ### Custom Output Organization
 
 ```bash
 # Sync to specific directory
-remarkable-sync sync --output ~/Dropbox/ReMarkable
+legible sync --output ~/Dropbox/ReMarkable
 
 # Use config file for consistent setup
-remarkable-sync --config ~/.remarkable-work.yaml sync
+legible --config ~/.remarkable-work.yaml sync
 ```
 
 ## How It Works
@@ -348,10 +348,10 @@ remarkable-docs/
 
 ## Configuration File
 
-Create a `~/.remarkable-sync.yaml` for default settings:
+Create a `~/.legible.yaml` for default settings:
 
 ```yaml
-# Output directory for synced PDFs (default: ~/remarkable-sync)
+# Output directory for synced PDFs (default: ~/legible)
 output-dir: ~/Documents/remarkable
 
 # Filter documents by labels (empty = sync all)
@@ -380,8 +380,8 @@ log-level: info
 # Sync interval for daemon mode (default: 5m)
 sync-interval: 10m
 
-# State file location (default: ~/.remarkable-sync-state.json)
-state-file: ~/.remarkable-sync/state.json
+# State file location (default: ~/.legible-state.json)
+state-file: ~/.legible/state.json
 ```
 
 **Configuration precedence:** CLI flags > Environment variables > Config file > Defaults
@@ -419,7 +419,7 @@ make install        # Install to $GOPATH/bin
 - The project uses [goreleaser](https://goreleaser.com) for consistent, reproducible builds
 - `make build-local` and `make build-all` use goreleaser for production-quality builds
 - CGO is disabled (`CGO_ENABLED=0`), enabling simple cross-compilation
-- Built binaries are in `dist/remarkable-sync_<os>_<arch>/` directory
+- Built binaries are in `dist/legible_<os>_<arch>/` directory
 - No system dependencies required - builds work on any platform
 
 **Installing goreleaser:**
@@ -490,13 +490,13 @@ make build
 - Get a new one-time code from https://my.remarkable.com/device/desktop/connect
 - Clear old credentials and re-authenticate:
   ```bash
-  rm -rf ~/.remarkable-sync
-  remarkable-sync auth
+  rm -rf ~/.legible
+  legible auth
   ```
 
 **"Device not registered" error**
 - Remar notable may have unlinked the device
-- Re-authenticate with `remarkable-sync auth`
+- Re-authenticate with `legible auth`
 - Contact reMarkable support if issues persist
 
 ### Sync Issues
@@ -504,17 +504,17 @@ make build
 **Documents not syncing**
 - Check you have cloud sync enabled on your reMarkable
 - Verify documents have been uploaded to cloud
-- Force re-sync: `remarkable-sync sync --force`
-- Check logs: `remarkable-sync sync --log-level debug`
+- Force re-sync: `legible sync --force`
+- Check logs: `legible sync --log-level debug`
 
 **Only some documents sync**
 - Check if you're using label filters: `--labels`
 - Verify document labels in reMarkable app
-- Try syncing without filters: `remarkable-sync sync`
+- Try syncing without filters: `legible sync`
 
 **Sync is very slow**
 - OCR processing is CPU-intensive
-- Try without OCR first: `remarkable-sync sync --no-ocr`
+- Try without OCR first: `legible sync --no-ocr`
 - Reduce sync frequency in daemon mode
 - Check available disk space
 
@@ -551,20 +551,20 @@ make build
 ### Daemon Issues
 
 **Daemon won't start**
-- Check logs: `remarkable-sync daemon --log-level debug`
+- Check logs: `legible daemon --log-level debug`
 - Verify port isn't in use: `lsof -i :8080` (if using --health-addr)
 - Check file permissions for PID file location
 - Ensure output directory is writable
 
 **Daemon stops unexpectedly**
-- Check system logs: `journalctl -u remarkable-sync` (if using systemd)
+- Check system logs: `journalctl -u legible` (if using systemd)
 - Verify sufficient disk space
 - Check for OOM (out of memory) errors in system logs
 
 **Health check endpoint not responding**
 - Verify port is correct: `curl http://localhost:8080/health`
 - Check firewall settings
-- Ensure daemon is running: `ps aux | grep remarkable-sync`
+- Ensure daemon is running: `ps aux | grep legible`
 
 ### Other Issues
 
@@ -578,7 +578,7 @@ make build
 - Verify state file location is writable
 - Run with appropriate user permissions
 
-For more help, see [FAQ.md](FAQ.md) or [open an issue](https://github.com/platinummonkey/remarkable-sync/issues).
+For more help, see [FAQ.md](FAQ.md) or [open an issue](https://github.com/platinummonkey/legible/issues).
 
 ## Security
 
@@ -596,7 +596,7 @@ SBOMs are published with each release on GitHub:
 
 ```bash
 # Download SBOM for a specific release
-curl -LO https://github.com/platinummonkey/remarkable-sync/releases/download/v1.0.0/remarkable-sync_1.0.0_linux_amd64.sbom.spdx.json
+curl -LO https://github.com/platinummonkey/legible/releases/download/v1.0.0/legible_1.0.0_linux_amd64.sbom.spdx.json
 ```
 
 **Extracting Container SBOMs:**
@@ -605,10 +605,10 @@ Container images include embedded SBOMs:
 
 ```bash
 # Pull image
-docker pull ghcr.io/platinummonkey/remarkable-sync:latest
+docker pull ghcr.io/platinummonkey/legible:latest
 
 # Extract SBOM
-docker buildx imagetools inspect ghcr.io/platinummonkey/remarkable-sync:latest --format "{{ json .SBOM }}"
+docker buildx imagetools inspect ghcr.io/platinummonkey/legible:latest --format "{{ json .SBOM }}"
 ```
 
 **Vulnerability Scanning:**
@@ -620,10 +620,10 @@ Use the SBOM to scan for known vulnerabilities:
 brew install anchore/grype/grype
 
 # Scan using SBOM
-grype sbom:./remarkable-sync_1.0.0_linux_amd64.sbom.spdx.json
+grype sbom:./legible_1.0.0_linux_amd64.sbom.spdx.json
 
 # Or scan the container image directly
-grype ghcr.io/platinummonkey/remarkable-sync:latest
+grype ghcr.io/platinummonkey/legible:latest
 ```
 
 **SBOM Contents:**

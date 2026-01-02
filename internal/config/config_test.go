@@ -233,8 +233,8 @@ func TestValidate_HomeDirectoryExpansion(t *testing.T) {
 	}
 
 	cfg := &Config{
-		OutputDir:    "~/test-remarkable-sync",
-		StateFile:    "~/.test-remarkable-sync-state.json",
+		OutputDir:    "~/test-legible",
+		StateFile:    "~/.test-legible-state.json",
 		LogLevel:     "info",
 		OCREnabled:   false,
 		OCRLanguages: "eng",
@@ -245,12 +245,12 @@ func TestValidate_HomeDirectoryExpansion(t *testing.T) {
 		t.Fatalf("Validate() error = %v", err)
 	}
 
-	expectedOutputDir := filepath.Join(home, "test-remarkable-sync")
+	expectedOutputDir := filepath.Join(home, "test-legible")
 	if cfg.OutputDir != expectedOutputDir {
 		t.Errorf("expected OutputDir = %s, got %s", expectedOutputDir, cfg.OutputDir)
 	}
 
-	expectedStateFile := filepath.Join(home, ".test-remarkable-sync-state.json")
+	expectedStateFile := filepath.Join(home, ".test-legible-state.json")
 	if cfg.StateFile != expectedStateFile {
 		t.Errorf("expected StateFile = %s, got %s", expectedStateFile, cfg.StateFile)
 	}

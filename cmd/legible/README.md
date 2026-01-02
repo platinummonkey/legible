@@ -1,32 +1,32 @@
-# remarkable-sync CLI
+# legible CLI
 
 Command-line interface for synchronizing and enhancing reMarkable documents.
 
 ## Installation
 
 ```bash
-go install github.com/platinummonkey/remarkable-sync/cmd/remarkable-sync@latest
+go install github.com/platinummonkey/legible/cmd/legible@latest
 ```
 
 Or build from source:
 
 ```bash
-git clone https://github.com/platinummonkey/remarkable-sync.git
-cd remarkable-sync
-go build -o remarkable-sync ./cmd/remarkable-sync
+git clone https://github.com/platinummonkey/legible.git
+cd legible
+go build -o legible ./cmd/legible
 ```
 
 ## Quick Start
 
 ```bash
 # 1. Authenticate with reMarkable API (one-time)
-remarkable-sync auth
+legible auth
 
 # 2. Sync documents
-remarkable-sync sync --output ~/Documents/ReMarkable
+legible sync --output ~/Documents/ReMarkable
 
 # 3. Or run in daemon mode for continuous sync
-remarkable-sync daemon --interval 10m
+legible daemon --interval 10m
 ```
 
 ## Commands
@@ -37,7 +37,7 @@ Authenticate with the reMarkable cloud API using a one-time code.
 
 **Usage:**
 ```bash
-remarkable-sync auth
+legible auth
 ```
 
 **What it does:**
@@ -47,7 +47,7 @@ remarkable-sync auth
 
 **Example:**
 ```bash
-$ remarkable-sync auth
+$ legible auth
 INFO: Starting reMarkable authentication
 INFO: Opening browser for authentication...
 INFO: Please follow the instructions in your browser
@@ -62,7 +62,7 @@ Perform a one-time synchronization of documents from reMarkable cloud.
 
 **Usage:**
 ```bash
-remarkable-sync sync [flags]
+legible sync [flags]
 ```
 
 **Flags:**
@@ -72,33 +72,33 @@ remarkable-sync sync [flags]
 --no-ocr              Disable OCR processing
 --force               Force re-sync all documents (ignore state)
 --log-level string    Log level: debug, info, warn, error (default: info)
---config string       Config file (default: ~/.remarkable-sync.yaml)
+--config string       Config file (default: ~/.legible.yaml)
 ```
 
 **Examples:**
 ```bash
 # Sync all documents to default directory
-remarkable-sync sync
+legible sync
 
 # Sync only documents with "work" label
-remarkable-sync sync --labels work
+legible sync --labels work
 
 # Sync multiple labels
-remarkable-sync sync --labels work,personal
+legible sync --labels work,personal
 
 # Sync to specific directory without OCR
-remarkable-sync sync --output ~/Documents/ReMarkable --no-ocr
+legible sync --output ~/Documents/ReMarkable --no-ocr
 
 # Force re-sync everything
-remarkable-sync sync --force
+legible sync --force
 
 # Debug logging
-remarkable-sync sync --log-level debug
+legible sync --log-level debug
 ```
 
 **Output:**
 ```
-Using config file: /home/user/.remarkable-sync.yaml
+Using config file: /home/user/.legible.yaml
 INFO: Starting sync output_dir=/home/user/ReMarkable
 INFO: Listing documents from reMarkable API
 INFO: Retrieved documents from API count=25
@@ -118,11 +118,11 @@ Duration: 1m30s
 
 ### `daemon` - Run in daemon mode
 
-Run remarkable-sync as a long-running daemon process with periodic sync.
+Run legible as a long-running daemon process with periodic sync.
 
 **Usage:**
 ```bash
-remarkable-sync daemon [flags]
+legible daemon [flags]
 ```
 
 **Flags:**
@@ -140,22 +140,22 @@ remarkable-sync daemon [flags]
 **Examples:**
 ```bash
 # Run daemon with default 5 minute interval
-remarkable-sync daemon
+legible daemon
 
 # Run with custom interval
-remarkable-sync daemon --interval 10m
+legible daemon --interval 10m
 
 # Run with health check endpoint on port 8080
-remarkable-sync daemon --health-addr :8080
+legible daemon --health-addr :8080
 
 # Run with PID file
-remarkable-sync daemon --pid-file /var/run/remarkable-sync.pid
+legible daemon --pid-file /var/run/legible.pid
 
 # Full example with all options
-remarkable-sync daemon \
+legible daemon \
   --interval 10m \
   --health-addr :8080 \
-  --pid-file /var/run/remarkable-sync.pid \
+  --pid-file /var/run/legible.pid \
   --output ~/Documents/ReMarkable \
   --labels work,personal \
   --log-level info
@@ -164,7 +164,7 @@ remarkable-sync daemon \
 **Output (JSON logging):**
 ```json
 {"level":"info","time":"2025-12-30T10:00:00Z","message":"Starting daemon","interval":"5m0s"}
-{"level":"info","time":"2025-12-30T10:00:00Z","message":"Wrote PID file","pid":12345,"file":"/var/run/remarkable-sync.pid"}
+{"level":"info","time":"2025-12-30T10:00:00Z","message":"Wrote PID file","pid":12345,"file":"/var/run/legible.pid"}
 {"level":"info","time":"2025-12-30T10:00:00Z","message":"Starting health check server","addr":":8080"}
 {"level":"info","time":"2025-12-30T10:00:00Z","message":"Running initial sync"}
 {"level":"info","time":"2025-12-30T10:00:00Z","message":"Starting sync"}
@@ -174,7 +174,7 @@ remarkable-sync daemon \
 **Shutdown:**
 ```bash
 # Send SIGTERM to gracefully shutdown
-kill $(cat /var/run/remarkable-sync.pid)
+kill $(cat /var/run/legible.pid)
 
 # Or press Ctrl+C in terminal
 ```
@@ -202,12 +202,12 @@ Display version, build date, and Git commit information.
 
 **Usage:**
 ```bash
-remarkable-sync version
+legible version
 ```
 
 **Output:**
 ```
-remarkable-sync version 0.1.0
+legible version 0.1.0
   Git commit: a1b2c3d
   Built: 2025-12-30T10:00:00Z
   Go version: go1.21.5
@@ -219,7 +219,7 @@ remarkable-sync version 0.1.0
 These flags can be used with any command:
 
 ```
---config string       Config file (default: ~/.remarkable-sync.yaml)
+--config string       Config file (default: ~/.legible.yaml)
 --output string       Output directory for PDFs
 --labels strings      Filter documents by labels (comma-separated)
 --log-level string    Log level: debug, info, warn, error (default: info)
@@ -228,7 +228,7 @@ These flags can be used with any command:
 
 ## Configuration File
 
-remarkable-sync can be configured using a YAML file. By default, it looks for `~/.remarkable-sync.yaml`.
+legible can be configured using a YAML file. By default, it looks for `~/.legible.yaml`.
 
 **Example configuration:**
 ```yaml
@@ -254,12 +254,12 @@ log_level: info
 daemon:
   interval: 10m
   health_addr: :8080
-  pid_file: /var/run/remarkable-sync.pid
+  pid_file: /var/run/legible.pid
 ```
 
 **Specify custom config file:**
 ```bash
-remarkable-sync sync --config /etc/remarkable-sync.yaml
+legible sync --config /etc/legible.yaml
 ```
 
 ## Environment Variables
@@ -272,14 +272,14 @@ export RMSYNC_LABELS=work,personal
 export RMSYNC_LOG_LEVEL=debug
 export RMSYNC_OCR_ENABLED=true
 
-remarkable-sync sync
+legible sync
 ```
 
 ## Systemd Service
 
 Run as a systemd service for automatic startup:
 
-**`/etc/systemd/system/remarkable-sync.service`:**
+**`/etc/systemd/system/legible.service`:**
 ```ini
 [Unit]
 Description=reMarkable Sync Daemon
@@ -289,7 +289,7 @@ After=network.target
 Type=simple
 User=remarkable
 Group=remarkable
-ExecStart=/usr/local/bin/remarkable-sync daemon
+ExecStart=/usr/local/bin/legible daemon
 Restart=on-failure
 RestartSec=10s
 Environment="RMSYNC_OUTPUT_DIR=/home/remarkable/Documents/ReMarkable"
@@ -301,9 +301,9 @@ WantedBy=multi-user.target
 
 **Enable and start:**
 ```bash
-sudo systemctl enable remarkable-sync
-sudo systemctl start remarkable-sync
-sudo systemctl status remarkable-sync
+sudo systemctl enable legible
+sudo systemctl start legible
+sudo systemctl status legible
 ```
 
 ## Docker
@@ -315,27 +315,27 @@ Run in a Docker container:
 FROM golang:1.21-alpine AS builder
 WORKDIR /app
 COPY . .
-RUN go build -o remarkable-sync ./cmd/remarkable-sync
+RUN go build -o legible ./cmd/legible
 
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates tesseract-ocr
-COPY --from=builder /app/remarkable-sync /usr/local/bin/
+COPY --from=builder /app/legible /usr/local/bin/
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s \
   CMD wget --quiet --tries=1 --spider http://localhost:8080/health || exit 1
-CMD ["remarkable-sync", "daemon", "--health-addr", ":8080"]
+CMD ["legible", "daemon", "--health-addr", ":8080"]
 ```
 
 **Build and run:**
 ```bash
-docker build -t remarkable-sync .
+docker build -t legible .
 docker run -d \
-  --name remarkable-sync \
+  --name legible \
   -p 8080:8080 \
-  -v ~/.remarkable-sync.yaml:/root/.remarkable-sync.yaml:ro \
+  -v ~/.legible.yaml:/root/.legible.yaml:ro \
   -v ~/Documents/ReMarkable:/data/output \
   -e RMSYNC_OUTPUT_DIR=/data/output \
-  remarkable-sync
+  legible
 ```
 
 **Check health:**
@@ -347,7 +347,7 @@ curl http://localhost:8080/health
 
 **Development build:**
 ```bash
-go build -o remarkable-sync ./cmd/remarkable-sync
+go build -o legible ./cmd/legible
 ```
 
 **Production build with version info:**
@@ -358,8 +358,8 @@ BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 go build \
   -ldflags="-X main.Version=${VERSION} -X main.GitCommit=${GIT_COMMIT} -X main.BuildDate=${BUILD_DATE}" \
-  -o remarkable-sync \
-  ./cmd/remarkable-sync
+  -o legible \
+  ./cmd/legible
 ```
 
 ## Troubleshooting
@@ -369,7 +369,7 @@ go build \
 ```bash
 # Clear credentials and re-authenticate
 rm ~/.rmapi
-remarkable-sync auth
+legible auth
 ```
 
 ### OCR not working
@@ -391,7 +391,7 @@ tesseract --version
 
 Check logs for errors:
 ```bash
-remarkable-sync daemon --log-level debug
+legible daemon --log-level debug
 ```
 
 Common issues:
@@ -403,13 +403,13 @@ Common issues:
 
 Clear state file to force re-sync all documents:
 ```bash
-rm ~/Documents/ReMarkable/.remarkable-sync-state.json
-remarkable-sync sync
+rm ~/Documents/ReMarkable/.legible-state.json
+legible sync
 ```
 
 Or use the `--force` flag:
 ```bash
-remarkable-sync sync --force
+legible sync --force
 ```
 
 ## Exit Codes
@@ -419,9 +419,9 @@ remarkable-sync sync --force
 
 ## Support
 
-- GitHub Issues: https://github.com/platinummonkey/remarkable-sync/issues
-- Documentation: https://github.com/platinummonkey/remarkable-sync
+- GitHub Issues: https://github.com/platinummonkey/legible/issues
+- Documentation: https://github.com/platinummonkey/legible
 
 ## License
 
-Part of remarkable-sync project. See project LICENSE for details.
+Part of legible project. See project LICENSE for details.

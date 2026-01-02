@@ -13,10 +13,10 @@ import (
 
 	"github.com/pdfcpu/pdfcpu/pkg/api"
 	"github.com/pdfcpu/pdfcpu/pkg/pdfcpu/model"
-	"github.com/platinummonkey/remarkable-sync/internal/logger"
-	"github.com/platinummonkey/remarkable-sync/internal/ocr"
-	"github.com/platinummonkey/remarkable-sync/internal/pdfenhancer"
-	"github.com/platinummonkey/remarkable-sync/internal/rmparse"
+	"github.com/platinummonkey/legible/internal/logger"
+	"github.com/platinummonkey/legible/internal/ocr"
+	"github.com/platinummonkey/legible/internal/pdfenhancer"
+	"github.com/platinummonkey/legible/internal/rmparse"
 	"github.com/signintech/gopdf"
 )
 
@@ -597,8 +597,8 @@ func (c *Converter) addOCRTextLayer(pdfPath string, pageCount int, result *Conve
 func (c *Converter) addPDFMetadata(pdfPath string, metadata *DocumentMetadata, tags []string) error {
 	// Prepare metadata properties
 	properties := map[string]string{
-		"Creator":  "remarkable-sync",
-		"Producer": "remarkable-sync",
+		"Creator":  "legible",
+		"Producer": "legible",
 	}
 
 	// Add title

@@ -75,7 +75,7 @@ ollama list
 ### Basic OCR Processing
 
 ```go
-import "github.com/platinummonkey/remarkable-sync/internal/ocr"
+import "github.com/platinummonkey/legible/internal/ocr"
 
 // Create processor with default configuration
 processor := ocr.New(&ocr.Config{})
@@ -339,7 +339,7 @@ FROM golang:1.21-alpine AS builder
 # Build application
 WORKDIR /app
 COPY . .
-RUN go build -o remarkable-sync ./cmd/remarkable-sync
+RUN go build -o legible ./cmd/legible
 
 FROM alpine:latest
 
@@ -348,13 +348,13 @@ RUN apk add --no-cache curl
 RUN curl -fsSL https://ollama.ai/install.sh | sh
 
 # Copy application
-COPY --from=builder /app/remarkable-sync /usr/local/bin/
+COPY --from=builder /app/legible /usr/local/bin/
 
 # Pull model during build (optional - large image size)
 # RUN ollama serve & sleep 5 && ollama pull llava && pkill ollama
 
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["remarkable-sync", "daemon"]
+CMD ["legible", "daemon"]
 ```
 
 ### GitHub Actions
@@ -465,4 +465,4 @@ The `ProcessImage()` interface remains the same!
 
 ## License
 
-Part of remarkable-sync project. See project LICENSE for details.
+Part of legible project. See project LICENSE for details.

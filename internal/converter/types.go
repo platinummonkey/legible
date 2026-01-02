@@ -173,8 +173,8 @@ func NewConversionOptions(inputPath, outputPath string) *ConversionOptions {
 		EnableOCR:          true, // Enable OCR by default for searchable text layer
 		OCRLanguages:       []string{"eng"},
 		Metadata: PDFMetadata{
-			Creator:  "remarkable-sync",
-			Producer: "remarkable-sync",
+			Creator:  "legible",
+			Producer: "legible",
 		},
 	}
 }

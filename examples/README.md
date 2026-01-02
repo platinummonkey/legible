@@ -12,53 +12,53 @@ Complete configuration file template with all available options documented.
 
 ```bash
 # Copy to default location
-cp examples/config.yaml ~/.remarkable-sync.yaml
+cp examples/config.yaml ~/.legible.yaml
 
 # Edit to customize
-vi ~/.remarkable-sync.yaml
+vi ~/.legible.yaml
 
-# Use with remarkable-sync
-remarkable-sync sync
+# Use with legible
+legible sync
 ```
 
 **Or specify config file explicitly:**
 
 ```bash
-remarkable-sync --config /path/to/config.yaml sync
+legible --config /path/to/config.yaml sync
 ```
 
 ## System Integration
 
 ### systemd (Linux)
 
-The `systemd/remarkable-sync.service` file is a systemd service unit for running remarkable-sync as a system daemon.
+The `systemd/legible.service` file is a systemd service unit for running legible as a system daemon.
 
 **Installation:**
 
 ```bash
 # Copy service file
-sudo cp examples/systemd/remarkable-sync.service /etc/systemd/system/remarkable-sync@.service
+sudo cp examples/systemd/legible.service /etc/systemd/system/legible@.service
 
 # Reload systemd
 sudo systemctl daemon-reload
 
 # Enable service for your user
-sudo systemctl enable remarkable-sync@$USER
+sudo systemctl enable legible@$USER
 
 # Start service
-sudo systemctl start remarkable-sync@$USER
+sudo systemctl start legible@$USER
 
 # Check status
-sudo systemctl status remarkable-sync@$USER
+sudo systemctl status legible@$USER
 
 # View logs
-sudo journalctl -u remarkable-sync@$USER -f
+sudo journalctl -u legible@$USER -f
 ```
 
 **Configuration:**
 
 Edit the service file before installation to customize:
-- ExecStart path (location of remarkable-sync binary)
+- ExecStart path (location of legible binary)
 - User and Group
 - WorkingDirectory
 - Environment variables
@@ -79,17 +79,17 @@ curl http://localhost:8080/health
 
 ```bash
 # Stop the service
-sudo systemctl stop remarkable-sync@$USER
+sudo systemctl stop legible@$USER
 
 # Disable from starting on boot
-sudo systemctl disable remarkable-sync@$USER
+sudo systemctl disable legible@$USER
 ```
 
 ### launchd (macOS)
 
 Create a launchd plist file for macOS:
 
-**File:** `~/Library/LaunchAgents/com.remarkable-sync.plist`
+**File:** `~/Library/LaunchAgents/com.legible.plist`
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -97,11 +97,11 @@ Create a launchd plist file for macOS:
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.remarkable-sync</string>
+    <string>com.legible</string>
 
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/remarkable-sync</string>
+        <string>/usr/local/bin/legible</string>
         <string>daemon</string>
         <string>--interval</string>
         <string>10m</string>
@@ -119,10 +119,10 @@ Create a launchd plist file for macOS:
     </dict>
 
     <key>StandardOutPath</key>
-    <string>/tmp/remarkable-sync.log</string>
+    <string>/tmp/legible.log</string>
 
     <key>StandardErrorPath</key>
-    <string>/tmp/remarkable-sync-error.log</string>
+    <string>/tmp/legible-error.log</string>
 </dict>
 </plist>
 ```
@@ -131,13 +131,13 @@ Create a launchd plist file for macOS:
 
 ```bash
 # Load the service
-launchctl load ~/Library/LaunchAgents/com.remarkable-sync.plist
+launchctl load ~/Library/LaunchAgents/com.legible.plist
 
 # Check status
-launchctl list | grep remarkable-sync
+launchctl list | grep legible
 
 # Unload the service
-launchctl unload ~/Library/LaunchAgents/com.remarkable-sync.plist
+launchctl unload ~/Library/LaunchAgents/com.legible.plist
 ```
 
 ## Usage Examples
@@ -146,78 +146,78 @@ launchctl unload ~/Library/LaunchAgents/com.remarkable-sync.plist
 
 ```bash
 # First time: authenticate
-remarkable-sync auth
+legible auth
 
 # Sync all documents with OCR
-remarkable-sync sync
+legible sync
 
 # Sync without OCR (faster)
-remarkable-sync sync --no-ocr
+legible sync --no-ocr
 ```
 
 ### Label-based Sync
 
 ```bash
 # Sync only work documents
-remarkable-sync sync --labels work
+legible sync --labels work
 
 # Sync multiple categories
-remarkable-sync sync --labels "work,personal,meetings"
+legible sync --labels "work,personal,meetings"
 
 # Use config file for consistent labels
-remarkable-sync --config ~/.remarkable-work.yaml sync
+legible --config ~/.remarkable-work.yaml sync
 ```
 
 ### Daemon Mode
 
 ```bash
 # Run daemon with default 5-minute interval
-remarkable-sync daemon
+legible daemon
 
 # Custom interval
-remarkable-sync daemon --interval 15m
+legible daemon --interval 15m
 
 # With health monitoring
-remarkable-sync daemon --interval 10m --health-addr :8080
+legible daemon --interval 10m --health-addr :8080
 
 # With PID file
-remarkable-sync daemon --interval 10m --pid-file ~/.remarkable-sync.pid
+legible daemon --interval 10m --pid-file ~/.legible.pid
 ```
 
 ### Custom Output Locations
 
 ```bash
 # Sync to Dropbox
-remarkable-sync sync --output ~/Dropbox/ReMarkable
+legible sync --output ~/Dropbox/ReMarkable
 
 # Sync to external drive
-remarkable-sync sync --output /Volumes/Backup/ReMarkable
+legible sync --output /Volumes/Backup/ReMarkable
 
 # Sync to NAS
-remarkable-sync sync --output /mnt/nas/documents/remarkable
+legible sync --output /mnt/nas/documents/remarkable
 ```
 
 ### Debugging
 
 ```bash
 # Enable debug logging
-remarkable-sync sync --log-level debug
+legible sync --log-level debug
 
 # Force re-sync all documents (ignore state)
-remarkable-sync sync --force
+legible sync --force
 
 # Test authentication
-remarkable-sync auth
+legible auth
 ```
 
 ## Configuration Examples
 
 ### Minimal Setup
 
-**File:** `~/.remarkable-sync.yaml`
+**File:** `~/.legible.yaml`
 
 ```yaml
-output-dir: ~/remarkable-sync
+output-dir: ~/legible
 ocr-enabled: true
 log-level: info
 ```
@@ -263,18 +263,18 @@ log-level: info
 
 ### Production Daemon
 
-**File:** `/etc/remarkable-sync.yaml`
+**File:** `/etc/legible.yaml`
 
 ```yaml
-output-dir: /var/lib/remarkable-sync/documents
+output-dir: /var/lib/legible/documents
 ocr-enabled: true
 ocr-languages: eng
 sync-interval: 10m
-state-file: /var/lib/remarkable-sync/state.json
+state-file: /var/lib/legible/state.json
 log-level: info
 daemon-mode: true
 health-addr: ":8080"
-pid-file: /var/run/remarkable-sync.pid
+pid-file: /var/run/legible.pid
 ```
 
 ## Automation Scripts
@@ -286,7 +286,7 @@ pid-file: /var/run/remarkable-sync.pid
 # sync-and-upload.sh - Sync documents and upload to cloud storage
 
 # Sync from reMarkable
-remarkable-sync sync --output ~/remarkable-temp
+legible sync --output ~/remarkable-temp
 
 # Upload to cloud (example: rclone)
 rclone sync ~/remarkable-temp remote:remarkable
@@ -301,13 +301,13 @@ rm -rf ~/remarkable-temp
 # Add to crontab (crontab -e)
 
 # Sync every hour
-0 * * * * /usr/local/bin/remarkable-sync sync --output ~/Documents/remarkable
+0 * * * * /usr/local/bin/legible sync --output ~/Documents/remarkable
 
 # Sync at 8 AM and 8 PM
-0 8,20 * * * /usr/local/bin/remarkable-sync sync
+0 8,20 * * * /usr/local/bin/legible sync
 
 # Sync every 30 minutes during work hours
-*/30 9-17 * * 1-5 /usr/local/bin/remarkable-sync sync --labels work
+*/30 9-17 * * 1-5 /usr/local/bin/legible sync --labels work
 ```
 
 ### Backup Script
@@ -320,7 +320,7 @@ DATE=$(date +%Y-%m-%d)
 BACKUP_DIR=~/backups/remarkable/$DATE
 
 # Sync documents
-remarkable-sync sync --output "$BACKUP_DIR"
+legible sync --output "$BACKUP_DIR"
 
 # Create archive
 tar -czf "$BACKUP_DIR.tar.gz" "$BACKUP_DIR"
@@ -336,13 +336,13 @@ Before deploying in production, test your configuration:
 
 ```bash
 # Test authentication
-remarkable-sync auth
+legible auth
 
 # Test sync with your config
-remarkable-sync --config your-config.yaml sync --no-ocr
+legible --config your-config.yaml sync --no-ocr
 
 # Test daemon mode (run for a few minutes then stop)
-remarkable-sync --config your-config.yaml daemon --interval 1m
+legible --config your-config.yaml daemon --interval 1m
 
 # Check health endpoint if enabled
 curl http://localhost:8080/health
@@ -364,13 +364,13 @@ curl -f http://localhost:8080/health || echo "Daemon unhealthy"
 
 ```bash
 # View systemd logs
-journalctl -u remarkable-sync@$USER -f
+journalctl -u legible@$USER -f
 
 # View recent errors
-journalctl -u remarkable-sync@$USER -p err -n 50
+journalctl -u legible@$USER -p err -n 50
 
 # View logs for specific time period
-journalctl -u remarkable-sync@$USER --since "1 hour ago"
+journalctl -u legible@$USER --since "1 hour ago"
 ```
 
 ### Metrics
@@ -390,7 +390,7 @@ If examples don't work:
 1. **Check paths**: Ensure binary and config paths are correct
 2. **Check permissions**: Service user needs read/write access to output directory
 3. **Check logs**: Look for errors in systemd journal or launchd logs
-4. **Test manually**: Run remarkable-sync manually to verify it works
+4. **Test manually**: Run legible manually to verify it works
 5. **Verify authentication**: Ensure auth token exists and is valid
 
 For more help, see:

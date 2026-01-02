@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-# Docker entrypoint script for remarkable-sync
-# This script starts Ollama service in the background and then runs remarkable-sync
+# Docker entrypoint script for legible
+# This script starts Ollama service in the background and then runs legible
 
 echo "Starting Ollama service..."
 
@@ -47,5 +47,5 @@ fi
 trap 'echo "Shutting down Ollama..."; kill $OLLAMA_PID; wait $OLLAMA_PID 2>/dev/null || true; exit 0' SIGTERM SIGINT
 
 # Execute the main command
-echo "Starting remarkable-sync..."
+echo "Starting legible..."
 exec "$@"

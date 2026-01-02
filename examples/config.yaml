@@ -1,12 +1,12 @@
 # reMarkable Sync Configuration File
 #
 # This file demonstrates all available configuration options.
-# Copy this file to ~/.remarkable-sync.yaml and customize as needed.
+# Copy this file to ~/.legible.yaml and customize as needed.
 #
 # Configuration precedence: CLI flags > Environment variables > Config file > Defaults
 
 # Output directory for synced PDF files
-# Default: ~/remarkable-sync
+# Default: ~/legible
 output-dir: ~/Documents/remarkable
 
 # Filter documents by labels (empty list = sync all documents)
@@ -66,12 +66,12 @@ sync-interval: 10m
 # State file location for tracking synced documents
 # The state file enables incremental sync by tracking which documents
 # have already been synced and their versions
-# Default: ~/.remarkable-sync-state.json
-state-file: ~/.remarkable-sync/state.json
+# Default: ~/.legible-state.json
+state-file: ~/.legible/state.json
 
 # reMarkable authentication token (leave empty to use default location)
-# Token is automatically generated during 'remarkable-sync auth'
-# Default: ~/.remarkable-sync/token.json
+# Token is automatically generated during 'legible auth'
+# Default: ~/.legible/token.json
 remarkable-token: ""
 
 # Daemon mode flag (set to true to enable daemon mode)
@@ -90,14 +90,14 @@ daemon-mode: false
 # PID file location for daemon mode (empty = no PID file)
 # Useful for process management and ensuring single instance
 # Default: "" (no PID file)
-# pid-file: /var/run/remarkable-sync.pid
+# pid-file: /var/run/legible.pid
 
 # ---
 # Example Configurations
 # ---
 
 # Minimal configuration (sync everything with defaults):
-# output-dir: ~/remarkable-sync
+# output-dir: ~/legible
 # ocr-enabled: true
 
 # Work-only configuration:
@@ -122,11 +122,11 @@ daemon-mode: false
 # sync-interval: 5m
 
 # Daemon with health monitoring:
-# output-dir: ~/remarkable-sync
+# output-dir: ~/legible
 # daemon-mode: true
 # sync-interval: 10m
 # health-addr: ":8080"
-# pid-file: ~/.remarkable-sync/daemon.pid
+# pid-file: ~/.legible/daemon.pid
 # log-level: info
 
 # ---

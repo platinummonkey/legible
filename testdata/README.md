@@ -1,6 +1,6 @@
 # Test Data
 
-This directory contains test fixtures and sample data for testing remarkable-sync components.
+This directory contains test fixtures and sample data for testing legible components.
 
 ## Directory Structure
 
@@ -239,6 +239,6 @@ When adding test data:
 
 ## License
 
-Test data files are part of the remarkable-sync project. See project LICENSE for details.
+Test data files are part of the legible project. See project LICENSE for details.
 
 Actual .rmdoc files created on reMarkable devices are owned by their creators and included here solely for testing purposes.

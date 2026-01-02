@@ -1,4 +1,4 @@
-# GoReleaser Pro configuration for remarkable-sync
+# GoReleaser Pro configuration for legible
 # https://goreleaser.com/pro
 #
 # NOTE: OCR now uses Ollama (HTTP API), so no system dependencies are required.
@@ -6,7 +6,7 @@
 
 version: 2
 
-project_name: remarkable-sync
+project_name: legible
 
 before:
   hooks:
@@ -14,9 +14,9 @@ before:
     - go mod tidy
 
 builds:
-  - id: remarkable-sync
-    main: ./cmd/remarkable-sync
-    binary: remarkable-sync
+  - id: legible
+    main: ./cmd/legible
+    binary: legible
 
     # Build for multiple platforms
     goos:
@@ -136,7 +136,7 @@ changelog:
 release:
   github:
     owner: platinummonkey
-    name: remarkable-sync
+    name: legible
 
   # Create release draft for review
   draft: false
@@ -149,9 +149,9 @@ release:
 
   # Release notes
   header: |
-    ## reMarkable Sync {{.Version}}
+    ## Legible {{.Version}}
 
-    Thank you for using reMarkable Sync! This release includes the following changes:
+    Thank you for using Legible! This release includes the following changes:
 
   footer: |
     ## Installation
@@ -163,11 +163,11 @@ release:
     **Linux / macOS:**
     ```bash
     # Download and extract (replace VERSION and OS/ARCH with your values)
-    curl -L https://github.com/platinummonkey/remarkable-sync/releases/download/v{{.Version}}/remarkable-sync_{{.Version}}_OS_ARCH.tar.gz | tar xz
+    curl -L https://github.com/platinummonkey/legible/releases/download/v{{.Version}}/legible_{{.Version}}_OS_ARCH.tar.gz | tar xz
 
     # Make executable and move to PATH
-    chmod +x remarkable-sync
-    sudo mv remarkable-sync /usr/local/bin/
+    chmod +x legible
+    sudo mv legible /usr/local/bin/
     ```
 
     **Windows:**
@@ -175,23 +175,23 @@ release:
 
     ### Homebrew (macOS)
     ```bash
-    brew install platinummonkey/tap/remarkable-sync
+    brew install platinummonkey/tap/legible
     ```
 
     ### From Source
     ```bash
-    go install github.com/platinummonkey/remarkable-sync/cmd/remarkable-sync@v{{.Version}}
+    go install github.com/platinummonkey/legible/cmd/legible@v{{.Version}}
     ```
 
     ## Documentation
 
-    - [README](https://github.com/platinummonkey/remarkable-sync/blob/v{{.Version}}/README.md)
-    - [FAQ](https://github.com/platinummonkey/remarkable-sync/blob/v{{.Version}}/FAQ.md)
-    - [Contributing](https://github.com/platinummonkey/remarkable-sync/blob/v{{.Version}}/CONTRIBUTING.md)
+    - [README](https://github.com/platinummonkey/legible/blob/v{{.Version}}/README.md)
+    - [FAQ](https://github.com/platinummonkey/legible/blob/v{{.Version}}/FAQ.md)
+    - [Contributing](https://github.com/platinummonkey/legible/blob/v{{.Version}}/CONTRIBUTING.md)
 
     ---
 
-    **Full Changelog**: https://github.com/platinummonkey/remarkable-sync/compare/{{.PreviousTag}}...v{{.Version}}
+    **Full Changelog**: https://github.com/platinummonkey/legible/compare/{{.PreviousTag}}...v{{.Version}}
 
 # GoReleaser Pro features
 # Sign releases with GoReleaser Pro signing
@@ -211,7 +211,7 @@ signs:
 # Homebrew tap - automatically updates platinummonkey/homebrew-tap
 # Using homebrew_casks (not brews) since we distribute pre-compiled binaries
 homebrew_casks:
-  - name: remarkable-sync
+  - name: legible
     repository:
       owner: platinummonkey
       name: homebrew-tap
@@ -219,12 +219,12 @@ homebrew_casks:
 
     directory: Casks
 
-    homepage: "https://github.com/platinummonkey/remarkable-sync"
+    homepage: "https://github.com/platinummonkey/legible"
     description: "Sync documents from reMarkable tablet with OCR text layer generation"
 
     # Specify the binary name for the cask
     binaries:
-      - "remarkable-sync"
+      - "legible"
 
     # Note: Ollama is optional for OCR functionality
     # Users are informed via caveats below
@@ -234,21 +234,21 @@ homebrew_casks:
       post:
         install: |
           if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/remarkable-sync"]
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/legible"]
           end
 
     caveats: |
-      reMarkable Sync requires a reMarkable tablet with cloud sync enabled.
+      Legible requires a reMarkable tablet with cloud sync enabled.
 
       Optional: Install Ollama for OCR text layer generation (searchable PDFs):
         brew install ollama
         ollama pull llava
 
       Get started:
-        1. Authenticate: remarkable-sync auth
-        2. Sync documents: remarkable-sync sync
+        1. Authenticate: legible auth
+        2. Sync documents: legible sync
 
-      Documentation: https://github.com/platinummonkey/remarkable-sync
+      Documentation: https://github.com/platinummonkey/legible
 
 # Announce releases (optional - uncomment to enable)
 # announce:
@@ -265,7 +265,7 @@ metadata:
 # This automatically builds multi-arch images and creates manifests
 dockers_v2:
   - images:
-      - "ghcr.io/platinummonkey/remarkable-sync"
+      - "ghcr.io/platinummonkey/legible"
 
     # Tags for different versions (multi-arch manifests)
     tags:

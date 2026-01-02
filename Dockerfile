@@ -1,4 +1,4 @@
-# Runtime Dockerfile for remarkable-sync with Ollama
+# Runtime Dockerfile for legible with Ollama
 # Uses pre-built binaries from GoReleaser for multi-platform support
 # GoReleaser provides binaries organized by $TARGETPLATFORM in build context
 
@@ -25,7 +25,7 @@ RUN mkdir -p /home/remarkable/.rmapi /home/remarkable/.ollama/models /output && 
 # Copy pre-built binary from GoReleaser build context
 # $TARGETPLATFORM is provided by Docker buildx (e.g., linux/amd64, linux/arm64)
 ARG TARGETPLATFORM
-COPY ${TARGETPLATFORM}/remarkable-sync /usr/local/bin/remarkable-sync
+COPY ${TARGETPLATFORM}/legible /usr/local/bin/legible
 
 # Build argument to select which OCR model to pre-download
 # Options: mistral-small3.1, llava, llava:13b, none
@@ -69,14 +69,14 @@ VOLUME ["/home/remarkable/.rmapi", "/home/remarkable/.ollama/models", "/output"]
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:11434/api/tags || exit 1
 
-# Use entrypoint script to start Ollama and remarkable-sync
+# Use entrypoint script to start Ollama and legible
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
-CMD ["remarkable-sync", "--help"]
+CMD ["legible", "--help"]
 
 # Metadata labels
-LABEL org.opencontainers.image.title="remarkable-sync"
+LABEL org.opencontainers.image.title="legible"
 LABEL org.opencontainers.image.description="Sync documents from reMarkable tablet with Ollama-powered OCR"
-LABEL org.opencontainers.image.url="https://github.com/platinummonkey/remarkable-sync"
-LABEL org.opencontainers.image.source="https://github.com/platinummonkey/remarkable-sync"
+LABEL org.opencontainers.image.url="https://github.com/platinummonkey/legible"
+LABEL org.opencontainers.image.source="https://github.com/platinummonkey/legible"
 LABEL org.opencontainers.image.vendor="platinummonkey"
 LABEL org.opencontainers.image.licenses="MIT"

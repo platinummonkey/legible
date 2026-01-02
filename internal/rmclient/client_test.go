@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/platinummonkey/remarkable-sync/internal/logger"
+	"github.com/platinummonkey/legible/internal/logger"
 )
 
 func TestNewClient(t *testing.T) {
@@ -47,7 +47,7 @@ func TestNewClient_DefaultTokenPath(t *testing.T) {
 	}
 
 	home, _ := os.UserHomeDir()
-	expectedPath := filepath.Join(home, ".remarkable-sync", "token.json")
+	expectedPath := filepath.Join(home, ".legible", "token.json")
 
 	if client.tokenPath != expectedPath {
 		t.Errorf("expected default tokenPath %s, got %s", expectedPath, client.tokenPath)

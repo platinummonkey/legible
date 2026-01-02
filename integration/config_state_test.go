@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/platinummonkey/remarkable-sync/internal/config"
-	"github.com/platinummonkey/remarkable-sync/internal/logger"
-	"github.com/platinummonkey/remarkable-sync/internal/rmclient"
-	"github.com/platinummonkey/remarkable-sync/internal/state"
+	"github.com/platinummonkey/legible/internal/config"
+	"github.com/platinummonkey/legible/internal/logger"
+	"github.com/platinummonkey/legible/internal/rmclient"
+	"github.com/platinummonkey/legible/internal/state"
 )
 
 // TestConfigStateIntegration tests the integration between config and state management

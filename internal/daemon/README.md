@@ -74,8 +74,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/platinummonkey/remarkable-sync/internal/daemon"
-	"github.com/platinummonkey/remarkable-sync/internal/sync"
+	"github.com/platinummonkey/legible/internal/daemon"
+	"github.com/platinummonkey/legible/internal/sync"
 )
 
 func main() {
@@ -132,7 +132,7 @@ if err := d.Run(context.Background()); err != nil {
 d, err := daemon.New(&daemon.Config{
 	Orchestrator: orchestrator,
 	SyncInterval: 5 * time.Minute,
-	PIDFile:      "/var/run/remarkable-sync.pid",
+	PIDFile:      "/var/run/legible.pid",
 })
 if err != nil {
 	panic(err)
@@ -153,14 +153,14 @@ import (
 	"log"
 	"time"
 
-	"github.com/platinummonkey/remarkable-sync/internal/config"
-	"github.com/platinummonkey/remarkable-sync/internal/converter"
-	"github.com/platinummonkey/remarkable-sync/internal/daemon"
-	"github.com/platinummonkey/remarkable-sync/internal/logger"
-	"github.com/platinummonkey/remarkable-sync/internal/pdfenhancer"
-	"github.com/platinummonkey/remarkable-sync/internal/rmclient"
-	"github.com/platinummonkey/remarkable-sync/internal/state"
-	"github.com/platinummonkey/remarkable-sync/internal/sync"
+	"github.com/platinummonkey/legible/internal/config"
+	"github.com/platinummonkey/legible/internal/converter"
+	"github.com/platinummonkey/legible/internal/daemon"
+	"github.com/platinummonkey/legible/internal/logger"
+	"github.com/platinummonkey/legible/internal/pdfenhancer"
+	"github.com/platinummonkey/legible/internal/rmclient"
+	"github.com/platinummonkey/legible/internal/state"
+	"github.com/platinummonkey/legible/internal/sync"
 )
 
 func main() {
@@ -205,14 +205,14 @@ func main() {
 		Logger:          log,
 		SyncInterval:    10 * time.Minute,
 		HealthCheckAddr: ":8080",
-		PIDFile:         "/var/run/remarkable-sync.pid",
+		PIDFile:         "/var/run/legible.pid",
 	})
 	if err != nil {
 		panic(err)
 	}
 
 	// Run daemon
-	log.Info("Starting remarkable-sync daemon")
+	log.Info("Starting legible daemon")
 	if err := d.Run(context.Background()); err != nil && err != context.Canceled {
 		log.WithFields("error", err).Fatal("Daemon error")
 	}
@@ -277,7 +277,7 @@ The daemon handles these OS signals:
 **Example:**
 ```bash
 # Send SIGTERM to daemon
-kill $(cat /var/run/remarkable-sync.pid)
+kill $(cat /var/run/legible.pid)
 
 # Send SIGINT from terminal
 # Press Ctrl+C
@@ -344,7 +344,7 @@ When PID file is configured, the daemon writes its process ID to the specified f
 **Example:**
 ```bash
 # Read PID
-PID=$(cat /var/run/remarkable-sync.pid)
+PID=$(cat /var/run/legible.pid)
 
 # Send signal
 kill -TERM $PID
@@ -364,7 +364,7 @@ The daemon logs all lifecycle events at appropriate levels:
 ### INFO Level
 ```
 INFO: Starting daemon interval=5m0s
-INFO: Wrote PID file pid=12345 file=/var/run/remarkable-sync.pid
+INFO: Wrote PID file pid=12345 file=/var/run/legible.pid
 INFO: Starting health check server addr=:8080
 INFO: Running initial sync
 INFO: Starting sync
@@ -373,7 +373,7 @@ INFO: Sync interval elapsed, triggering sync
 INFO: Received shutdown signal signal=terminated
 INFO: Stopping health check server
 INFO: Health check server stopped
-INFO: Removed PID file file=/var/run/remarkable-sync.pid
+INFO: Removed PID file file=/var/run/legible.pid
 ```
 
 ### ERROR Level
@@ -386,7 +386,7 @@ ERROR: Health check server failed error="bind: address already in use"
 ```
 WARN: Sync completed with failures count=2
 WARN: Document sync failed document_id=abc-123 title="Meeting Notes" error="download failed"
-WARN: Failed to remove PID file file=/var/run/remarkable-sync.pid error="permission denied"
+WARN: Failed to remove PID file file=/var/run/legible.pid error="permission denied"
 ```
 
 ## Error Handling
@@ -444,10 +444,10 @@ After=network.target
 Type=simple
 User=remarkable
 Group=remarkable
-ExecStart=/usr/local/bin/remarkable-sync daemon
+ExecStart=/usr/local/bin/legible daemon
 Restart=on-failure
 RestartSec=10s
-PIDFile=/var/run/remarkable-sync.pid
+PIDFile=/var/run/legible.pid
 
 [Install]
 WantedBy=multi-user.target
@@ -459,15 +459,15 @@ WantedBy=multi-user.target
 FROM golang:1.21-alpine AS builder
 WORKDIR /app
 COPY . .
-RUN go build -o remarkable-sync ./cmd/remarkable-sync
+RUN go build -o legible ./cmd/legible
 
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
-COPY --from=builder /app/remarkable-sync /usr/local/bin/
+COPY --from=builder /app/legible /usr/local/bin/
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s \
   CMD wget --quiet --tries=1 --spider http://localhost:8080/health || exit 1
-CMD ["remarkable-sync", "daemon"]
+CMD ["legible", "daemon"]
 ```
 
 ### Docker Compose
@@ -476,14 +476,14 @@ CMD ["remarkable-sync", "daemon"]
 version: '3.8'
 
 services:
-  remarkable-sync:
+  legible:
     build: .
-    container_name: remarkable-sync
+    container_name: legible
     restart: unless-stopped
     ports:
       - "8080:8080"
     volumes:
-      - ./config:/etc/remarkable-sync
+      - ./config:/etc/legible
       - ./output:/data/output
       - ./state:/data/state
     environment:
@@ -539,4 +539,4 @@ services:
 
 ## License
 
-Part of remarkable-sync project. See project LICENSE for details.
+Part of legible project. See project LICENSE for details.

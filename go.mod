@@ -1,4 +1,4 @@
-module github.com/platinummonkey/remarkable-sync
+module github.com/platinummonkey/legible
 
 go 1.25.0
 

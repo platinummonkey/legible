@@ -7,14 +7,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/platinummonkey/remarkable-sync/internal/config"
-	"github.com/platinummonkey/remarkable-sync/internal/converter"
-	"github.com/platinummonkey/remarkable-sync/internal/logger"
-	"github.com/platinummonkey/remarkable-sync/internal/ocr"
-	"github.com/platinummonkey/remarkable-sync/internal/pdfenhancer"
-	"github.com/platinummonkey/remarkable-sync/internal/rmclient"
-	"github.com/platinummonkey/remarkable-sync/internal/state"
-	"github.com/platinummonkey/remarkable-sync/internal/sync"
+	"github.com/platinummonkey/legible/internal/config"
+	"github.com/platinummonkey/legible/internal/converter"
+	"github.com/platinummonkey/legible/internal/logger"
+	"github.com/platinummonkey/legible/internal/ocr"
+	"github.com/platinummonkey/legible/internal/pdfenhancer"
+	"github.com/platinummonkey/legible/internal/rmclient"
+	"github.com/platinummonkey/legible/internal/state"
+	"github.com/platinummonkey/legible/internal/sync"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -37,16 +37,16 @@ The sync state is maintained to avoid re-downloading unchanged documents.
 
 Examples:
   # Sync all documents
-  remarkable-sync sync
+  legible sync
 
   # Sync only documents with "work" label
-  remarkable-sync sync --labels work
+  legible sync --labels work
 
   # Sync to specific directory without OCR
-  remarkable-sync sync --output ~/Documents/ReMarkable --no-ocr
+  legible sync --output ~/Documents/ReMarkable --no-ocr
 
   # Force re-sync all documents (ignores state)
-  remarkable-sync sync --force`,
+  legible sync --force`,
 	RunE: runSync,
 }
 
@@ -86,11 +86,11 @@ func runSync(_ *cobra.Command, _ []string) error {
 
 	// Authenticate with the reMarkable API (loads existing credentials)
 	if err := rmClient.Authenticate(); err != nil {
-		return fmt.Errorf("authentication failed: %w. Please run 'remarkable-sync auth' first", err)
+		return fmt.Errorf("authentication failed: %w. Please run 'legible auth' first", err)
 	}
 
 	// Determine state file path
-	stateFile := filepath.Join(cfg.OutputDir, ".remarkable-sync-state.json")
+	stateFile := filepath.Join(cfg.OutputDir, ".legible-state.json")
 	stateStore, err := state.LoadOrCreate(stateFile)
 	if err != nil {
 		log.Fatal("Failed to initialize state:", err)

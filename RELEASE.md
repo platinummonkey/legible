@@ -1,6 +1,6 @@
 # Release Process
 
-This document describes how to create and publish releases for reMarkable Sync.
+This document describes how to create and publish releases for Legible.
 
 ## Overview
 
@@ -88,17 +88,17 @@ The GitHub Actions workflow will automatically:
 
 ### 3. Monitor Release
 
-1. Go to [Actions](https://github.com/platinummonkey/remarkable-sync/actions)
+1. Go to [Actions](https://github.com/platinummonkey/legible/actions)
 2. Watch the "Release" workflow
-3. Once complete, check the [Releases](https://github.com/platinummonkey/remarkable-sync/releases) page
+3. Once complete, check the [Releases](https://github.com/platinummonkey/legible/releases) page
 
 ### 4. Verify Release
 
 ```bash
 # Download and test binaries for your platform
-curl -L https://github.com/platinummonkey/remarkable-sync/releases/download/v1.2.3/remarkable-sync_1.2.3_darwin_arm64.tar.gz | tar xz
+curl -L https://github.com/platinummonkey/legible/releases/download/v1.2.3/legible_1.2.3_darwin_arm64.tar.gz | tar xz
 
-./remarkable-sync version
+./legible version
 ```
 
 ### 5. Announce Release (Optional)
@@ -119,7 +119,7 @@ goreleaser release --snapshot --clean --skip=publish
 ls -la dist/
 
 # Test specific binary
-./dist/remarkable-sync_darwin_arm64/remarkable-sync version
+./dist/legible_darwin_arm64/legible version
 ```
 
 ## Rollback a Release
@@ -225,7 +225,7 @@ Either:
 
 Check the build matrix in `.goreleaser.yaml` and test locally:
 ```bash
-GOOS=linux GOARCH=arm64 go build -o test-binary ./cmd/remarkable-sync
+GOOS=linux GOARCH=arm64 go build -o test-binary ./cmd/legible
 ```
 
 ### Changelog is empty
@@ -261,18 +261,18 @@ Homebrew tap is **enabled by default**. GoReleaser automatically updates the for
 Users can install via Homebrew:
 ```bash
 # Direct install from tap
-brew install platinummonkey/tap/remarkable-sync
+brew install platinummonkey/tap/legible
 
 # Or tap first, then install
 brew tap platinummonkey/tap
-brew install remarkable-sync
+brew install legible
 ```
 
 ### Formula Location
 
 The formula is automatically maintained at:
 - Repository: `github.com/platinummonkey/homebrew-tap`
-- Path: `Formula/remarkable-sync.rb`
+- Path: `Formula/legible.rb`
 
 ### Disabling Homebrew Tap
 

@@ -104,6 +104,6 @@ jobs:
       - name: Upload build artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: remarkable-sync-binaries
-          path: dist/remarkable-sync_*/remarkable-sync*
+          name: legible-binaries
+          path: dist/legible_*/legible*
           retention-days: 7

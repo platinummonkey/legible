@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/platinummonkey/remarkable-sync/internal/logger"
-	"github.com/platinummonkey/remarkable-sync/internal/sync"
+	"github.com/platinummonkey/legible/internal/logger"
+	"github.com/platinummonkey/legible/internal/sync"
 )
 
 // mockOrchestrator is a mock implementation of sync.Orchestrator for testing

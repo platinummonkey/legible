@@ -181,8 +181,8 @@ func TestPDFMetadata(t *testing.T) {
 		Author:           "Test Author",
 		Subject:          "Testing",
 		Keywords:         []string{"test", "pdf"},
-		Creator:          "remarkable-sync",
-		Producer:         "remarkable-sync",
+		Creator:          "legible",
+		Producer:         "legible",
 		CreationDate:     now,
 		ModificationDate: now,
 	}

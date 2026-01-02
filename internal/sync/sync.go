@@ -7,13 +7,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/platinummonkey/remarkable-sync/internal/config"
-	"github.com/platinummonkey/remarkable-sync/internal/converter"
-	"github.com/platinummonkey/remarkable-sync/internal/logger"
-	"github.com/platinummonkey/remarkable-sync/internal/ocr"
-	"github.com/platinummonkey/remarkable-sync/internal/pdfenhancer"
-	"github.com/platinummonkey/remarkable-sync/internal/rmclient"
-	"github.com/platinummonkey/remarkable-sync/internal/state"
+	"github.com/platinummonkey/legible/internal/config"
+	"github.com/platinummonkey/legible/internal/converter"
+	"github.com/platinummonkey/legible/internal/logger"
+	"github.com/platinummonkey/legible/internal/ocr"
+	"github.com/platinummonkey/legible/internal/pdfenhancer"
+	"github.com/platinummonkey/legible/internal/rmclient"
+	"github.com/platinummonkey/legible/internal/state"
 )
 
 // Orchestrator coordinates the complete sync workflow

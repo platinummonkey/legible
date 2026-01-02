@@ -113,7 +113,7 @@ Several approaches for full rendering:
 ## Usage
 
 ```go
-import "github.com/platinummonkey/remarkable-sync/internal/converter"
+import "github.com/platinummonkey/legible/internal/converter"
 
 // Create converter
 conv := converter.New(&converter.Config{})
@@ -204,4 +204,4 @@ go test -v ./internal/converter
 
 ## License
 
-Part of remarkable-sync project. See project LICENSE for details.
+Part of legible project. See project LICENSE for details.

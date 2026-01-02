@@ -1,4 +1,4 @@
-# reMarkable Sync
+# Legible
 
 A Go-based tool for syncing documents from reMarkable tablets with OCR text layer generation.
 

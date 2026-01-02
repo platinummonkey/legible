@@ -4,7 +4,7 @@ Package sync coordinates the complete synchronization workflow for reMarkable do
 
 ## Overview
 
-The Sync Orchestrator is the core component that ties together all the pieces of the remarkable-sync application. It manages the end-to-end workflow from downloading documents from the reMarkable API to generating searchable PDFs with OCR text layers.
+The Sync Orchestrator is the core component that ties together all the pieces of the legible application. It manages the end-to-end workflow from downloading documents from the reMarkable API to generating searchable PDFs with OCR text layers.
 
 ## Architecture
 
@@ -94,12 +94,12 @@ package main
 import (
 	"context"
 
-	"github.com/platinummonkey/remarkable-sync/internal/config"
-	"github.com/platinummonkey/remarkable-sync/internal/converter"
-	"github.com/platinummonkey/remarkable-sync/internal/pdfenhancer"
-	"github.com/platinummonkey/remarkable-sync/internal/rmclient"
-	"github.com/platinummonkey/remarkable-sync/internal/state"
-	"github.com/platinummonkey/remarkable-sync/internal/sync"
+	"github.com/platinummonkey/legible/internal/config"
+	"github.com/platinummonkey/legible/internal/converter"
+	"github.com/platinummonkey/legible/internal/pdfenhancer"
+	"github.com/platinummonkey/legible/internal/rmclient"
+	"github.com/platinummonkey/legible/internal/state"
+	"github.com/platinummonkey/legible/internal/sync"
 )
 
 func main() {
@@ -384,4 +384,4 @@ The orchestrator depends on these internal packages:
 
 ## License
 
-Part of remarkable-sync project. See project LICENSE for details.
+Part of legible project. See project LICENSE for details.

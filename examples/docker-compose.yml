@@ -1,10 +1,10 @@
-# Docker Compose example for remarkable-sync with Ollama
+# Docker Compose example for legible with Ollama
 #
-# This runs remarkable-sync in daemon mode with Ollama for OCR processing.
+# This runs legible in daemon mode with Ollama for OCR processing.
 #
 # Usage:
 #   1. First, authenticate:
-#      docker-compose run --rm remarkable-sync auth
+#      docker-compose run --rm legible auth
 #
 #   2. Start the daemon:
 #      docker-compose up -d
@@ -23,9 +23,9 @@
 version: '3.8'
 
 services:
-  remarkable-sync:
-    image: ghcr.io/platinummonkey/remarkable-sync:latest
-    container_name: remarkable-sync
+  legible:
+    image: ghcr.io/platinummonkey/legible:latest
+    container_name: legible
     restart: unless-stopped
 
     # Volumes for persistent data
@@ -62,9 +62,9 @@ services:
       --output /output
       --log-level info
 
-    # Health check for both Ollama and remarkable-sync
+    # Health check for both Ollama and legible
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:11434/api/tags && pgrep remarkable-sync"]
+      test: ["CMD-SHELL", "curl -f http://localhost:11434/api/tags && pgrep legible"]
       interval: 1m
       timeout: 10s
       retries: 3
@@ -100,8 +100,8 @@ volumes:
 #     ports:
 #       - "11434:11434"
 #
-#   remarkable-sync:
-#     image: ghcr.io/platinummonkey/remarkable-sync:latest
+#   legible:
+#     image: ghcr.io/platinummonkey/legible:latest
 #     depends_on:
 #       - ollama
 #     environment:
@@ -125,8 +125,8 @@ volumes:
 # Note: Larger model (~7-8GB) requires more RAM and takes longer per page
 #
 # services:
-#   remarkable-sync:
-#     image: ghcr.io/platinummonkey/remarkable-sync:latest
+#   legible:
+#     image: ghcr.io/platinummonkey/legible:latest
 #     environment:
 #       - OCR_MODEL=mistral-small3.1
 #     volumes:
@@ -154,8 +154,8 @@ volumes:
 # Then mount your host's Ollama models directory:
 #
 # services:
-#   remarkable-sync:
-#     image: ghcr.io/platinummonkey/remarkable-sync:latest
+#   legible:
+#     image: ghcr.io/platinummonkey/legible:latest
 #     environment:
 #       - OCR_MODEL=mistral-small3.1
 #     volumes:
@@ -175,8 +175,8 @@ volumes:
 # To sync only documents with specific labels:
 #
 # services:
-#   remarkable-sync:
-#     image: ghcr.io/platinummonkey/remarkable-sync:latest
+#   legible:
+#     image: ghcr.io/platinummonkey/legible:latest
 #     environment:
 #       - OCR_MODEL=llava
 #     volumes:
@@ -194,7 +194,7 @@ volumes:
 # To build and run locally for testing:
 #
 # services:
-#   remarkable-sync:
+#   legible:
 #     build:
 #       context: ..
 #       dockerfile: Dockerfile

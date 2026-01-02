@@ -4,8 +4,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/platinummonkey/remarkable-sync/internal/logger"
-	"github.com/platinummonkey/remarkable-sync/internal/rmclient"
+	"github.com/platinummonkey/legible/internal/logger"
+	"github.com/platinummonkey/legible/internal/rmclient"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -24,7 +24,7 @@ This command guides you through the authentication process:
 Authentication is required before syncing documents.
 
 Example:
-  remarkable-sync auth`,
+  legible auth`,
 	RunE: runAuth,
 }
 

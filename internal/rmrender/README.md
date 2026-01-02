@@ -90,7 +90,7 @@ The reMarkable supports various brush types that need different rendering:
 ## Usage Example
 
 ```go
-import "github.com/platinummonkey/remarkable-sync/internal/rmrender"
+import "github.com/platinummonkey/legible/internal/rmrender"
 
 // Parse .rm file
 data, err := os.ReadFile("page.rm")

@@ -77,7 +77,7 @@ The package adds an invisible OCR text layer to PDFs using low-level PDF content
 ### Usage Example
 
 ```go
-import "github.com/platinummonkey/remarkable-sync/internal/pdfenhancer"
+import "github.com/platinummonkey/legible/internal/pdfenhancer"
 
 // Create enhancer
 enhancer := pdfenhancer.New(&pdfenhancer.Config{})
