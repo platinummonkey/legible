@@ -127,7 +127,8 @@ func (pe *PDFEnhancer) addTextToPage(ctx *model.Context, pageNum int, pageOCR *o
 	if inheritedAttrs == nil || inheritedAttrs.MediaBox == nil {
 		return fmt.Errorf("page has no media box")
 	}
-	pageHeight := inheritedAttrs.MediaBox.Height()
+	pdfPageWidth := inheritedAttrs.MediaBox.Width()
+	pdfPageHeight := inheritedAttrs.MediaBox.Height()
 
 	// Skip if no words to add
 	if len(pageOCR.Words) == 0 {
@@ -141,7 +142,7 @@ func (pe *PDFEnhancer) addTextToPage(ctx *model.Context, pageNum int, pageOCR *o
 	}
 
 	// Create content stream with invisible text
-	contentStream, err := pe.createTextContentStream(pageOCR, pageHeight)
+	contentStream, err := pe.createTextContentStream(pageOCR, pdfPageWidth, pdfPageHeight)
 	if err != nil {
 		return fmt.Errorf("failed to create content stream: %w", err)
 	}
@@ -158,8 +159,22 @@ func (pe *PDFEnhancer) addTextToPage(ctx *model.Context, pageNum int, pageOCR *o
 }
 
 // createTextContentStream generates a PDF content stream with invisible text
-func (pe *PDFEnhancer) createTextContentStream(pageOCR *ocr.PageOCR, pageHeight float64) ([]byte, error) {
+func (pe *PDFEnhancer) createTextContentStream(pageOCR *ocr.PageOCR, pdfPageWidth, pdfPageHeight float64) ([]byte, error) {
 	var buf bytes.Buffer
+
+	// Calculate scaling factors between OCR coordinates and PDF coordinates
+	// OCR dimensions are in pixels, PDF dimensions are in points
+	scaleX := pdfPageWidth / float64(pageOCR.Width)
+	scaleY := pdfPageHeight / float64(pageOCR.Height)
+
+	pe.logger.WithFields(
+		"ocr_width", pageOCR.Width,
+		"ocr_height", pageOCR.Height,
+		"pdf_width", pdfPageWidth,
+		"pdf_height", pdfPageHeight,
+		"scale_x", scaleX,
+		"scale_y", scaleY,
+	).Debug("Coordinate scaling factors")
 
 	// Start with graphics state save
 	buf.WriteString("q\n")
@@ -167,13 +182,10 @@ func (pe *PDFEnhancer) createTextContentStream(pageOCR *ocr.PageOCR, pageHeight 
 	// Begin text object
 	buf.WriteString("BT\n")
 
-	// Set font (Helvetica, 10pt) - standard PDF font, no embedding needed
-	buf.WriteString("/Helvetica 10 Tf\n")
-
 	// Set text rendering mode to invisible (Tr 3 = no fill, no stroke)
 	buf.WriteString("3 Tr\n")
 
-	// Add each word with its position
+	// Add each word with its position and scaling
 	for _, word := range pageOCR.Words {
 		// Skip empty words
 		if strings.TrimSpace(word.Text) == "" {
@@ -183,15 +195,46 @@ func (pe *PDFEnhancer) createTextContentStream(pageOCR *ocr.PageOCR, pageHeight 
 		// Convert OCR coordinates (top-left origin) to PDF coordinates (bottom-left origin)
 		// OCR: (0,0) is top-left, Y increases downward
 		// PDF: (0,0) is bottom-left, Y increases upward
-		pdfX := float64(word.BoundingBox.X)
-		pdfY := pageHeight - float64(word.BoundingBox.Y) - float64(word.BoundingBox.Height)
+		// Apply scaling to convert from OCR pixel coordinates to PDF points
+		pdfX := float64(word.BoundingBox.X) * scaleX
+		pdfY := pdfPageHeight - (float64(word.BoundingBox.Y) * scaleY) - (float64(word.BoundingBox.Height) * scaleY)
+
+		// Calculate font size from bounding box height (scaled to PDF points)
+		// Use 90% of box height to avoid text touching box edges
+		fontSize := float64(word.BoundingBox.Height) * scaleY * 0.9
+		if fontSize < 1.0 {
+			fontSize = 1.0 // Minimum font size
+		}
+
+		// Set font with calculated size
+		buf.WriteString(fmt.Sprintf("/Helvetica %.2f Tf\n", fontSize))
 
 		// Escape text for PDF string
 		escapedText := pe.escapePDFString(word.Text)
 
-		// Position text using Tm (text matrix) operator
-		// [a b c d e f] Tm - we use simple translation: [1 0 0 1 x y]
-		buf.WriteString(fmt.Sprintf("1 0 0 1 %.2f %.2f Tm\n", pdfX, pdfY))
+		// Calculate horizontal scaling to fit text width to bounding box
+		// Helvetica at fontSize has approximately fontSize * 0.5 per character width
+		// This is a rough estimate; actual width depends on characters
+		estimatedTextWidth := float64(len(word.Text)) * fontSize * 0.5
+		boxWidth := float64(word.BoundingBox.Width) * scaleX
+		horizontalScale := 1.0
+		if estimatedTextWidth > 0 {
+			horizontalScale = boxWidth / estimatedTextWidth
+			// Clamp to reasonable range (50% to 200%)
+			if horizontalScale < 0.5 {
+				horizontalScale = 0.5
+			} else if horizontalScale > 2.0 {
+				horizontalScale = 2.0
+			}
+		}
+
+		// Position and scale text using Tm (text matrix) operator
+		// [a b c d e f] Tm where:
+		//   a = horizontal scaling
+		//   d = vertical scaling
+		//   e = x position
+		//   f = y position
+		buf.WriteString(fmt.Sprintf("%.3f 0 0 1 %.2f %.2f Tm\n", horizontalScale, pdfX, pdfY))
 
 		// Show text using Tj operator
 		buf.WriteString(fmt.Sprintf("(%s) Tj\n", escapedText))

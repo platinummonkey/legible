@@ -455,7 +455,7 @@ func TestPDFEnhancer_CreateTextContentStream(t *testing.T) {
 	pageOCR.AddWord(ocr.NewWord("Hello", ocr.NewRectangle(100, 100, 50, 20), 95.0))
 	pageOCR.AddWord(ocr.NewWord("World", ocr.NewRectangle(160, 100, 50, 20), 92.0))
 
-	stream, err := enhancer.createTextContentStream(pageOCR, 792.0)
+	stream, err := enhancer.createTextContentStream(pageOCR, 612.0, 792.0)
 	if err != nil {
 		t.Fatalf("createTextContentStream() error = %v", err)
 	}
@@ -492,7 +492,7 @@ func TestPDFEnhancer_CreateTextContentStream_EmptyWords(t *testing.T) {
 	pageOCR.AddWord(ocr.NewWord("   ", ocr.NewRectangle(160, 100, 50, 20), 92.0))
 	pageOCR.AddWord(ocr.NewWord("Valid", ocr.NewRectangle(220, 100, 50, 20), 90.0))
 
-	stream, err := enhancer.createTextContentStream(pageOCR, 792.0)
+	stream, err := enhancer.createTextContentStream(pageOCR, 612.0, 792.0)
 	if err != nil {
 		t.Fatalf("createTextContentStream() error = %v", err)
 	}
@@ -524,15 +524,16 @@ func TestPDFEnhancer_CreateTextContentStream_CoordinateConversion(t *testing.T) 
 	// Create word at specific OCR coordinates
 	// OCR: top-left origin, Y increases downward
 	// PDF: bottom-left origin, Y increases upward
+	pageWidth := 612.0
 	pageHeight := 792.0
 	ocrX := 100
 	ocrY := 100
 	ocrHeight := 20
 
-	pageOCR := ocr.NewPageOCR(1, 612, int(pageHeight), "eng")
+	pageOCR := ocr.NewPageOCR(1, int(pageWidth), int(pageHeight), "eng")
 	pageOCR.AddWord(ocr.NewWord("Test", ocr.NewRectangle(ocrX, ocrY, 50, ocrHeight), 95.0))
 
-	stream, err := enhancer.createTextContentStream(pageOCR, pageHeight)
+	stream, err := enhancer.createTextContentStream(pageOCR, pageWidth, pageHeight)
 	if err != nil {
 		t.Fatalf("createTextContentStream() error = %v", err)
 	}
@@ -544,10 +545,11 @@ func TestPDFEnhancer_CreateTextContentStream_CoordinateConversion(t *testing.T) 
 	streamStr := string(stream)
 
 	// Look for text matrix operator with expected coordinates
-	// Format: "1 0 0 1 100.00 672.00 Tm"
-	expectedMatrix := fmt.Sprintf("1 0 0 1 %.2f %.2f Tm", expectedPDFX, expectedPDFY)
-	if !contains(streamStr, expectedMatrix) {
-		t.Errorf("content stream should contain matrix %q, got stream:\n%s", expectedMatrix, streamStr)
+	// Format: "scaleX 0 0 1 100.00 672.00 Tm" (with horizontal scaling)
+	// Just verify the coordinates are present in a Tm operator
+	expectedCoords := fmt.Sprintf("%.2f %.2f Tm", expectedPDFX, expectedPDFY)
+	if !contains(streamStr, expectedCoords) {
+		t.Errorf("content stream should contain coordinates %q, got stream:\n%s", expectedCoords, streamStr)
 	}
 }
 
