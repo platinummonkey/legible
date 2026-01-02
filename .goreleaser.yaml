@@ -194,19 +194,19 @@ release:
     **Full Changelog**: https://github.com/platinummonkey/legible/compare/{{.PreviousTag}}...v{{.Version}}
 
 # GoReleaser Pro features
-# Sign releases with GoReleaser Pro signing
+# Sign releases with sigstore cosign (keyless OIDC signing)
 signs:
-  - cmd: gpg
+  - cmd: cosign
     args:
-      - "--batch"
-      - "--local-user"
-      - "{{ .Env.GPG_FINGERPRINT }}"
-      - "--output"
-      - "${signature}"
-      - "--detach-sign"
+      - "sign-blob"
+      - "--yes"  # Skip confirmation prompts
+      - "--output-signature=${signature}"
+      - "--output-certificate=${certificate}"
       - "${artifact}"
     artifacts: checksum
+    output: true
     signature: "${artifact}.sig"
+    certificate: "${artifact}.pem"
 
 # Homebrew tap - automatically updates platinummonkey/homebrew-tap
 # Using homebrew_casks (not brews) since we distribute pre-compiled binaries
@@ -260,6 +260,16 @@ homebrew_casks:
 # Metadata for GoReleaser Pro
 metadata:
   mod_timestamp: '{{ .CommitTimestamp }}'
+
+# Sign Docker images with cosign (keyless OIDC signing)
+docker_signs:
+  - cmd: cosign
+    args:
+      - "sign"
+      - "--yes"  # Skip confirmation prompts
+      - "${artifact}@${digest}"
+    artifacts: all
+    output: true
 
 # Docker images - multi-platform container builds using dockers_v2
 # This automatically builds multi-arch images and creates manifests

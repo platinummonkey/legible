@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write
   packages: write
+  id-token: write  # Required for sigstore cosign OIDC keyless signing
 
 jobs:
   release:
@@ -44,16 +45,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Import GPG key (optional - for signing)
-        id: import_gpg
-        uses: crazy-max/ghaction-import-gpg@v6
-        if: env.GPG_PRIVATE_KEY != ''
-        env:
-          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-          PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3.7.0
         with:
-          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          cosign-release: 'v2.4.1'
 
       - name: Run GoReleaser Pro
         uses: goreleaser/goreleaser-action@v6
@@ -64,7 +59,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
-          GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
           # OCR now uses Ollama (HTTP API), so no CGO dependencies needed
           CGO_ENABLED: "0"
