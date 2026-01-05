@@ -22,12 +22,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      # Step 1: Install Tesseract dependencies
-      - name: Install Tesseract OCR and libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y tesseract-ocr libleptonica-dev libtesseract-dev pkg-config
-
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
@@ -43,7 +37,7 @@ jobs:
       - name: Run tests
         run: make test
         env:
-          CGO_ENABLED: 1
+          CGO_ENABLED: 0
 
       - name: Upload coverage
         uses: codecov/codecov-action@v5

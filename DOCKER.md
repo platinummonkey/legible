@@ -403,28 +403,6 @@ docker exec legible ps aux
 docker exec legible df -h
 ```
 
-## Migration from Tesseract
-
-If you were using an older version with Tesseract:
-
-### Key Changes
-
-| Aspect | Old (Tesseract) | New (Ollama) |
-|--------|----------------|--------------|
-| **OCR Engine** | Tesseract + Leptonica | Ollama vision models |
-| **Dependencies** | System packages | HTTP API |
-| **Accuracy** | 40-60% (handwriting) | 85-95% (handwriting) |
-| **Speed** | ~0.5-1s/page | ~2-5s/page |
-| **Image Size** | ~200MB | ~4-7GB (with model) |
-
-### Migration Steps
-
-1. **Pull new image**: `docker pull ghcr.io/platinummonkey/legible:latest`
-2. **Update docker-compose.yml**: Add Ollama volumes and environment variables
-3. **First run**: Model will download automatically (may take several minutes)
-4. **Test**: Verify OCR quality on test documents
-5. **Clean up**: Remove old Tesseract-based images
-
 ## Support
 
 - **Issues**: https://github.com/platinummonkey/legible/issues

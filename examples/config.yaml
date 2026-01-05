@@ -170,12 +170,6 @@ log-level: info
 # Environment variable: LEGIBLE_API_TOKEN
 api-token: ""
 
-# Tesseract executable path (legacy, not used with LLM OCR)
-# Leave empty to use system PATH
-# Default: "" (use system PATH)
-# Environment variable: LEGIBLE_TESSERACT_PATH
-tesseract-path: ""
-
 # ==========================================
 # Example Configurations
 # ==========================================

@@ -34,9 +34,6 @@ type Config struct {
 	// StateFile is the path to the sync state persistence file
 	StateFile string
 
-	// TesseractPath is the path to the Tesseract executable (empty = use system PATH)
-	TesseractPath string
-
 	// LogLevel controls logging verbosity (debug, info, warn, error)
 	LogLevel string
 
@@ -126,7 +123,6 @@ func Load(configFile string) (*Config, error) {
 		OCRLanguages:    v.GetString("ocr-languages"),
 		SyncInterval:    v.GetDuration("sync-interval"),
 		StateFile:       v.GetString("state-file"),
-		TesseractPath:   v.GetString("tesseract-path"),
 		LogLevel:        v.GetString("log-level"),
 		RemarkableToken: v.GetString("api-token"),
 		DaemonMode:      v.GetBool("daemon-mode"),
@@ -169,7 +165,6 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("ocr-languages", "eng")
 	v.SetDefault("sync-interval", 0*time.Second) // 0 = run once
 	v.SetDefault("state-file", defaultStateFile)
-	v.SetDefault("tesseract-path", "")
 	v.SetDefault("log-level", "info")
 	v.SetDefault("api-token", "")
 	v.SetDefault("daemon-mode", false)
@@ -241,13 +236,6 @@ func (c *Config) Validate() error {
 	if c.OCREnabled {
 		if c.OCRLanguages == "" {
 			return fmt.Errorf("ocr-languages cannot be empty when OCR is enabled")
-		}
-
-		// If tesseract path is specified, verify it exists
-		if c.TesseractPath != "" {
-			if _, err := os.Stat(c.TesseractPath); err != nil {
-				return fmt.Errorf("tesseract-path %q does not exist: %w", c.TesseractPath, err)
-			}
 		}
 	}
 
@@ -388,7 +376,6 @@ func (c *Config) String() string {
   OCRLanguages: %s
   SyncInterval: %s
   StateFile: %s
-  TesseractPath: %s
   LogLevel: %s
   RemarkableToken: %s
   DaemonMode: %t
@@ -407,7 +394,6 @@ func (c *Config) String() string {
 		c.OCRLanguages,
 		c.SyncInterval,
 		c.StateFile,
-		c.TesseractPath,
 		c.LogLevel,
 		token,
 		c.DaemonMode,

@@ -29,8 +29,7 @@ This project follows a standard code of conduct. Please be respectful and constr
 
 - Go 1.24 or higher
 - goreleaser (for building)
-- pkg-config (for library detection)
-- Tesseract OCR and Leptonica (for OCR features)
+- Ollama (for local OCR testing, optional)
 - Git
 - Make (optional, but recommended)
 - golangci-lint (for linting)
@@ -59,8 +58,9 @@ go mod download
 # Install goreleaser (macOS)
 brew install goreleaser
 
-# Install pkg-config and libraries (macOS)
-brew install pkg-config tesseract leptonica
+# Install Ollama for local OCR testing (optional, macOS)
+brew install ollama
+ollama pull llava  # or mistral-small3.1
 
 # Install development tools
 go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
@@ -85,19 +85,20 @@ make build-all
 - Same configuration for local dev and releases
 - Consistent builds across platforms
 - Automatic version injection
-- Pre-configured CGO handling via pkg-config
+- No CGO dependencies required
 
 ### Verify Installation
 
 ```bash
-# Verify pkg-config can find libraries
-pkg-config --modversion tesseract lept
-
-# Run tests (without OCR if Tesseract not available)
-make test-no-ocr
+# Run tests
+make test
 
 # Run linter
 make lint
+
+# Verify Ollama is running (optional, for OCR tests)
+ollama list
+curl http://localhost:11434/api/tags
 ```
 
 ## Development Workflow
@@ -259,9 +260,6 @@ func TestMyFunction(t *testing.T) {
 # Run all tests
 make test
 
-# Run tests without Tesseract dependencies
-make test-no-ocr
-
 # Run with coverage
 make test-coverage
 
@@ -345,7 +343,8 @@ What actually happened.
 - OS: [e.g., macOS 13.0, Ubuntu 22.04]
 - Go version: [e.g., 1.21.0]
 - legible version: [e.g., v0.1.0]
-- Tesseract version: [e.g., 5.3.0]
+- LLM Provider: [e.g., ollama, openai, anthropic]
+- Ollama version (if applicable): [e.g., 0.1.20]
 
 **Logs**
 ```
@@ -429,7 +428,6 @@ make build-local    # Build for current platform (uses goreleaser, recommended)
 make build-all      # Build for all platforms (uses goreleaser)
 make build          # Simple Go build (single platform, no goreleaser)
 make test           # Run tests
-make test-no-ocr    # Run tests without Tesseract
 make lint           # Run linter
 make fmt            # Format code
 make clean          # Clean build artifacts
@@ -531,18 +529,18 @@ docker buildx imagetools inspect legible:test --format "{{ json .SBOM }}" > cont
 The project uses goreleaser for builds. Configuration is in `.goreleaser.yaml`.
 
 **CGO Configuration:**
-- The Makefile automatically sets CGO flags using pkg-config
-- Flags are exported: `CGO_CFLAGS`, `CGO_CXXFLAGS`, `CGO_LDFLAGS`
-- Libraries detected: Tesseract OCR and Leptonica
+- CGO is disabled (`CGO_ENABLED=0`) since we don't use native dependencies
+- Builds are pure Go and cross-compile easily
+- No external libraries required for OCR (uses Ollama HTTP API)
 
 **Troubleshooting builds:**
 ```bash
-# Verify CGO flags are set correctly
-scripts/check-cgo-flags.sh
+# Verify build works
+make build-local
 
-# Manual CGO flag export (if needed)
-export CGO_CFLAGS="$(pkg-config --cflags tesseract lept)"
-export CGO_LDFLAGS="$(pkg-config --libs tesseract lept)"
+# Clean and rebuild if issues occur
+make clean
+go mod tidy
 make build-local
 ```
 

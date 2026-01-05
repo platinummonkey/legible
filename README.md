@@ -515,7 +515,6 @@ See [examples/config.yaml](examples/config.yaml) for detailed documentation of a
 |--------|------|---------|-------------|
 | `log-level` | string | `info` | Logging level: `debug`, `info`, `warn`, `error` |
 | `api-token` | string | `""` | reMarkable API token path (auto-detected if empty) |
-| `tesseract-path` | string | `""` | Tesseract executable path (legacy, not used) |
 
 ### Environment Variables
 

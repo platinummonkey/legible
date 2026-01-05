@@ -318,7 +318,7 @@ COPY . .
 RUN go build -o legible ./cmd/legible
 
 FROM alpine:latest
-RUN apk --no-cache add ca-certificates tesseract-ocr
+RUN apk --no-cache add ca-certificates
 COPY --from=builder /app/legible /usr/local/bin/
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s \
@@ -374,18 +374,24 @@ legible auth
 
 ### OCR not working
 
-Ensure Tesseract OCR is installed:
-
+For Ollama (local):
 ```bash
-# macOS
-brew install tesseract
+# Ensure Ollama is running
+ollama list
 
-# Ubuntu/Debian
-sudo apt-get install tesseract-ocr libtesseract-dev
+# Pull required vision model if not already downloaded
+ollama pull llava
+# or
+ollama pull mistral-small3.1
 
-# Verify installation
-tesseract --version
+# Check Ollama is accessible
+curl http://localhost:11434/api/tags
 ```
+
+For cloud providers (OpenAI, Anthropic, Google):
+- Verify API keys are set correctly (environment variables or keychain)
+- Check network connectivity
+- Verify you have API credits/quota available
 
 ### Daemon won't start
 
