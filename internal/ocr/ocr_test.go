@@ -23,7 +23,6 @@ func TestNew(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 
-
 	if processor == nil {
 		t.Fatal("New() returned nil")
 	}
@@ -58,7 +57,6 @@ func TestNew_CustomConfig(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 
-
 	if processor.model != "llava" {
 		t.Errorf("expected model 'llava', got '%s'", processor.model)
 	}
@@ -77,7 +75,6 @@ func TestNew_CustomEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
-
 
 	if processor.model != "mistral" {
 		t.Errorf("expected model 'mistral', got '%s'", processor.model)
@@ -408,7 +405,6 @@ func TestHealthCheck_OllamaDown(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 
-
 	err = processor.HealthCheck()
 	if err == nil {
 		t.Error("HealthCheck() should error when Ollama is down")
@@ -450,7 +446,6 @@ func TestHealthCheck_ModelNotFound(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 
-
 	err = processor.HealthCheck()
 	if err == nil {
 		t.Error("HealthCheck() should error when model cannot be pulled")
@@ -468,7 +463,6 @@ func TestModel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
-
 
 	if processor.Model() != "test-model" {
 		t.Errorf("Model() = %s, want test-model", processor.Model())

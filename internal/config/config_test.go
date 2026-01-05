@@ -384,7 +384,7 @@ func TestLoad_KeychainEnvironmentVariables(t *testing.T) {
 	t.Setenv("LEGIBLE_STATE_FILE", filepath.Join(tmpDir, "state.json"))
 	t.Setenv("LEGIBLE_LLM_USE_KEYCHAIN", "true")
 	t.Setenv("LEGIBLE_LLM_KEYCHAIN_SERVICE_PREFIX", "customprefix")
-	t.Setenv("LEGIBLE_LLM_PROVIDER", "ollama")  // Use ollama to avoid API key requirement
+	t.Setenv("LEGIBLE_LLM_PROVIDER", "ollama") // Use ollama to avoid API key requirement
 
 	cfg, err := Load("")
 	if err != nil {
@@ -441,10 +441,10 @@ func TestLoadAPIKeyForProvider_EnvironmentVariables(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear all API key env vars
-			os.Unsetenv("OPENAI_API_KEY")
-			os.Unsetenv("ANTHROPIC_API_KEY")
-			os.Unsetenv("GOOGLE_API_KEY")
-			os.Unsetenv("GOOGLE_APPLICATION_CREDENTIALS")
+			_ = os.Unsetenv("OPENAI_API_KEY")
+			_ = os.Unsetenv("ANTHROPIC_API_KEY")
+			_ = os.Unsetenv("GOOGLE_API_KEY")
+			_ = os.Unsetenv("GOOGLE_APPLICATION_CREDENTIALS")
 
 			// Set the test env var
 			if tt.envKey != "" {

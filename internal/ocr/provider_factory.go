@@ -25,13 +25,13 @@ func NewVisionClient(ctx context.Context, cfg *VisionClientConfig, log *logger.L
 
 	case ProviderAnthropic:
 		if cfg.APIKey == "" {
-			return nil, fmt.Errorf("Anthropic API key is required (set ANTHROPIC_API_KEY environment variable)")
+			return nil, fmt.Errorf("anthropic API key is required (set ANTHROPIC_API_KEY environment variable)")
 		}
 		return NewAnthropicVisionClient(cfg.APIKey, cfg.Temperature, cfg.MaxRetries, log), nil
 
 	case ProviderGoogle:
 		if cfg.APIKey == "" {
-			return nil, fmt.Errorf("Google API key is required (set GOOGLE_API_KEY or GOOGLE_APPLICATION_CREDENTIALS environment variable)")
+			return nil, fmt.Errorf("google API key is required (set GOOGLE_API_KEY or GOOGLE_APPLICATION_CREDENTIALS environment variable)")
 		}
 		client, err := NewGoogleVisionClient(ctx, cfg.APIKey, cfg.Temperature, cfg.MaxRetries, log)
 		if err != nil {

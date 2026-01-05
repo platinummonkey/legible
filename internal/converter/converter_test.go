@@ -148,7 +148,6 @@ func TestReadMetadata(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 
-
 	rmdocPath := "../../example/Test.rmdoc"
 	if _, err := os.Stat(rmdocPath); os.IsNotExist(err) {
 		t.Skipf("Test file not found: %s", rmdocPath)
@@ -182,7 +181,6 @@ func TestReadContent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
-
 
 	rmdocPath := "../../example/Test.rmdoc"
 	if _, err := os.Stat(rmdocPath); os.IsNotExist(err) {
@@ -255,7 +253,6 @@ func TestCreatePlaceholderPDF(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 
-
 	tmpDir := t.TempDir()
 	outputPath := filepath.Join(tmpDir, "test.pdf")
 
@@ -290,7 +287,6 @@ func TestExtractTags(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
-
 
 	tests := []struct {
 		name     string
@@ -375,7 +371,6 @@ func TestExtractTags_RealDocument(t *testing.T) {
 		t.Fatalf("New() error: %v", err)
 	}
 
-
 	rmdocPath := "../../example/Test.rmdoc"
 	if _, err := os.Stat(rmdocPath); os.IsNotExist(err) {
 		t.Skipf("Test file not found: %s", rmdocPath)
@@ -416,7 +411,6 @@ func TestReadContent_WithTags(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
-
 
 	rmdocPath := "../../example/Test.rmdoc"
 	if _, err := os.Stat(rmdocPath); os.IsNotExist(err) {
@@ -460,7 +454,6 @@ func TestConvertRmdoc_PDFMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
-
 
 	rmdocPath := "../../example/Test.rmdoc"
 	if _, err := os.Stat(rmdocPath); os.IsNotExist(err) {
