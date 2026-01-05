@@ -101,6 +101,14 @@ This approach:
 - Allows sharing models across multiple containers
 - Reduces image size and startup time
 
+### Using Homebrew (macOS/Linux)
+
+```bash
+brew install platinummonkey/tap/legible
+```
+
+This installs the latest release binary for your platform.
+
 ### Using Go Install
 
 ```bash
