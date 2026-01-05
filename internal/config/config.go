@@ -43,6 +43,34 @@ type Config struct {
 
 	// DaemonMode enables continuous sync operation
 	DaemonMode bool
+
+	// LLM configuration for OCR processing
+	LLM LLMConfig
+}
+
+// LLMConfig holds configuration for LLM-based OCR providers
+type LLMConfig struct {
+	// Provider is the LLM provider to use (ollama, openai, anthropic, google)
+	Provider string
+
+	// Model is the specific model to use for OCR
+	Model string
+
+	// Endpoint is the API endpoint (primarily for Ollama)
+	Endpoint string
+
+	// APIKey is the API key for cloud providers (typically from env vars)
+	// This will be populated from environment variables:
+	// - OPENAI_API_KEY for OpenAI
+	// - ANTHROPIC_API_KEY for Anthropic
+	// - GOOGLE_API_KEY or GOOGLE_APPLICATION_CREDENTIALS for Google
+	APIKey string
+
+	// MaxRetries is the maximum number of retry attempts for API calls
+	MaxRetries int
+
+	// Temperature controls randomness (0.0 = deterministic, recommended for OCR)
+	Temperature float64
 }
 
 // Load reads configuration from multiple sources and returns a Config instance.
@@ -91,7 +119,17 @@ func Load(configFile string) (*Config, error) {
 		LogLevel:        v.GetString("log-level"),
 		RemarkableToken: v.GetString("api-token"),
 		DaemonMode:      v.GetBool("daemon-mode"),
+		LLM: LLMConfig{
+			Provider:    v.GetString("llm-provider"),
+			Model:       v.GetString("llm-model"),
+			Endpoint:    v.GetString("llm-endpoint"),
+			MaxRetries:  v.GetInt("llm-max-retries"),
+			Temperature: v.GetFloat64("llm-temperature"),
+		},
 	}
+
+	// Load API keys from environment variables based on provider
+	config.LLM.APIKey = loadAPIKeyForProvider(config.LLM.Provider)
 
 	// Validate configuration
 	if err := config.Validate(); err != nil {
@@ -122,6 +160,13 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("log-level", "info")
 	v.SetDefault("api-token", "")
 	v.SetDefault("daemon-mode", false)
+
+	// LLM defaults (Ollama by default for backward compatibility)
+	v.SetDefault("llm-provider", "ollama")
+	v.SetDefault("llm-model", "llava")
+	v.SetDefault("llm-endpoint", "http://localhost:11434")
+	v.SetDefault("llm-max-retries", 3)
+	v.SetDefault("llm-temperature", 0.0)
 }
 
 // Validate checks that the configuration is valid and internally consistent
@@ -196,7 +241,75 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("sync-interval must be positive when daemon-mode is enabled")
 	}
 
+	// Validate LLM configuration
+	if c.OCREnabled {
+		if err := c.validateLLMConfig(); err != nil {
+			return fmt.Errorf("invalid LLM configuration: %w", err)
+		}
+	}
+
 	return nil
+}
+
+// validateLLMConfig validates the LLM provider configuration
+func (c *Config) validateLLMConfig() error {
+	// Validate provider
+	validProviders := map[string]bool{
+		"ollama":    true,
+		"openai":    true,
+		"anthropic": true,
+		"google":    true,
+	}
+	if !validProviders[strings.ToLower(c.LLM.Provider)] {
+		return fmt.Errorf("invalid llm-provider %q, must be one of: ollama, openai, anthropic, google", c.LLM.Provider)
+	}
+	c.LLM.Provider = strings.ToLower(c.LLM.Provider)
+
+	// Validate model is set
+	if c.LLM.Model == "" {
+		return fmt.Errorf("llm-model cannot be empty when OCR is enabled")
+	}
+
+	// For Ollama, validate endpoint
+	if c.LLM.Provider == "ollama" && c.LLM.Endpoint == "" {
+		return fmt.Errorf("llm-endpoint cannot be empty for Ollama provider")
+	}
+
+	// For cloud providers, validate API key is available
+	if c.LLM.Provider != "ollama" && c.LLM.APIKey == "" {
+		return fmt.Errorf("API key not found for provider %s, check environment variables", c.LLM.Provider)
+	}
+
+	// Validate temperature range
+	if c.LLM.Temperature < 0.0 || c.LLM.Temperature > 2.0 {
+		return fmt.Errorf("llm-temperature must be between 0.0 and 2.0, got %f", c.LLM.Temperature)
+	}
+
+	// Validate max retries
+	if c.LLM.MaxRetries < 0 {
+		return fmt.Errorf("llm-max-retries must be non-negative, got %d", c.LLM.MaxRetries)
+	}
+
+	return nil
+}
+
+// loadAPIKeyForProvider loads the appropriate API key from environment variables
+func loadAPIKeyForProvider(provider string) string {
+	switch strings.ToLower(provider) {
+	case "openai":
+		return os.Getenv("OPENAI_API_KEY")
+	case "anthropic":
+		return os.Getenv("ANTHROPIC_API_KEY")
+	case "google":
+		// Try GOOGLE_API_KEY first, then GOOGLE_APPLICATION_CREDENTIALS
+		if key := os.Getenv("GOOGLE_API_KEY"); key != "" {
+			return key
+		}
+		return os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
+	default:
+		// Ollama and others don't need API keys
+		return ""
+	}
 }
 
 // String returns a string representation of the configuration (with sensitive data redacted)
@@ -204,6 +317,15 @@ func (c *Config) String() string {
 	token := "not set"
 	if c.RemarkableToken != "" {
 		token = "***" + c.RemarkableToken[len(c.RemarkableToken)-4:]
+	}
+
+	apiKey := "not set"
+	if c.LLM.APIKey != "" {
+		if len(c.LLM.APIKey) > 8 {
+			apiKey = "***" + c.LLM.APIKey[len(c.LLM.APIKey)-4:]
+		} else {
+			apiKey = "***"
+		}
 	}
 
 	return fmt.Sprintf(`Configuration:
@@ -216,7 +338,14 @@ func (c *Config) String() string {
   TesseractPath: %s
   LogLevel: %s
   RemarkableToken: %s
-  DaemonMode: %t`,
+  DaemonMode: %t
+  LLM:
+    Provider: %s
+    Model: %s
+    Endpoint: %s
+    APIKey: %s
+    MaxRetries: %d
+    Temperature: %.2f`,
 		c.OutputDir,
 		c.Labels,
 		c.OCREnabled,
@@ -227,5 +356,11 @@ func (c *Config) String() string {
 		c.LogLevel,
 		token,
 		c.DaemonMode,
+		c.LLM.Provider,
+		c.LLM.Model,
+		c.LLM.Endpoint,
+		apiKey,
+		c.LLM.MaxRetries,
+		c.LLM.Temperature,
 	)
 }

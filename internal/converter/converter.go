@@ -37,7 +37,7 @@ type Config struct {
 }
 
 // New creates a new converter instance
-func New(cfg *Config) *Converter {
+func New(cfg *Config) (*Converter, error) {
 	// Handle nil config
 	if cfg == nil {
 		cfg = &Config{}
@@ -65,10 +65,14 @@ func New(cfg *Config) *Converter {
 	var ocrProc *ocr.Processor
 	var pdfEnhancer *pdfenhancer.PDFEnhancer
 	if enableOCR {
-		ocrProc = ocr.New(&ocr.Config{
+		proc, err := ocr.New(&ocr.Config{
 			Logger: log,
 			// Ollama handles language detection automatically via vision models
 		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create OCR processor: %w", err)
+		}
+		ocrProc = proc
 		pdfEnhancer = pdfenhancer.New(&pdfenhancer.Config{
 			Logger: log,
 		})
@@ -80,7 +84,7 @@ func New(cfg *Config) *Converter {
 		ocrLanguages: languages,
 		ocrProc:      ocrProc,
 		pdfEnhancer:  pdfEnhancer,
-	}
+	}, nil
 }
 
 // DocumentMetadata represents the .metadata JSON file from a .rmdoc

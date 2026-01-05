@@ -105,11 +105,14 @@ func runSync(_ *cobra.Command, _ []string) error {
 	}
 
 	// Initialize converter with OCR support
-	conv := converter.New(&converter.Config{
+	conv, err := converter.New(&converter.Config{
 		Logger:       log,
 		EnableOCR:    cfg.OCREnabled,
 		OCRLanguages: []string{"eng"}, // Can be extended to support multiple languages
 	})
+	if err != nil {
+		return fmt.Errorf("failed to create converter: %w", err)
+	}
 
 	// Initialize PDF enhancer
 	pdfEnhancer := pdfenhancer.New(&pdfenhancer.Config{
@@ -119,10 +122,13 @@ func runSync(_ *cobra.Command, _ []string) error {
 	// Initialize OCR processor if enabled
 	var ocrProc *ocr.Processor
 	if cfg.OCREnabled {
-		ocrProc = ocr.New(&ocr.Config{
+		ocrProc, err = ocr.New(&ocr.Config{
 			Logger: log,
 			// Ollama handles language detection automatically via vision models
 		})
+		if err != nil {
+			return fmt.Errorf("failed to create OCR processor: %w", err)
+		}
 	}
 
 	// Create sync orchestrator

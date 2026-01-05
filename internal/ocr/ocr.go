@@ -41,10 +41,10 @@ Rules:
 - Return {"words": []} if no text found
 `
 
-// Processor handles OCR processing using Ollama
+// Processor handles OCR processing using a vision client
 type Processor struct {
 	logger         *logger.Logger
-	ollamaClient   *ollama.Client
+	visionClient   VisionClient
 	model          string
 	promptTemplate string
 	imageDimCache  map[int]image.Point // cache image dimensions by page number
@@ -52,47 +52,76 @@ type Processor struct {
 
 // Config holds configuration for the OCR processor
 type Config struct {
-	Logger         *logger.Logger
+	Logger       *logger.Logger
+	VisionClient VisionClient // Pre-configured vision client (optional, for advanced usage)
+	// Legacy Ollama-specific fields (deprecated, use VisionConfig instead)
 	OllamaEndpoint string  // default: "http://localhost:11434"
 	Model          string  // default: "llava"
 	Temperature    float64 // default: 0.0 for deterministic output
 	MaxRetries     int     // default: 3
+	// New unified configuration
+	VisionConfig *VisionClientConfig // Vision client configuration (preferred)
 }
 
-// New creates a new OCR processor using Ollama
-func New(cfg *Config) *Processor {
+// New creates a new OCR processor with a vision client
+func New(cfg *Config) (*Processor, error) {
 	log := cfg.Logger
 	if log == nil {
 		log = logger.Get()
 	}
 
-	model := cfg.Model
-	if model == "" {
-		model = DefaultModel
-	}
+	// Determine the vision client to use
+	var visionClient VisionClient
+	var model string
 
-	// Build Ollama client options
-	clientOpts := []ollama.ClientOption{}
-	if cfg.OllamaEndpoint != "" {
-		clientOpts = append(clientOpts, ollama.WithEndpoint(cfg.OllamaEndpoint))
+	// Priority 1: Use pre-configured vision client if provided
+	if cfg.VisionClient != nil {
+		visionClient = cfg.VisionClient
+		model = cfg.Model
+		if model == "" {
+			model = DefaultModel
+		}
+		log.WithFields("provider", visionClient.Name()).Info("Using pre-configured vision client")
+	} else if cfg.VisionConfig != nil {
+		// Priority 2: Use VisionConfig to create client
+		ctx := context.Background()
+		client, err := NewVisionClient(ctx, cfg.VisionConfig, log)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create vision client: %w", err)
+		}
+		visionClient = client
+		model = cfg.VisionConfig.Model
+		log.WithFields("provider", cfg.VisionConfig.Provider, "model", model).Info("Created vision client from config")
+	} else {
+		// Priority 3: Fall back to legacy Ollama configuration for backward compatibility
+		model = cfg.Model
+		if model == "" {
+			model = DefaultModel
+		}
+		endpoint := cfg.OllamaEndpoint
+		if endpoint == "" {
+			endpoint = "http://localhost:11434"
+		}
+		maxRetries := cfg.MaxRetries
+		if maxRetries == 0 {
+			maxRetries = 3
+		}
+		visionClient = NewOllamaVisionClient(endpoint, maxRetries, log)
+		log.WithFields("endpoint", endpoint, "model", model).Info("Using legacy Ollama configuration")
 	}
-	if cfg.MaxRetries > 0 {
-		clientOpts = append(clientOpts, ollama.WithMaxRetries(cfg.MaxRetries))
-	}
-	clientOpts = append(clientOpts, ollama.WithLogger(log))
 
 	return &Processor{
 		logger:         log,
-		ollamaClient:   ollama.NewClient(clientOpts...),
+		visionClient:   visionClient,
 		model:          model,
 		promptTemplate: ocrPromptTemplate,
 		imageDimCache:  make(map[int]image.Point),
-	}
+	}, nil
 }
 
 // ProcessImage performs OCR on an image and returns structured results
 func (p *Processor) ProcessImage(imageData []byte, pageNumber int) (*PageOCR, error) {
-	p.logger.WithFields("page", pageNumber, "image_size", len(imageData)).Debug("Processing image with Ollama OCR")
+	p.logger.WithFields("page", pageNumber, "image_size", len(imageData), "provider", p.visionClient.Name()).Debug("Processing image with OCR")
 
 	startTime := time.Now()
 
@@ -119,14 +148,14 @@ func (p *Processor) ProcessImage(imageData []byte, pageNumber int) (*PageOCR, er
 	// Encode image to base64
 	base64Image := ollama.EncodeBytesToBase64(imageData)
 
-	// Call Ollama OCR API
+	// Call vision client OCR API
 	ctx := context.Background()
-	words, err := p.ollamaClient.GenerateOCR(ctx, p.model, base64Image)
+	words, err := p.visionClient.GenerateOCR(ctx, p.model, base64Image)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate OCR with Ollama: %w", err)
+		return nil, fmt.Errorf("failed to generate OCR with %s: %w", p.visionClient.Name(), err)
 	}
 
-	// Convert Ollama response to PageOCR
+	// Convert response to PageOCR
 	pageOCR := NewPageOCR(pageNumber, width, height, p.model)
 	for _, oWord := range words {
 		if len(oWord.BBox) < 4 {
@@ -158,7 +187,8 @@ func (p *Processor) ProcessImage(imageData []byte, pageNumber int) (*PageOCR, er
 		"words", len(pageOCR.Words),
 		"confidence", pageOCR.Confidence,
 		"duration", duration,
-	).Info("Ollama OCR processing completed")
+		"provider", p.visionClient.Name(),
+	).Info("OCR processing completed")
 
 	return pageOCR, nil
 }
@@ -174,38 +204,16 @@ func (p *Processor) ProcessImageWithCustomPrompt(imageData []byte, pageNumber in
 	return p.ProcessImage(imageData, pageNumber)
 }
 
-// HealthCheck verifies that Ollama is accessible and the model is available
+// HealthCheck verifies that the vision client is accessible and the model is available
 func (p *Processor) HealthCheck() error {
 	ctx := context.Background()
 
-	// Check if Ollama is running
-	if err := p.ollamaClient.HealthCheck(ctx); err != nil {
-		return fmt.Errorf("ollama health check failed: %w", err)
+	// Use the vision client's health check
+	if err := p.visionClient.HealthCheck(ctx, p.model); err != nil {
+		return fmt.Errorf("%s health check failed: %w", p.visionClient.Name(), err)
 	}
 
-	// Check if model is available
-	models, err := p.ollamaClient.ListModels(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to list models: %w", err)
-	}
-
-	// Look for the configured model
-	modelFound := false
-	for _, m := range models.Models {
-		if strings.Contains(m.Name, p.model) {
-			modelFound = true
-			p.logger.WithFields("model", m.Name, "size", m.Size).Debug("Found OCR model")
-			break
-		}
-	}
-
-	if !modelFound {
-		p.logger.WithFields("model", p.model).Warn("Model not found, attempting to pull")
-		if err := p.ollamaClient.PullModel(ctx, p.model); err != nil {
-			return fmt.Errorf("model %s not found and pull failed: %w", p.model, err)
-		}
-	}
-
+	p.logger.WithFields("provider", p.visionClient.Name(), "model", p.model).Info("Health check passed")
 	return nil
 }
 

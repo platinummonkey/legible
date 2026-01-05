@@ -12,7 +12,10 @@ import (
 
 func TestNew(t *testing.T) {
 	cfg := &Config{}
-	converter := New(cfg)
+	converter, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
 
 	if converter == nil {
 		t.Fatal("New() returned nil")
@@ -24,7 +27,10 @@ func TestNew(t *testing.T) {
 }
 
 func TestConvertRmdoc_FileNotFound(t *testing.T) {
-	converter := New(&Config{})
+	converter, err := New(&Config{})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
 
 	tmpDir := t.TempDir()
 	outputPath := filepath.Join(tmpDir, "output.pdf")

@@ -21,9 +21,12 @@ func TestConverterPipeline(t *testing.T) {
 		t.Fatalf("Failed to create logger: %v", err)
 	}
 
-	conv := converter.New(&converter.Config{
+	conv, err := converter.New(&converter.Config{
 		Logger: log,
 	})
+	if err != nil {
+		t.Fatalf("Failed to create converter: %v", err)
+	}
 
 	// Use the test .rmdoc file from testdata
 	testRmdoc := "../../testdata/rmdoc/Test.rmdoc"
@@ -85,9 +88,12 @@ func TestConverterWithInvalidInput(t *testing.T) {
 		t.Fatalf("Failed to create logger: %v", err)
 	}
 
-	conv := converter.New(&converter.Config{
+	conv, err := converter.New(&converter.Config{
 		Logger: log,
 	})
+	if err != nil {
+		t.Fatalf("Failed to create converter: %v", err)
+	}
 
 	tests := []struct {
 		name        string
@@ -149,9 +155,12 @@ func TestConverterMultipleDocuments(t *testing.T) {
 		t.Fatalf("Failed to create logger: %v", err)
 	}
 
-	conv := converter.New(&converter.Config{
+	conv, err := converter.New(&converter.Config{
 		Logger: log,
 	})
+	if err != nil {
+		t.Fatalf("Failed to create converter: %v", err)
+	}
 
 	// Convert same document multiple times (simulating batch processing)
 	numDocs := 3
@@ -204,9 +213,12 @@ func TestConverterOutputDirectory(t *testing.T) {
 		t.Fatalf("Failed to create logger: %v", err)
 	}
 
-	conv := converter.New(&converter.Config{
+	conv, err := converter.New(&converter.Config{
 		Logger: log,
 	})
+	if err != nil {
+		t.Fatalf("Failed to create converter: %v", err)
+	}
 
 	// Output path with nested directories that don't exist
 	outputPDF := filepath.Join(tmpDir, "deeply", "nested", "path", "output.pdf")
@@ -248,9 +260,12 @@ func TestConverterMetadataExtraction(t *testing.T) {
 		t.Fatalf("Failed to create logger: %v", err)
 	}
 
-	conv := converter.New(&converter.Config{
+	conv, err := converter.New(&converter.Config{
 		Logger: log,
 	})
+	if err != nil {
+		t.Fatalf("Failed to create converter: %v", err)
+	}
 
 	outputPDF := filepath.Join(tmpDir, "test-metadata.pdf")
 

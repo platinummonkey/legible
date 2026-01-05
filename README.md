@@ -7,8 +7,12 @@ Sync documents from your reMarkable tablet and add OCR text layers to make handw
 - 📥 Download documents from reMarkable cloud
 - 📄 Convert .rmdoc files to standard PDF format
 - 🏷️ Optional label-based filtering
-- 🔍 OCR processing with Ollama vision models (optional)
-- 🤖 Superior handwriting recognition using AI models
+- 🔍 Multiple OCR provider support:
+  - Ollama (local, free) - Privacy-focused offline processing
+  - OpenAI GPT-4 Vision (cloud) - High accuracy recognition
+  - Anthropic Claude (cloud) - Excellent handwriting understanding
+  - Google Gemini (cloud) - Fast processing with free tier
+- 🤖 Superior handwriting recognition using AI vision models
 - 📝 Add hidden searchable text layer to PDFs
 - 🔄 Incremental sync with state tracking
 - ⚙️ Daemon mode for continuous background sync
@@ -18,12 +22,18 @@ Sync documents from your reMarkable tablet and add OCR text layers to make handw
 ## Prerequisites
 
 - Go 1.21 or higher
-- Ollama (for OCR functionality, optional)
+- OCR Provider (optional, for searchable PDFs):
+  - **Ollama** (local, free) - Recommended for privacy and offline use
+  - **OpenAI GPT-4 Vision** (cloud, paid) - High accuracy, requires API key
+  - **Anthropic Claude** (cloud, paid) - Excellent handwriting recognition, requires API key
+  - **Google Gemini** (cloud, paid/free tier) - Fast processing, requires API key
 - reMarkable tablet with cloud sync enabled
 
-### Installing Ollama (Optional)
+### Setting up OCR Providers
 
-Ollama is required if you want searchable PDFs with OCR text layers. You can skip this if you only need PDF conversion without OCR.
+#### Option 1: Ollama (Local, Recommended)
+
+Ollama runs locally on your machine and is completely free. Best for privacy and offline use.
 
 **System Requirements:**
 - Disk space: 10-12GB (for Ollama + mistral-small3.1 model)
@@ -45,6 +55,60 @@ ollama pull llava
 
 **Windows:**
 Download from [ollama.ai](https://ollama.ai/download)
+
+#### Option 2: OpenAI GPT-4 Vision (Cloud)
+
+Best for high accuracy and when you already have OpenAI API access.
+
+```bash
+# Set your API key
+export OPENAI_API_KEY=sk-...
+
+# Configure in ~/.legible.yaml
+llm:
+  provider: openai
+  model: gpt-4o  # or gpt-4o-mini, gpt-4-turbo
+  temperature: 0.0
+  max-retries: 3
+```
+
+**Pricing:** Pay per API call based on OpenAI's pricing. See [OpenAI Pricing](https://openai.com/api/pricing/).
+
+#### Option 3: Anthropic Claude (Cloud)
+
+Excellent handwriting recognition and understanding of context.
+
+```bash
+# Set your API key
+export ANTHROPIC_API_KEY=sk-ant-...
+
+# Configure in ~/.legible.yaml
+llm:
+  provider: anthropic
+  model: claude-3-5-sonnet-20241022  # or claude-3-opus-20240229
+  temperature: 0.0
+  max-retries: 3
+```
+
+**Pricing:** Pay per API call based on Anthropic's pricing. See [Anthropic Pricing](https://www.anthropic.com/pricing).
+
+#### Option 4: Google Gemini (Cloud)
+
+Fast processing with free tier available for testing.
+
+```bash
+# Set your API key
+export GOOGLE_API_KEY=...
+
+# Configure in ~/.legible.yaml
+llm:
+  provider: google
+  model: gemini-1.5-pro  # or gemini-1.5-flash
+  temperature: 0.0
+  max-retries: 3
+```
+
+**Pricing:** Free tier available with rate limits. See [Google AI Pricing](https://ai.google.dev/pricing).
 
 ## Installation
 
@@ -370,17 +434,30 @@ labels:
 # Enable/disable OCR processing (default: true)
 ocr-enabled: true
 
-# Ollama configuration for OCR
-ollama:
-  endpoint: http://localhost:11434  # Ollama API endpoint (default)
-  model: mistral-small3.1            # Vision model for OCR (default)
-  # Recommended models:
-  # - mistral-small3.1: Better multilingual and complex handwriting (~7-8GB) [DEFAULT]
-  # - llava: Faster, good for most handwriting (~4GB)
-  # - llava:13b: Higher accuracy, slower (~7GB)
-  temperature: 0.0                   # Lower = more deterministic (default: 0.0)
-  timeout: 30s                       # Request timeout
-  max-retries: 3                     # Retry attempts for failed requests
+# LLM configuration for OCR (supports multiple providers)
+llm:
+  # Provider: ollama, openai, anthropic, google (default: ollama)
+  provider: ollama
+
+  # Model name (provider-specific)
+  model: llava  # For Ollama
+  # OpenAI: gpt-4o, gpt-4o-mini, gpt-4-turbo
+  # Anthropic: claude-3-5-sonnet-20241022, claude-3-opus-20240229
+  # Google: gemini-1.5-pro, gemini-1.5-flash
+
+  # Endpoint (only required for Ollama)
+  endpoint: http://localhost:11434
+
+  # Temperature for generation (0.0 = deterministic, recommended for OCR)
+  temperature: 0.0
+
+  # Maximum retry attempts for API calls
+  max-retries: 3
+
+  # API keys are loaded from environment variables:
+  # - OPENAI_API_KEY for OpenAI
+  # - ANTHROPIC_API_KEY for Anthropic
+  # - GOOGLE_API_KEY or GOOGLE_APPLICATION_CREDENTIALS for Google
 
 # Logging level: debug, info, warn, error (default: info)
 log-level: info
