@@ -18,7 +18,11 @@ import (
 
 func TestNew(t *testing.T) {
 	cfg := &Config{}
-	processor := New(cfg)
+	processor, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+
 
 	if processor == nil {
 		t.Fatal("New() returned nil")
@@ -28,8 +32,8 @@ func TestNew(t *testing.T) {
 		t.Error("logger should be initialized")
 	}
 
-	if processor.ollamaClient == nil {
-		t.Error("ollama client should be initialized")
+	if processor.visionClient == nil {
+		t.Error("vision client should be initialized")
 	}
 
 	if processor.model == "" {
@@ -49,7 +53,11 @@ func TestNew_CustomConfig(t *testing.T) {
 		Temperature: 0.1,
 		MaxRetries:  5,
 	}
-	processor := New(cfg)
+	processor, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+
 
 	if processor.model != "llava" {
 		t.Errorf("expected model 'llava', got '%s'", processor.model)
@@ -65,7 +73,11 @@ func TestNew_CustomEndpoint(t *testing.T) {
 		OllamaEndpoint: "http://custom:8080",
 		Model:          "mistral",
 	}
-	processor := New(cfg)
+	processor, err := New(cfg)
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+
 
 	if processor.model != "mistral" {
 		t.Errorf("expected model 'mistral', got '%s'", processor.model)
@@ -96,10 +108,13 @@ func TestProcessImage_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	processor := New(&Config{
+	processor, err := New(&Config{
 		OllamaEndpoint: server.URL,
 		Model:          "llava",
 	})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
 
 	// Create a simple test image
 	imgData := createTestImage(t, 200, 100)
@@ -167,10 +182,13 @@ func TestProcessImage_EmptyResult(t *testing.T) {
 	}))
 	defer server.Close()
 
-	processor := New(&Config{
+	processor, err := New(&Config{
 		OllamaEndpoint: server.URL,
 		Model:          "llava",
 	})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
 
 	imgData := createTestImage(t, 200, 100)
 
@@ -198,15 +216,18 @@ func TestProcessImage_OllamaError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	processor := New(&Config{
+	processor, err := New(&Config{
 		OllamaEndpoint: server.URL,
 		Model:          "llava",
 		MaxRetries:     0, // disable retries for faster test
 	})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
 
 	imgData := createTestImage(t, 200, 100)
 
-	_, err := processor.ProcessImage(imgData, 1)
+	_, err = processor.ProcessImage(imgData, 1)
 	if err == nil {
 		t.Error("ProcessImage() should error when Ollama returns error")
 	}
@@ -231,10 +252,13 @@ func TestProcessImage_InvalidBBox(t *testing.T) {
 	}))
 	defer server.Close()
 
-	processor := New(&Config{
+	processor, err := New(&Config{
 		OllamaEndpoint: server.URL,
 		Model:          "llava",
 	})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
 
 	imgData := createTestImage(t, 200, 100)
 
@@ -264,10 +288,13 @@ func TestProcessImage_DefaultConfidence(t *testing.T) {
 	}))
 	defer server.Close()
 
-	processor := New(&Config{
+	processor, err := New(&Config{
 		OllamaEndpoint: server.URL,
 		Model:          "llava",
 	})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
 
 	imgData := createTestImage(t, 200, 100)
 
@@ -300,10 +327,13 @@ func TestProcessImageWithCustomPrompt(t *testing.T) {
 	}))
 	defer server.Close()
 
-	processor := New(&Config{
+	processor, err := New(&Config{
 		OllamaEndpoint: server.URL,
 		Model:          "llava",
 	})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
 
 	imgData := createTestImage(t, 200, 100)
 	customPrompt := "Extract text from this custom image."
@@ -353,12 +383,15 @@ func TestHealthCheck_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	processor := New(&Config{
+	processor, err := New(&Config{
 		OllamaEndpoint: server.URL,
 		Model:          "llava",
 	})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
 
-	err := processor.HealthCheck()
+	err = processor.HealthCheck()
 	if err != nil {
 		t.Errorf("HealthCheck() error = %v", err)
 	}
@@ -366,13 +399,17 @@ func TestHealthCheck_Success(t *testing.T) {
 
 func TestHealthCheck_OllamaDown(t *testing.T) {
 	// Use invalid endpoint
-	processor := New(&Config{
+	processor, err := New(&Config{
 		OllamaEndpoint: "http://localhost:99999",
 		Model:          "llava",
 		MaxRetries:     0,
 	})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
 
-	err := processor.HealthCheck()
+
+	err = processor.HealthCheck()
 	if err == nil {
 		t.Error("HealthCheck() should error when Ollama is down")
 	}
@@ -404,26 +441,34 @@ func TestHealthCheck_ModelNotFound(t *testing.T) {
 	}))
 	defer server.Close()
 
-	processor := New(&Config{
+	processor, err := New(&Config{
 		OllamaEndpoint: server.URL,
 		Model:          "nonexistent",
 		MaxRetries:     0,
 	})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
 
-	err := processor.HealthCheck()
+
+	err = processor.HealthCheck()
 	if err == nil {
 		t.Error("HealthCheck() should error when model cannot be pulled")
 	}
 
-	if !strings.Contains(err.Error(), "not found") && !strings.Contains(err.Error(), "pull failed") {
+	if !strings.Contains(err.Error(), "not found") && !strings.Contains(err.Error(), "pull failed") && !strings.Contains(err.Error(), "failed to pull") {
 		t.Errorf("error should mention model not found or pull failure, got: %v", err)
 	}
 }
 
 func TestModel(t *testing.T) {
-	processor := New(&Config{
+	processor, err := New(&Config{
 		Model: "test-model",
 	})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+
 
 	if processor.Model() != "test-model" {
 		t.Errorf("Model() = %s, want test-model", processor.Model())
@@ -565,10 +610,13 @@ func BenchmarkProcessImage(b *testing.B) {
 	}))
 	defer server.Close()
 
-	processor := New(&Config{
+	processor, err := New(&Config{
 		OllamaEndpoint: server.URL,
 		Model:          "llava",
 	})
+	if err != nil {
+		b.Fatalf("New() error: %v", err)
+	}
 
 	imgData := createBenchmarkImage(200, 100)
 

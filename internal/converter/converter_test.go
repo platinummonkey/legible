@@ -35,14 +35,17 @@ func TestConvertRmdoc_FileNotFound(t *testing.T) {
 	tmpDir := t.TempDir()
 	outputPath := filepath.Join(tmpDir, "output.pdf")
 
-	_, err := converter.ConvertRmdoc("/nonexistent/file.rmdoc", outputPath)
+	_, err = converter.ConvertRmdoc("/nonexistent/file.rmdoc", outputPath)
 	if err == nil {
 		t.Error("ConvertRmdoc() should error for nonexistent file")
 	}
 }
 
 func TestConvertRmdoc_WithTestFile(t *testing.T) {
-	converter := New(&Config{})
+	converter, err := New(&Config{})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
 
 	// Use the example Test.rmdoc file from the repository
 	rmdocPath := "../../example/Test.rmdoc"
@@ -91,16 +94,19 @@ func TestConvertRmdoc_WithTestFile(t *testing.T) {
 }
 
 func TestExtractRmdoc(t *testing.T) {
-	converter := New(&Config{})
+	converter, err := New(&Config{})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
 
 	rmdocPath := "../../example/Test.rmdoc"
-	if _, err := os.Stat(rmdocPath); os.IsNotExist(err) {
+	if _, statErr := os.Stat(rmdocPath); os.IsNotExist(statErr) {
 		t.Skipf("Test file not found: %s", rmdocPath)
 	}
 
 	tmpDir := t.TempDir()
 
-	err := converter.extractRmdoc(rmdocPath, tmpDir)
+	err = converter.extractRmdoc(rmdocPath, tmpDir)
 	if err != nil {
 		t.Fatalf("extractRmdoc() error = %v", err)
 	}
@@ -137,7 +143,11 @@ func TestExtractRmdoc(t *testing.T) {
 }
 
 func TestReadMetadata(t *testing.T) {
-	converter := New(&Config{})
+	converter, err := New(&Config{})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+
 
 	rmdocPath := "../../example/Test.rmdoc"
 	if _, err := os.Stat(rmdocPath); os.IsNotExist(err) {
@@ -168,7 +178,11 @@ func TestReadMetadata(t *testing.T) {
 }
 
 func TestReadContent(t *testing.T) {
-	converter := New(&Config{})
+	converter, err := New(&Config{})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+
 
 	rmdocPath := "../../example/Test.rmdoc"
 	if _, err := os.Stat(rmdocPath); os.IsNotExist(err) {
@@ -236,12 +250,16 @@ func TestParseTimestamp(t *testing.T) {
 }
 
 func TestCreatePlaceholderPDF(t *testing.T) {
-	converter := New(&Config{})
+	converter, err := New(&Config{})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+
 
 	tmpDir := t.TempDir()
 	outputPath := filepath.Join(tmpDir, "test.pdf")
 
-	err := converter.createPlaceholderPDF(outputPath, 3)
+	err = converter.createPlaceholderPDF(outputPath, 3)
 	if err != nil {
 		t.Fatalf("createPlaceholderPDF() error = %v", err)
 	}
@@ -268,7 +286,11 @@ func TestCreatePlaceholderPDF(t *testing.T) {
 }
 
 func TestExtractTags(t *testing.T) {
-	converter := New(&Config{})
+	converter, err := New(&Config{})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+
 
 	tests := []struct {
 		name     string
@@ -348,7 +370,11 @@ func TestExtractTags(t *testing.T) {
 }
 
 func TestExtractTags_RealDocument(t *testing.T) {
-	converter := New(&Config{})
+	converter, err := New(&Config{})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+
 
 	rmdocPath := "../../example/Test.rmdoc"
 	if _, err := os.Stat(rmdocPath); os.IsNotExist(err) {
@@ -386,7 +412,11 @@ func TestExtractTags_RealDocument(t *testing.T) {
 }
 
 func TestReadContent_WithTags(t *testing.T) {
-	converter := New(&Config{})
+	converter, err := New(&Config{})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+
 
 	rmdocPath := "../../example/Test.rmdoc"
 	if _, err := os.Stat(rmdocPath); os.IsNotExist(err) {
@@ -426,7 +456,11 @@ func TestReadContent_WithTags(t *testing.T) {
 }
 
 func TestConvertRmdoc_PDFMetadata(t *testing.T) {
-	converter := New(&Config{})
+	converter, err := New(&Config{})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+
 
 	rmdocPath := "../../example/Test.rmdoc"
 	if _, err := os.Stat(rmdocPath); os.IsNotExist(err) {
