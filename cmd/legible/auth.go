@@ -7,7 +7,6 @@ import (
 	"github.com/platinummonkey/legible/internal/logger"
 	"github.com/platinummonkey/legible/internal/rmclient"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // authCmd represents the auth command
@@ -33,9 +32,15 @@ func init() {
 }
 
 func runAuth(_ *cobra.Command, _ []string) error {
+	// Load configuration first
+	cfg, err := loadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load configuration: %w", err)
+	}
+
 	// Initialize logger
 	log, err := logger.New(&logger.Config{
-		Level:  viper.GetString("log_level"),
+		Level:  cfg.LogLevel,
 		Format: "console",
 	})
 	if err != nil {

@@ -104,7 +104,8 @@ func Load(configFile string) (*Config, error) {
 
 	// Read config file if it exists (optional)
 	if err := v.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+		// Check if it's a "file not found" error - these are OK, we'll use defaults
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok && !os.IsNotExist(err) {
 			return nil, fmt.Errorf("error reading config file: %w", err)
 		}
 		// Config file not found is OK - we'll use env vars and defaults
@@ -127,13 +128,13 @@ func Load(configFile string) (*Config, error) {
 		RemarkableToken: v.GetString("api-token"),
 		DaemonMode:      v.GetBool("daemon-mode"),
 		LLM: LLMConfig{
-			Provider:              v.GetString("llm-provider"),
-			Model:                 v.GetString("llm-model"),
-			Endpoint:              v.GetString("llm-endpoint"),
-			MaxRetries:            v.GetInt("llm-max-retries"),
-			Temperature:           v.GetFloat64("llm-temperature"),
-			UseKeychain:           v.GetBool("llm-use-keychain"),
-			KeychainServicePrefix: v.GetString("llm-keychain-service-prefix"),
+			Provider:              v.GetString("llm.provider"),
+			Model:                 v.GetString("llm.model"),
+			Endpoint:              v.GetString("llm.endpoint"),
+			MaxRetries:            v.GetInt("llm.max-retries"),
+			Temperature:           v.GetFloat64("llm.temperature"),
+			UseKeychain:           v.GetBool("llm.use-keychain"),
+			KeychainServicePrefix: v.GetString("llm.keychain-service-prefix"),
 		},
 	}
 
@@ -170,13 +171,13 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("daemon-mode", false)
 
 	// LLM defaults (Ollama by default for backward compatibility)
-	v.SetDefault("llm-provider", "ollama")
-	v.SetDefault("llm-model", "llava")
-	v.SetDefault("llm-endpoint", "http://localhost:11434")
-	v.SetDefault("llm-max-retries", 3)
-	v.SetDefault("llm-temperature", 0.0)
-	v.SetDefault("llm-use-keychain", false)
-	v.SetDefault("llm-keychain-service-prefix", "legible")
+	v.SetDefault("llm.provider", "ollama")
+	v.SetDefault("llm.model", "llava")
+	v.SetDefault("llm.endpoint", "http://localhost:11434")
+	v.SetDefault("llm.max-retries", 3)
+	v.SetDefault("llm.temperature", 0.0)
+	v.SetDefault("llm.use-keychain", false)
+	v.SetDefault("llm.keychain-service-prefix", "legible")
 }
 
 // Validate checks that the configuration is valid and internally consistent

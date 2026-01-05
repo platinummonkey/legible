@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/platinummonkey/legible/internal/config"
@@ -59,19 +58,19 @@ func init() {
 }
 
 func runSync(_ *cobra.Command, _ []string) error {
+	// Load configuration first
+	cfg, err := loadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load configuration: %w", err)
+	}
+
 	// Initialize logger
 	log, err := logger.New(&logger.Config{
-		Level:  viper.GetString("log_level"),
+		Level:  cfg.LogLevel,
 		Format: "console",
 	})
 	if err != nil {
 		return fmt.Errorf("failed to initialize logger: %w", err)
-	}
-
-	// Load configuration
-	cfg, err := loadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 
 	log.WithFields("output_dir", cfg.OutputDir).Info("Starting sync")
@@ -89,9 +88,8 @@ func runSync(_ *cobra.Command, _ []string) error {
 		return fmt.Errorf("authentication failed: %w. Please run 'legible auth' first", err)
 	}
 
-	// Determine state file path
-	stateFile := filepath.Join(cfg.OutputDir, ".legible-state.json")
-	stateStore, err := state.LoadOrCreate(stateFile)
+	// Load state store
+	stateStore, err := state.LoadOrCreate(cfg.StateFile)
 	if err != nil {
 		log.Fatal("Failed to initialize state:", err)
 	}
@@ -99,16 +97,22 @@ func runSync(_ *cobra.Command, _ []string) error {
 	// If force flag is set, clear state
 	if viper.GetBool("force") {
 		log.Info("Force flag set, clearing sync state")
-		if err := os.Remove(stateFile); err != nil && !os.IsNotExist(err) {
+		if err := os.Remove(cfg.StateFile); err != nil && !os.IsNotExist(err) {
 			log.WithFields("error", err).Warn("Failed to remove state file")
 		}
+	}
+
+	// Parse OCR languages from config (comma or plus separated)
+	ocrLangs := []string{"eng"}
+	if cfg.OCRLanguages != "" {
+		ocrLangs = []string{cfg.OCRLanguages}
 	}
 
 	// Initialize converter with OCR support
 	conv, err := converter.New(&converter.Config{
 		Logger:       log,
 		EnableOCR:    cfg.OCREnabled,
-		OCRLanguages: []string{"eng"}, // Can be extended to support multiple languages
+		OCRLanguages: ocrLangs,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create converter: %w", err)
@@ -175,31 +179,29 @@ func runSync(_ *cobra.Command, _ []string) error {
 }
 
 func loadConfig() (*config.Config, error) {
-	// Get output directory
-	outputDir := viper.GetString("output_dir")
-	if outputDir == "" {
-		// Default to ~/Legible
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get home directory: %w", err)
-		}
-		outputDir = filepath.Join(home, "Legible")
+	// Get the config file path if viper has read one
+	// Pass empty string if no config file was found (will use defaults)
+	configFile := viper.ConfigFileUsed()
+
+	// Use the proper config loading which handles all fields
+	cfg, err := config.Load(configFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	// Ensure output directory exists
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create output directory: %w", err)
+	// Override with command-line flags if provided
+	if viper.IsSet("output-dir") {
+		cfg.OutputDir = viper.GetString("output-dir")
+	}
+	if viper.IsSet("labels") {
+		cfg.Labels = viper.GetStringSlice("labels")
+	}
+	if viper.IsSet("no-ocr") {
+		cfg.OCREnabled = !viper.GetBool("no-ocr")
+	}
+	if viper.IsSet("log-level") {
+		cfg.LogLevel = viper.GetString("log-level")
 	}
 
-	// Get labels
-	labels := viper.GetStringSlice("labels")
-
-	// Get OCR enabled (note: --no-ocr flag inverts the logic)
-	ocrEnabled := !viper.GetBool("no-ocr")
-
-	return &config.Config{
-		OutputDir:  outputDir,
-		Labels:     labels,
-		OCREnabled: ocrEnabled,
-	}, nil
+	return cfg, nil
 }

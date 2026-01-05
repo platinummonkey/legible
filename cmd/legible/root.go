@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -47,11 +48,11 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&logLevel, "log-level", "info", "log level (debug, info, warn, error)")
 	rootCmd.PersistentFlags().Bool("no-ocr", false, "disable OCR processing")
 
-	// Bind flags to viper
-	_ = viper.BindPFlag("output_dir", rootCmd.PersistentFlags().Lookup("output"))
+	// Bind flags to viper (using dash-separated keys to match config file format)
+	_ = viper.BindPFlag("output-dir", rootCmd.PersistentFlags().Lookup("output"))
 	_ = viper.BindPFlag("labels", rootCmd.PersistentFlags().Lookup("labels"))
-	_ = viper.BindPFlag("log_level", rootCmd.PersistentFlags().Lookup("log-level"))
-	_ = viper.BindPFlag("ocr_enabled", rootCmd.PersistentFlags().Lookup("no-ocr"))
+	_ = viper.BindPFlag("log-level", rootCmd.PersistentFlags().Lookup("log-level"))
+	_ = viper.BindPFlag("no-ocr", rootCmd.PersistentFlags().Lookup("no-ocr"))
 }
 
 func initConfig() {
@@ -72,8 +73,9 @@ func initConfig() {
 		viper.SetConfigName(".legible")
 	}
 
-	// Read environment variables with RMSYNC prefix
-	viper.SetEnvPrefix("RMSYNC")
+	// Read environment variables with LEGIBLE prefix
+	viper.SetEnvPrefix("LEGIBLE")
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 	viper.AutomaticEnv()
 
 	// If a config file is found, read it in

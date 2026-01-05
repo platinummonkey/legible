@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"time"
 
 	"github.com/platinummonkey/legible/internal/converter"
@@ -71,24 +70,29 @@ func init() {
 }
 
 func runDaemon(_ *cobra.Command, _ []string) error {
+	// Load configuration first
+	cfg, err := loadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load configuration: %w", err)
+	}
+
+	// Override sync interval from daemon flag if set
+	if viper.IsSet("daemon.interval") {
+		cfg.SyncInterval = viper.GetDuration("daemon.interval")
+	}
+
 	// Initialize logger (JSON format for daemon mode)
 	log, err := logger.New(&logger.Config{
-		Level:  viper.GetString("log_level"),
+		Level:  cfg.LogLevel,
 		Format: "json",
 	})
 	if err != nil {
 		return fmt.Errorf("failed to initialize logger: %w", err)
 	}
 
-	// Load configuration
-	cfg, err := loadConfig()
-	if err != nil {
-		return fmt.Errorf("failed to load configuration: %w", err)
-	}
-
 	log.WithFields(
 		"output_dir", cfg.OutputDir,
-		"interval", viper.GetDuration("daemon.interval"),
+		"interval", cfg.SyncInterval,
 	).Info("Starting daemon")
 
 	// Initialize components
@@ -99,16 +103,21 @@ func runDaemon(_ *cobra.Command, _ []string) error {
 		log.Fatal("Failed to create client:", err)
 	}
 
-	stateFile := filepath.Join(cfg.OutputDir, ".legible-state.json")
-	stateStore, err := state.LoadOrCreate(stateFile)
+	stateStore, err := state.LoadOrCreate(cfg.StateFile)
 	if err != nil {
 		log.Fatal("Failed to initialize state:", err)
+	}
+
+	// Parse OCR languages from config (comma or plus separated)
+	ocrLangs := []string{"eng"}
+	if cfg.OCRLanguages != "" {
+		ocrLangs = []string{cfg.OCRLanguages}
 	}
 
 	conv, err := converter.New(&converter.Config{
 		Logger:       log,
 		EnableOCR:    cfg.OCREnabled,
-		OCRLanguages: []string{"eng"}, // Can be extended to support multiple languages
+		OCRLanguages: ocrLangs,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create converter: %w", err)
@@ -148,7 +157,7 @@ func runDaemon(_ *cobra.Command, _ []string) error {
 	d, err := daemon.New(&daemon.Config{
 		Orchestrator:    orch,
 		Logger:          log,
-		SyncInterval:    viper.GetDuration("daemon.interval"),
+		SyncInterval:    cfg.SyncInterval,
 		HealthCheckAddr: viper.GetString("daemon.health_addr"),
 		PIDFile:         viper.GetString("daemon.pid_file"),
 	})
