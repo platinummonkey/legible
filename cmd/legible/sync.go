@@ -58,95 +58,18 @@ func init() {
 }
 
 func runSync(_ *cobra.Command, _ []string) error {
-	// Load configuration first
-	cfg, err := loadConfig()
+	// Load configuration and initialize logger
+	cfg, log, err := initConfigAndLogger()
 	if err != nil {
-		return fmt.Errorf("failed to load configuration: %w", err)
-	}
-
-	// Initialize logger
-	log, err := logger.New(&logger.Config{
-		Level:  cfg.LogLevel,
-		Format: "console",
-	})
-	if err != nil {
-		return fmt.Errorf("failed to initialize logger: %w", err)
+		return err
 	}
 
 	log.WithFields("output_dir", cfg.OutputDir).Info("Starting sync")
 
-	// Initialize components
-	rmClient, err := rmclient.NewClient(&rmclient.Config{
-		Logger: log,
-	})
+	// Initialize all components
+	orch, err := initSyncComponents(cfg, log)
 	if err != nil {
-		log.Fatal("Failed to create client:", err)
-	}
-
-	// Authenticate with the reMarkable API (loads existing credentials)
-	if err := rmClient.Authenticate(); err != nil {
-		return fmt.Errorf("authentication failed: %w. Please run 'legible auth' first", err)
-	}
-
-	// Load state store
-	stateStore, err := state.LoadOrCreate(cfg.StateFile)
-	if err != nil {
-		log.Fatal("Failed to initialize state:", err)
-	}
-
-	// If force flag is set, clear state
-	if viper.GetBool("force") {
-		log.Info("Force flag set, clearing sync state")
-		if err := os.Remove(cfg.StateFile); err != nil && !os.IsNotExist(err) {
-			log.WithFields("error", err).Warn("Failed to remove state file")
-		}
-	}
-
-	// Parse OCR languages from config (comma or plus separated)
-	ocrLangs := []string{"eng"}
-	if cfg.OCRLanguages != "" {
-		ocrLangs = []string{cfg.OCRLanguages}
-	}
-
-	// Initialize converter with OCR support
-	conv, err := converter.New(&converter.Config{
-		Logger:       log,
-		EnableOCR:    cfg.OCREnabled,
-		OCRLanguages: ocrLangs,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create converter: %w", err)
-	}
-
-	// Initialize PDF enhancer
-	pdfEnhancer := pdfenhancer.New(&pdfenhancer.Config{
-		Logger: log,
-	})
-
-	// Initialize OCR processor if enabled
-	var ocrProc *ocr.Processor
-	if cfg.OCREnabled {
-		ocrProc, err = ocr.New(&ocr.Config{
-			Logger: log,
-			// Ollama handles language detection automatically via vision models
-		})
-		if err != nil {
-			return fmt.Errorf("failed to create OCR processor: %w", err)
-		}
-	}
-
-	// Create sync orchestrator
-	orch, err := sync.New(&sync.Config{
-		Config:       cfg,
-		Logger:       log,
-		RMClient:     rmClient,
-		StateStore:   stateStore,
-		Converter:    conv,
-		OCRProcessor: ocrProc,
-		PDFEnhancer:  pdfEnhancer,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create orchestrator: %w", err)
+		return err
 	}
 
 	// Run sync
@@ -159,6 +82,99 @@ func runSync(_ *cobra.Command, _ []string) error {
 	}
 
 	// Display results
+	return displaySyncResults(result)
+}
+
+func initConfigAndLogger() (*config.Config, *logger.Logger, error) {
+	cfg, err := loadConfig()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to load configuration: %w", err)
+	}
+
+	log, err := logger.New(&logger.Config{
+		Level:  cfg.LogLevel,
+		Format: "console",
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to initialize logger: %w", err)
+	}
+
+	return cfg, log, nil
+}
+
+func initSyncComponents(cfg *config.Config, log *logger.Logger) (*sync.Orchestrator, error) {
+	// Initialize reMarkable client
+	rmClient, err := rmclient.NewClient(&rmclient.Config{
+		Logger: log,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create client: %w", err)
+	}
+
+	// Authenticate with the reMarkable API
+	if err := rmClient.Authenticate(); err != nil {
+		return nil, fmt.Errorf("authentication failed: %w. Please run 'legible auth' first", err)
+	}
+
+	// Load state store
+	stateStore, err := state.LoadOrCreate(cfg.StateFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize state: %w", err)
+	}
+
+	// Handle force flag
+	if viper.GetBool("force") {
+		log.Info("Force flag set, clearing sync state")
+		if err := os.Remove(cfg.StateFile); err != nil && !os.IsNotExist(err) {
+			log.WithFields("error", err).Warn("Failed to remove state file")
+		}
+	}
+
+	// Parse OCR languages from config
+	ocrLangs := []string{"eng"}
+	if cfg.OCRLanguages != "" {
+		ocrLangs = []string{cfg.OCRLanguages}
+	}
+
+	// Initialize converter
+	conv, err := converter.New(&converter.Config{
+		Logger:       log,
+		EnableOCR:    cfg.OCREnabled,
+		OCRLanguages: ocrLangs,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create converter: %w", err)
+	}
+
+	// Initialize PDF enhancer
+	pdfEnhancer := pdfenhancer.New(&pdfenhancer.Config{
+		Logger: log,
+	})
+
+	// Initialize OCR processor if enabled
+	var ocrProc *ocr.Processor
+	if cfg.OCREnabled {
+		ocrProc, err = ocr.New(&ocr.Config{
+			Logger: log,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create OCR processor: %w", err)
+		}
+	}
+
+	// Create and return sync orchestrator
+	return sync.New(&sync.Config{
+		Config:       cfg,
+		Logger:       log,
+		RMClient:     rmClient,
+		StateStore:   stateStore,
+		Converter:    conv,
+		OCRProcessor: ocrProc,
+		PDFEnhancer:  pdfEnhancer,
+	})
+}
+
+func displaySyncResults(result *sync.Result) error {
 	fmt.Println()
 	fmt.Println("=== Sync Complete ===")
 	fmt.Printf("Total documents: %d\n", result.TotalDocuments)

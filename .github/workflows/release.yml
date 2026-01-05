@@ -53,7 +53,7 @@ jobs:
       - name: Install syft
         uses: anchore/sbom-action/download-syft@v0
 
-      - name: Run GoReleaser Pro
+      - name: Build and Release
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser-pro

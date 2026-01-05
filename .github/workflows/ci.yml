@@ -39,14 +39,6 @@ jobs:
         env:
           CGO_ENABLED: 0
 
-      - name: Upload coverage
-        uses: codecov/codecov-action@v5
-        if: matrix.go-version == '1.25'
-        with:
-          files: ./coverage.out
-          flags: unittests
-          fail_ci_if_error: false
-
   lint:
     name: Lint
     runs-on: ubuntu-latest
