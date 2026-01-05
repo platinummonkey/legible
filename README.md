@@ -476,6 +476,8 @@ See [examples/config.yaml](examples/config.yaml) for detailed documentation of a
 | `llm.endpoint` | string | `http://localhost:11434` | API endpoint (Ollama only) |
 | `llm.temperature` | float | `0.0` | Generation temperature (0.0-2.0, lower = more deterministic) |
 | `llm.max-retries` | int | `3` | Maximum API retry attempts |
+| `llm.use-keychain` | bool | `false` | Use macOS Keychain for API keys (macOS only) |
+| `llm.keychain-service-prefix` | string | `legible` | Keychain service name prefix |
 
 **Supported Models by Provider:**
 
@@ -532,6 +534,8 @@ export LEGIBLE_LLM_MODEL=gpt-4o-mini
 export LEGIBLE_LLM_ENDPOINT=http://localhost:11434
 export LEGIBLE_LLM_TEMPERATURE=0.0
 export LEGIBLE_LLM_MAX_RETRIES=3
+export LEGIBLE_LLM_USE_KEYCHAIN=true
+export LEGIBLE_LLM_KEYCHAIN_SERVICE_PREFIX=legible
 
 # API keys (required for cloud providers)
 export OPENAI_API_KEY=sk-...
@@ -544,7 +548,50 @@ export LEGIBLE_STATE_FILE=~/.legible/state.json
 export LEGIBLE_LOG_LEVEL=debug
 ```
 
-**Note:** API keys for cloud providers are always read from their standard environment variables (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`) and cannot be set in the config file for security reasons.
+**Note:** API keys for cloud providers are loaded from macOS Keychain (if enabled) or environment variables (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`). They cannot be set in the config file for security reasons.
+
+### Using macOS Keychain for API Keys (Recommended for macOS)
+
+macOS users can store API keys securely in the system Keychain instead of using environment variables:
+
+**1. Enable keychain in config:**
+```yaml
+llm:
+  provider: openai
+  model: gpt-4o-mini
+  use-keychain: true  # Enable keychain lookup
+  keychain-service-prefix: legible  # Service name prefix (optional)
+```
+
+**2. Add API keys to Keychain:**
+```bash
+# Add OpenAI key
+security add-generic-password -s "legible-openai" -a "api-key" -w "sk-your-actual-key"
+
+# Add Anthropic key
+security add-generic-password -s "legible-anthropic" -a "api-key" -w "sk-ant-your-key"
+
+# Add Google key
+security add-generic-password -s "legible-google" -a "api-key" -w "your-google-key"
+```
+
+**3. Verify keys are stored:**
+```bash
+# View the key (will prompt for authentication)
+security find-generic-password -s "legible-openai" -w
+```
+
+**4. Remove keys if needed:**
+```bash
+security delete-generic-password -s "legible-openai"
+```
+
+**Benefits:**
+- Keys are encrypted and protected by macOS security
+- No need to set environment variables in shell config
+- Keys persist across reboots
+- System keychain prompts for authentication when accessing keys
+- Can use iCloud Keychain sync (if enabled)
 
 ### Configuration Examples
 
@@ -598,6 +645,16 @@ ocr-languages: eng+fra+deu
 llm:
   provider: google
   model: gemini-1.5-flash
+```
+
+**macOS with Keychain (secure API key storage):**
+```yaml
+output-dir: ~/legible
+ocr-enabled: true
+llm:
+  provider: openai
+  model: gpt-4o-mini
+  use-keychain: true  # Keys from macOS Keychain
 ```
 
 ## Development

@@ -15,6 +15,8 @@ func TestLoad_Defaults(t *testing.T) {
 	// Set environment variable for output dir to avoid creating in actual home
 	t.Setenv("LEGIBLE_OUTPUT_DIR", tmpDir)
 	t.Setenv("LEGIBLE_STATE_FILE", filepath.Join(tmpDir, "state.json"))
+	// Set HOME to temp dir to avoid loading user's ~/.legible.yaml
+	t.Setenv("HOME", tmpDir)
 
 	cfg, err := Load("")
 	if err != nil {
@@ -218,6 +220,13 @@ func TestValidate_ValidConfiguration(t *testing.T) {
 		SyncInterval:    5 * time.Minute,
 		DaemonMode:      true,
 		RemarkableToken: "test-token-12345",
+		LLM: LLMConfig{
+			Provider:    "ollama",
+			Model:       "llava",
+			Endpoint:    "http://localhost:11434",
+			MaxRetries:  3,
+			Temperature: 0.0,
+		},
 	}
 
 	err := cfg.Validate()
@@ -299,5 +308,199 @@ func TestString_NoToken(t *testing.T) {
 
 	if !strings.Contains(str, "not set") {
 		t.Error("String() should indicate token is not set")
+	}
+}
+
+func TestLoad_KeychainConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+	configFile := filepath.Join(tmpDir, "test-keychain-config.yaml")
+
+	// Set a dummy API key for the test
+	t.Setenv("OPENAI_API_KEY", "sk-test-dummy-key")
+
+	configContent := `
+output-dir: ` + tmpDir + `
+state-file: ` + filepath.Join(tmpDir, "state.json") + `
+ocr-enabled: true
+ocr-languages: eng
+llm-provider: openai
+llm-model: gpt-4o-mini
+llm-use-keychain: true
+llm-keychain-service-prefix: myapp
+`
+
+	if err := os.WriteFile(configFile, []byte(configContent), 0644); err != nil {
+		t.Fatalf("Failed to write config file: %v", err)
+	}
+
+	cfg, err := Load(configFile)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if cfg.LLM.Provider != "openai" {
+		t.Errorf("expected LLM.Provider = openai, got %s", cfg.LLM.Provider)
+	}
+
+	if cfg.LLM.Model != "gpt-4o-mini" {
+		t.Errorf("expected LLM.Model = gpt-4o-mini, got %s", cfg.LLM.Model)
+	}
+
+	if cfg.LLM.UseKeychain != true {
+		t.Errorf("expected LLM.UseKeychain = true, got %t", cfg.LLM.UseKeychain)
+	}
+
+	if cfg.LLM.KeychainServicePrefix != "myapp" {
+		t.Errorf("expected LLM.KeychainServicePrefix = myapp, got %s", cfg.LLM.KeychainServicePrefix)
+	}
+}
+
+func TestLoad_KeychainDefaults(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	t.Setenv("LEGIBLE_OUTPUT_DIR", tmpDir)
+	t.Setenv("LEGIBLE_STATE_FILE", filepath.Join(tmpDir, "state.json"))
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	// Keychain should be disabled by default
+	if cfg.LLM.UseKeychain != false {
+		t.Errorf("expected LLM.UseKeychain = false by default, got %t", cfg.LLM.UseKeychain)
+	}
+
+	// Default prefix should be "legible"
+	if cfg.LLM.KeychainServicePrefix != "legible" {
+		t.Errorf("expected LLM.KeychainServicePrefix = legible by default, got %s", cfg.LLM.KeychainServicePrefix)
+	}
+}
+
+func TestLoad_KeychainEnvironmentVariables(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	t.Setenv("LEGIBLE_OUTPUT_DIR", tmpDir)
+	t.Setenv("LEGIBLE_STATE_FILE", filepath.Join(tmpDir, "state.json"))
+	t.Setenv("LEGIBLE_LLM_USE_KEYCHAIN", "true")
+	t.Setenv("LEGIBLE_LLM_KEYCHAIN_SERVICE_PREFIX", "customprefix")
+	t.Setenv("LEGIBLE_LLM_PROVIDER", "ollama")  // Use ollama to avoid API key requirement
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if cfg.LLM.UseKeychain != true {
+		t.Errorf("expected LLM.UseKeychain = true, got %t", cfg.LLM.UseKeychain)
+	}
+
+	if cfg.LLM.KeychainServicePrefix != "customprefix" {
+		t.Errorf("expected LLM.KeychainServicePrefix = customprefix, got %s", cfg.LLM.KeychainServicePrefix)
+	}
+}
+
+func TestLoadAPIKeyForProvider_EnvironmentVariables(t *testing.T) {
+	tests := []struct {
+		name     string
+		provider string
+		envKey   string
+		envValue string
+		expected string
+	}{
+		{
+			name:     "OpenAI from env",
+			provider: "openai",
+			envKey:   "OPENAI_API_KEY",
+			envValue: "sk-test-key",
+			expected: "sk-test-key",
+		},
+		{
+			name:     "Anthropic from env",
+			provider: "anthropic",
+			envKey:   "ANTHROPIC_API_KEY",
+			envValue: "sk-ant-test",
+			expected: "sk-ant-test",
+		},
+		{
+			name:     "Google from GOOGLE_API_KEY",
+			provider: "google",
+			envKey:   "GOOGLE_API_KEY",
+			envValue: "google-key",
+			expected: "google-key",
+		},
+		{
+			name:     "Ollama no key needed",
+			provider: "ollama",
+			envKey:   "",
+			envValue: "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Clear all API key env vars
+			os.Unsetenv("OPENAI_API_KEY")
+			os.Unsetenv("ANTHROPIC_API_KEY")
+			os.Unsetenv("GOOGLE_API_KEY")
+			os.Unsetenv("GOOGLE_APPLICATION_CREDENTIALS")
+
+			// Set the test env var
+			if tt.envKey != "" {
+				t.Setenv(tt.envKey, tt.envValue)
+			}
+
+			// Call with keychain disabled
+			result := loadAPIKeyForProvider(tt.provider, false, "legible")
+
+			if result != tt.expected {
+				t.Errorf("expected key %q, got %q", tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestLoadFromKeychain_NonMacOS(t *testing.T) {
+	// This test verifies that loadFromKeychain returns empty string on non-macOS
+	// We can't actually test macOS keychain functionality without running on macOS
+	// with actual keychain entries, so we just verify the platform check works
+
+	if isMacOS() {
+		t.Skip("Skipping non-macOS test on macOS platform")
+	}
+
+	// Should return empty string on non-macOS platforms
+	result := loadFromKeychain("openai", "legible")
+	if result != "" {
+		t.Errorf("expected empty string on non-macOS platform, got %q", result)
+	}
+}
+
+func TestString_IncludesKeychainSettings(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	cfg := &Config{
+		OutputDir:    tmpDir,
+		StateFile:    filepath.Join(tmpDir, "state.json"),
+		LogLevel:     "info",
+		OCREnabled:   true,
+		OCRLanguages: "eng",
+		LLM: LLMConfig{
+			Provider:              "openai",
+			Model:                 "gpt-4o",
+			UseKeychain:           true,
+			KeychainServicePrefix: "myapp",
+		},
+	}
+
+	str := cfg.String()
+
+	if !strings.Contains(str, "UseKeychain: true") {
+		t.Error("String() should include UseKeychain setting")
+	}
+
+	if !strings.Contains(str, "KeychainServicePrefix: myapp") {
+		t.Error("String() should include KeychainServicePrefix setting")
 	}
 }

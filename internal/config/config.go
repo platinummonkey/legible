@@ -4,7 +4,9 @@ package config
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -59,11 +61,13 @@ type LLMConfig struct {
 	// Endpoint is the API endpoint (primarily for Ollama)
 	Endpoint string
 
-	// APIKey is the API key for cloud providers (typically from env vars)
-	// This will be populated from environment variables:
-	// - OPENAI_API_KEY for OpenAI
-	// - ANTHROPIC_API_KEY for Anthropic
-	// - GOOGLE_API_KEY or GOOGLE_APPLICATION_CREDENTIALS for Google
+	// APIKey is the API key for cloud providers (typically from env vars or keychain)
+	// This will be populated from:
+	// 1. macOS Keychain (if UseKeychain is true)
+	// 2. Environment variables:
+	//    - OPENAI_API_KEY for OpenAI
+	//    - ANTHROPIC_API_KEY for Anthropic
+	//    - GOOGLE_API_KEY or GOOGLE_APPLICATION_CREDENTIALS for Google
 	APIKey string
 
 	// MaxRetries is the maximum number of retry attempts for API calls
@@ -71,6 +75,13 @@ type LLMConfig struct {
 
 	// Temperature controls randomness (0.0 = deterministic, recommended for OCR)
 	Temperature float64
+
+	// UseKeychain enables macOS Keychain lookup for API keys (macOS only)
+	UseKeychain bool
+
+	// KeychainServicePrefix is the prefix for keychain service names
+	// Service names will be: {prefix}-{provider} (e.g., "legible-openai")
+	KeychainServicePrefix string
 }
 
 // Load reads configuration from multiple sources and returns a Config instance.
@@ -120,16 +131,18 @@ func Load(configFile string) (*Config, error) {
 		RemarkableToken: v.GetString("api-token"),
 		DaemonMode:      v.GetBool("daemon-mode"),
 		LLM: LLMConfig{
-			Provider:    v.GetString("llm-provider"),
-			Model:       v.GetString("llm-model"),
-			Endpoint:    v.GetString("llm-endpoint"),
-			MaxRetries:  v.GetInt("llm-max-retries"),
-			Temperature: v.GetFloat64("llm-temperature"),
+			Provider:              v.GetString("llm-provider"),
+			Model:                 v.GetString("llm-model"),
+			Endpoint:              v.GetString("llm-endpoint"),
+			MaxRetries:            v.GetInt("llm-max-retries"),
+			Temperature:           v.GetFloat64("llm-temperature"),
+			UseKeychain:           v.GetBool("llm-use-keychain"),
+			KeychainServicePrefix: v.GetString("llm-keychain-service-prefix"),
 		},
 	}
 
-	// Load API keys from environment variables based on provider
-	config.LLM.APIKey = loadAPIKeyForProvider(config.LLM.Provider)
+	// Load API keys from keychain or environment variables based on provider
+	config.LLM.APIKey = loadAPIKeyForProvider(config.LLM.Provider, config.LLM.UseKeychain, config.LLM.KeychainServicePrefix)
 
 	// Validate configuration
 	if err := config.Validate(); err != nil {
@@ -167,6 +180,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("llm-endpoint", "http://localhost:11434")
 	v.SetDefault("llm-max-retries", 3)
 	v.SetDefault("llm-temperature", 0.0)
+	v.SetDefault("llm-use-keychain", false)
+	v.SetDefault("llm-keychain-service-prefix", "legible")
 }
 
 // Validate checks that the configuration is valid and internally consistent
@@ -293,8 +308,16 @@ func (c *Config) validateLLMConfig() error {
 	return nil
 }
 
-// loadAPIKeyForProvider loads the appropriate API key from environment variables
-func loadAPIKeyForProvider(provider string) string {
+// loadAPIKeyForProvider loads the appropriate API key from keychain or environment variables
+func loadAPIKeyForProvider(provider string, useKeychain bool, keychainPrefix string) string {
+	// Try keychain first if enabled (macOS only)
+	if useKeychain {
+		if key := loadFromKeychain(provider, keychainPrefix); key != "" {
+			return key
+		}
+	}
+
+	// Fall back to environment variables
 	switch strings.ToLower(provider) {
 	case "openai":
 		return os.Getenv("OPENAI_API_KEY")
@@ -310,6 +333,36 @@ func loadAPIKeyForProvider(provider string) string {
 		// Ollama and others don't need API keys
 		return ""
 	}
+}
+
+// loadFromKeychain attempts to retrieve an API key from macOS Keychain
+// Service name format: {prefix}-{provider} (e.g., "legible-openai")
+// Returns empty string if not found or on non-macOS platforms
+func loadFromKeychain(provider, prefix string) string {
+	// Only attempt on macOS
+	if !isMacOS() {
+		return ""
+	}
+
+	serviceName := fmt.Sprintf("%s-%s", prefix, strings.ToLower(provider))
+
+	// Use security command to retrieve password
+	// security find-generic-password -s "service-name" -w
+	cmd := exec.Command("security", "find-generic-password", "-s", serviceName, "-w")
+	output, err := cmd.Output()
+	if err != nil {
+		// Key not found or other error - silently fail and fall back to env vars
+		return ""
+	}
+
+	// Trim whitespace and newlines
+	key := strings.TrimSpace(string(output))
+	return key
+}
+
+// isMacOS checks if the current platform is macOS
+func isMacOS() bool {
+	return runtime.GOOS == "darwin"
 }
 
 // String returns a string representation of the configuration (with sensitive data redacted)
@@ -345,7 +398,9 @@ func (c *Config) String() string {
     Endpoint: %s
     APIKey: %s
     MaxRetries: %d
-    Temperature: %.2f`,
+    Temperature: %.2f
+    UseKeychain: %t
+    KeychainServicePrefix: %s`,
 		c.OutputDir,
 		c.Labels,
 		c.OCREnabled,
@@ -362,5 +417,7 @@ func (c *Config) String() string {
 		apiKey,
 		c.LLM.MaxRetries,
 		c.LLM.Temperature,
+		c.LLM.UseKeychain,
+		c.LLM.KeychainServicePrefix,
 	)
 }

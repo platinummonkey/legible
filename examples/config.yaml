@@ -87,12 +87,38 @@ llm:
   # Environment variable: LEGIBLE_LLM_MAX_RETRIES
   max-retries: 3
 
-  # API keys are loaded from environment variables:
-  # - OPENAI_API_KEY for OpenAI (get from https://platform.openai.com/api-keys)
-  # - ANTHROPIC_API_KEY for Anthropic (get from https://console.anthropic.com/)
-  # - GOOGLE_API_KEY or GOOGLE_APPLICATION_CREDENTIALS for Google (get from https://aistudio.google.com/app/apikey)
+  # macOS Keychain integration (macOS only)
+  # When enabled, API keys are retrieved from macOS Keychain before checking environment variables
+  # Default: false
+  # Environment variable: LEGIBLE_LLM_USE_KEYCHAIN
+  use-keychain: false
+
+  # Service name prefix for keychain entries
+  # Service names will be: {prefix}-{provider} (e.g., "legible-openai")
+  # Default: "legible"
+  # Environment variable: LEGIBLE_LLM_KEYCHAIN_SERVICE_PREFIX
+  keychain-service-prefix: legible
+
+  # API keys are loaded from (in order of precedence):
+  # 1. macOS Keychain (if use-keychain is true, macOS only)
+  # 2. Environment variables:
+  #    - OPENAI_API_KEY for OpenAI (get from https://platform.openai.com/api-keys)
+  #    - ANTHROPIC_API_KEY for Anthropic (get from https://console.anthropic.com/)
+  #    - GOOGLE_API_KEY or GOOGLE_APPLICATION_CREDENTIALS for Google (get from https://aistudio.google.com/app/apikey)
   #
-  # Example:
+  # Storing keys in macOS Keychain (recommended for macOS users):
+  #   # Add key to keychain:
+  #   security add-generic-password -s "legible-openai" -a "api-key" -w "sk-..."
+  #   security add-generic-password -s "legible-anthropic" -a "api-key" -w "sk-ant-..."
+  #   security add-generic-password -s "legible-google" -a "api-key" -w "..."
+  #
+  #   # Verify key is stored:
+  #   security find-generic-password -s "legible-openai" -w
+  #
+  #   # Delete key from keychain:
+  #   security delete-generic-password -s "legible-openai"
+  #
+  # Using environment variables:
   #   export OPENAI_API_KEY=sk-...
   #   export ANTHROPIC_API_KEY=sk-ant-...
   #   export GOOGLE_API_KEY=...
