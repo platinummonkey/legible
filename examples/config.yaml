@@ -1,17 +1,23 @@
-# reMarkable Sync Configuration File
+# Legible Configuration File
 #
 # This file demonstrates all available configuration options.
 # Copy this file to ~/.legible.yaml and customize as needed.
 #
 # Configuration precedence: CLI flags > Environment variables > Config file > Defaults
 
+# ==========================================
+# Core Settings
+# ==========================================
+
 # Output directory for synced PDF files
 # Default: ~/legible
+# Environment variable: LEGIBLE_OUTPUT_DIR
 output-dir: ~/Documents/remarkable
 
 # Filter documents by labels (empty list = sync all documents)
 # Labels must match exactly as they appear in the reMarkable app
 # Default: [] (empty, sync all)
+# Environment variable: LEGIBLE_LABELS (comma-separated)
 labels:
   - work
   - important
@@ -20,134 +26,202 @@ labels:
 # Enable or disable OCR processing
 # OCR adds a searchable text layer to PDFs but increases processing time
 # Default: true
+# Environment variable: LEGIBLE_OCR_ENABLED
 ocr-enabled: true
 
-# Ollama configuration for OCR processing
-ollama:
-  # Ollama API endpoint
+# OCR languages for text recognition (ISO 639-2 language codes)
+# Multiple languages can be combined with '+' (e.g., "eng+fra")
+# Common codes: eng (English), fra (French), deu (German), spa (Spanish), etc.
+# Default: "eng"
+# Environment variable: LEGIBLE_OCR_LANGUAGES
+ocr-languages: eng
+
+# ==========================================
+# LLM Configuration for OCR
+# ==========================================
+# Supports multiple providers: ollama, openai, anthropic, google
+llm:
+  # Provider: ollama, openai, anthropic, google
+  # Default: ollama
+  # Environment variable: LEGIBLE_LLM_PROVIDER
+  provider: ollama
+
+  # Model name (provider-specific)
+  # Default: llava
+  # Environment variable: LEGIBLE_LLM_MODEL
+  #
+  # Ollama models (local, free):
+  #   - llava: Fast, good for most handwriting (~4GB) [DEFAULT]
+  #   - mistral-small3.1: Better multilingual and complex handwriting (~7-8GB)
+  #   - llava:13b: Higher accuracy, slower (~7GB)
+  #   - llava:34b: Best accuracy, very slow (~20GB)
+  #
+  # OpenAI models (cloud, paid):
+  #   - gpt-4o: Latest, high accuracy
+  #   - gpt-4o-mini: Faster, cost-effective
+  #   - gpt-4-turbo: Previous generation
+  #
+  # Anthropic models (cloud, paid):
+  #   - claude-3-5-sonnet-20241022: Latest Sonnet, excellent handwriting
+  #   - claude-3-opus-20240229: Highest accuracy, slower
+  #   - claude-3-haiku-20240307: Fastest, cost-effective
+  #
+  # Google models (cloud, free tier available):
+  #   - gemini-1.5-pro: High accuracy
+  #   - gemini-1.5-flash: Faster, free tier
+  model: llava
+
+  # API endpoint (only required for Ollama)
   # Default: http://localhost:11434
+  # Environment variable: LEGIBLE_LLM_ENDPOINT
   endpoint: http://localhost:11434
 
-  # Vision model to use for OCR
-  # Recommended models:
-  # - mistral-small3.1: Better multilingual and complex handwriting (~7-8GB) [DEFAULT]
-  # - llava: Faster, good for most handwriting (~4GB)
-  # - llava:13b: Higher accuracy, slower (~7GB)
-  # Default: mistral-small3.1
-  model: mistral-small3.1
-
-  # Temperature for model inference (0.0 = deterministic, 1.0 = creative)
-  # Lower values recommended for OCR accuracy
+  # Temperature for model inference (0.0 = deterministic, 2.0 = creative)
+  # Lower values (0.0) recommended for OCR accuracy
   # Default: 0.0
+  # Environment variable: LEGIBLE_LLM_TEMPERATURE
   temperature: 0.0
 
-  # Request timeout (e.g., 30s, 1m, 2m)
-  # Increase for slower hardware or larger models
-  # Default: 30s
-  timeout: 30s
-
-  # Maximum retry attempts for failed requests
+  # Maximum retry attempts for failed API requests
   # Default: 3
+  # Environment variable: LEGIBLE_LLM_MAX_RETRIES
   max-retries: 3
 
-# Logging level: debug, info, warn, error
-# debug = verbose logging for troubleshooting
-# info = standard operational logging
-# warn = only warnings and errors
-# error = only errors
-# Default: info
-log-level: info
+  # API keys are loaded from environment variables:
+  # - OPENAI_API_KEY for OpenAI (get from https://platform.openai.com/api-keys)
+  # - ANTHROPIC_API_KEY for Anthropic (get from https://console.anthropic.com/)
+  # - GOOGLE_API_KEY or GOOGLE_APPLICATION_CREDENTIALS for Google (get from https://aistudio.google.com/app/apikey)
+  #
+  # Example:
+  #   export OPENAI_API_KEY=sk-...
+  #   export ANTHROPIC_API_KEY=sk-ant-...
+  #   export GOOGLE_API_KEY=...
+
+# ==========================================
+# Sync and State Management
+# ==========================================
 
 # Sync interval for daemon mode (0 = run once, not daemon)
 # Examples: 5m, 10m, 30m, 1h, 2h
 # Default: 5m
+# Environment variable: LEGIBLE_SYNC_INTERVAL
 sync-interval: 10m
 
 # State file location for tracking synced documents
 # The state file enables incremental sync by tracking which documents
 # have already been synced and their versions
 # Default: ~/.legible-state.json
+# Environment variable: LEGIBLE_STATE_FILE
 state-file: ~/.legible/state.json
 
-# reMarkable authentication token (leave empty to use default location)
-# Token is automatically generated during 'legible auth'
-# Default: ~/.legible/token.json
-api-token: ""
-
-# Daemon mode flag (set to true to enable daemon mode)
+# Daemon mode flag (set to true to enable continuous sync)
 # When true, runs continuously with sync-interval between syncs
 # When false, runs once and exits
 # Default: false
+# Environment variable: LEGIBLE_DAEMON_MODE
 daemon-mode: false
 
-# Health check server address for daemon mode (empty = disabled)
-# When set, exposes /health endpoint for monitoring
-# Format: :port or host:port
-# Example: :8080, localhost:8080, 0.0.0.0:8080
-# Default: "" (disabled)
-# health-addr: ":8080"
+# ==========================================
+# Logging and Monitoring
+# ==========================================
 
-# PID file location for daemon mode (empty = no PID file)
-# Useful for process management and ensuring single instance
-# Default: "" (no PID file)
-# pid-file: /var/run/legible.pid
+# Logging level: debug, info, warn, error
+# debug = verbose logging for troubleshooting
+# info = standard operational logging [DEFAULT]
+# warn = only warnings and errors
+# error = only errors
+# Default: info
+# Environment variable: LEGIBLE_LOG_LEVEL
+log-level: info
 
-# ---
+# ==========================================
+# Advanced Settings
+# ==========================================
+
+# reMarkable authentication token path (leave empty to use default)
+# Token is automatically generated during 'legible auth'
+# Default: ~/.rmapi/rmapi.conf
+# Environment variable: LEGIBLE_API_TOKEN
+api-token: ""
+
+# Tesseract executable path (legacy, not used with LLM OCR)
+# Leave empty to use system PATH
+# Default: "" (use system PATH)
+# Environment variable: LEGIBLE_TESSERACT_PATH
+tesseract-path: ""
+
+# ==========================================
 # Example Configurations
-# ---
+# ==========================================
 
-# Minimal configuration (sync everything with defaults):
+# --- Minimal configuration (sync everything with defaults) ---
 # output-dir: ~/legible
 # ocr-enabled: true
 
-# Work-only configuration:
+# --- Work-only with cloud OCR ---
 # output-dir: ~/work-documents
 # labels:
 #   - work
 #   - meetings
 # ocr-enabled: true
-# ollama:
-#   model: mistral-small3.1
+# llm:
+#   provider: openai
+#   model: gpt-4o-mini
 
-# Fast sync without OCR:
+# --- Fast sync without OCR ---
 # output-dir: ~/remarkable-backup
 # ocr-enabled: false
 # sync-interval: 5m
 
-# Faster OCR configuration (lighter model):
+# --- High-accuracy handwriting OCR ---
 # output-dir: ~/documents/remarkable
 # ocr-enabled: true
-# ollama:
-#   model: llava  # Faster and lighter alternative to mistral-small3.1
-# sync-interval: 5m
+# llm:
+#   provider: anthropic
+#   model: claude-3-5-sonnet-20241022
 
-# Daemon with health monitoring:
+# --- Daemon with health monitoring ---
 # output-dir: ~/legible
 # daemon-mode: true
 # sync-interval: 10m
-# health-addr: ":8080"
-# pid-file: ~/.legible/daemon.pid
 # log-level: info
+# llm:
+#   provider: ollama
+#   model: mistral-small3.1
 
-# ---
+# --- Multi-language OCR ---
+# output-dir: ~/legible
+# ocr-enabled: true
+# ocr-languages: eng+fra+deu
+# llm:
+#   provider: google
+#   model: gemini-1.5-flash
+
+# ==========================================
 # Environment Variables
-# ---
+# ==========================================
 # All config options can be overridden with environment variables
-# using the LEGIBLE_ prefix and uppercased names:
+# using the LEGIBLE_ prefix and uppercased names with underscores:
 #
 # export LEGIBLE_OUTPUT_DIR=~/Legible
 # export LEGIBLE_LABELS=work,personal
 # export LEGIBLE_OCR_ENABLED=false
 # export LEGIBLE_LOG_LEVEL=debug
 # export LEGIBLE_SYNC_INTERVAL=15m
+# export LEGIBLE_LLM_PROVIDER=openai
+# export LEGIBLE_LLM_MODEL=gpt-4o-mini
 
-# ---
+# ==========================================
 # Notes
-# ---
+# ==========================================
 # - Paths with ~ are expanded to your home directory
 # - Use absolute paths for reliability in daemon mode
-# - Labels are case-sensitive
+# - Labels are case-sensitive and must match reMarkable app exactly
 # - Empty labels list means sync ALL documents
 # - OCR significantly increases sync time but makes documents searchable
 # - First sync will be slow (processes all documents)
 # - Subsequent syncs are fast (only new/changed documents)
+# - Cloud OCR providers require API keys set as environment variables
+# - Ollama runs locally and requires models to be downloaded first:
+#     ollama pull llava
+#     ollama pull mistral-small3.1

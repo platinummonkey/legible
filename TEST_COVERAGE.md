@@ -199,6 +199,6 @@ The GitHub Actions CI workflow runs tests on every push:
 
 ## Conclusion
 
-All packages that can be tested without external dependencies (Tesseract) now exceed the 80% coverage target. The average coverage across these packages is **87.6%**, demonstrating comprehensive test coverage with good error handling and edge case testing.
+All packages that can be tested without external dependencies now exceed the 80% coverage target. The average coverage across these packages is **87.6%**, demonstrating comprehensive test coverage with good error handling and edge case testing.
 
-Packages requiring Tesseract (daemon, ocr, pdfenhancer, sync) have test files but require Tesseract installation to build and run.
+Packages requiring external dependencies (daemon, ocr, pdfenhancer, sync) have test files but require those to be installed to build and run.

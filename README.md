@@ -418,69 +418,187 @@ remarkable-docs/
 └── .sync-state.json       # Tracks sync state
 ```
 
-## Configuration File
+## Configuration
 
-Create a `~/.legible.yaml` for default settings:
+Legible uses a flexible configuration system with multiple sources that follow this precedence:
+
+**CLI flags > Environment variables > Config file > Built-in defaults**
+
+### Configuration File
+
+Create a `~/.legible.yaml` file for persistent settings. Here's a complete example:
 
 ```yaml
-# Output directory for synced PDFs (default: ~/legible)
-output-dir: ~/Documents/remarkable
-
-# Filter documents by labels (empty = sync all)
-labels:
+# Core Settings
+output-dir: ~/Documents/remarkable    # Where to save synced PDFs
+labels:                               # Filter by reMarkable labels (empty = all)
   - work
   - important
+ocr-enabled: true                     # Add searchable text layer to PDFs
+ocr-languages: eng                    # OCR language(s): eng, fra, deu, etc.
 
-# Enable/disable OCR processing (default: true)
-ocr-enabled: true
-
-# LLM configuration for OCR (supports multiple providers)
+# LLM Configuration for OCR
 llm:
-  # Provider: ollama, openai, anthropic, google (default: ollama)
-  provider: ollama
+  provider: ollama                    # ollama, openai, anthropic, google
+  model: llava                        # Provider-specific model name
+  endpoint: http://localhost:11434    # Only for Ollama
+  temperature: 0.0                    # 0.0 = deterministic (recommended for OCR)
+  max-retries: 3                      # API retry attempts
 
-  # Model name (provider-specific)
-  model: llava  # For Ollama
-  # OpenAI: gpt-4o, gpt-4o-mini, gpt-4-turbo
-  # Anthropic: claude-3-5-sonnet-20241022, claude-3-opus-20240229
-  # Google: gemini-1.5-pro, gemini-1.5-flash
+# Sync and State
+sync-interval: 10m                    # Daemon sync frequency (0 = run once)
+state-file: ~/.legible-state.json     # Tracks synced documents
+daemon-mode: false                    # Enable continuous sync
 
-  # Endpoint (only required for Ollama)
-  endpoint: http://localhost:11434
-
-  # Temperature for generation (0.0 = deterministic, recommended for OCR)
-  temperature: 0.0
-
-  # Maximum retry attempts for API calls
-  max-retries: 3
-
-  # API keys are loaded from environment variables:
-  # - OPENAI_API_KEY for OpenAI
-  # - ANTHROPIC_API_KEY for Anthropic
-  # - GOOGLE_API_KEY or GOOGLE_APPLICATION_CREDENTIALS for Google
-
-# Logging level: debug, info, warn, error (default: info)
-log-level: info
-
-# Sync interval for daemon mode (default: 5m)
-sync-interval: 10m
-
-# State file location (default: ~/.legible-state.json)
-state-file: ~/.legible/state.json
+# Logging
+log-level: info                       # debug, info, warn, error
 ```
 
-**Configuration precedence:** CLI flags > Environment variables > Config file > Defaults
+See [examples/config.yaml](examples/config.yaml) for detailed documentation of all options.
 
-**Environment variables:**
+### Configuration Options Reference
+
+#### Core Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `output-dir` | string | `~/legible` | Output directory for synced PDF files |
+| `labels` | list | `[]` | Filter documents by reMarkable labels (empty = sync all) |
+| `ocr-enabled` | bool | `true` | Enable OCR text layer generation |
+| `ocr-languages` | string | `eng` | OCR language codes (e.g., `eng+fra`) |
+
+#### LLM Configuration
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `llm.provider` | string | `ollama` | LLM provider: `ollama`, `openai`, `anthropic`, `google` |
+| `llm.model` | string | `llava` | Model name (provider-specific, see below) |
+| `llm.endpoint` | string | `http://localhost:11434` | API endpoint (Ollama only) |
+| `llm.temperature` | float | `0.0` | Generation temperature (0.0-2.0, lower = more deterministic) |
+| `llm.max-retries` | int | `3` | Maximum API retry attempts |
+
+**Supported Models by Provider:**
+
+**Ollama** (local, free):
+- `llava` - Fast, good for most handwriting (~4GB) [DEFAULT]
+- `mistral-small3.1` - Better multilingual and complex handwriting (~7-8GB)
+- `llava:13b` - Higher accuracy, slower (~7GB)
+- `llava:34b` - Best accuracy, very slow (~20GB)
+
+**OpenAI** (cloud, paid):
+- `gpt-4o` - Latest, high accuracy
+- `gpt-4o-mini` - Faster, cost-effective
+- `gpt-4-turbo` - Previous generation
+
+**Anthropic** (cloud, paid):
+- `claude-3-5-sonnet-20241022` - Latest Sonnet, excellent handwriting
+- `claude-3-opus-20240229` - Highest accuracy, slower
+- `claude-3-haiku-20240307` - Fastest, cost-effective
+
+**Google** (cloud, free tier available):
+- `gemini-1.5-pro` - High accuracy
+- `gemini-1.5-flash` - Faster, free tier
+
+#### Sync and State Management
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `sync-interval` | duration | `5m` | Sync interval for daemon mode (e.g., `5m`, `1h`) |
+| `state-file` | string | `~/.legible-state.json` | Path to sync state file |
+| `daemon-mode` | bool | `false` | Enable continuous sync operation |
+
+#### Logging and Advanced
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `log-level` | string | `info` | Logging level: `debug`, `info`, `warn`, `error` |
+| `api-token` | string | `""` | reMarkable API token path (auto-detected if empty) |
+| `tesseract-path` | string | `""` | Tesseract executable path (legacy, not used) |
+
+### Environment Variables
+
+All configuration options can be set via environment variables using the `LEGIBLE_` prefix with uppercase names:
 
 ```bash
+# Core settings
 export LEGIBLE_OUTPUT_DIR=~/Documents/remarkable
 export LEGIBLE_LABELS=work,personal
-export LEGIBLE_OCR_ENABLED=false
+export LEGIBLE_OCR_ENABLED=true
+export LEGIBLE_OCR_LANGUAGES=eng
+
+# LLM configuration
+export LEGIBLE_LLM_PROVIDER=openai
+export LEGIBLE_LLM_MODEL=gpt-4o-mini
+export LEGIBLE_LLM_ENDPOINT=http://localhost:11434
+export LEGIBLE_LLM_TEMPERATURE=0.0
+export LEGIBLE_LLM_MAX_RETRIES=3
+
+# API keys (required for cloud providers)
+export OPENAI_API_KEY=sk-...
+export ANTHROPIC_API_KEY=sk-ant-...
+export GOOGLE_API_KEY=...
+
+# Sync and logging
+export LEGIBLE_SYNC_INTERVAL=10m
+export LEGIBLE_STATE_FILE=~/.legible/state.json
 export LEGIBLE_LOG_LEVEL=debug
 ```
 
-See [examples/config.yaml](examples/config.yaml) for a complete configuration template.
+**Note:** API keys for cloud providers are always read from their standard environment variables (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`) and cannot be set in the config file for security reasons.
+
+### Configuration Examples
+
+**Minimal setup (all defaults):**
+```yaml
+output-dir: ~/legible
+ocr-enabled: true
+```
+
+**Work documents with cloud OCR:**
+```yaml
+output-dir: ~/work-documents
+labels: [work, meetings]
+llm:
+  provider: openai
+  model: gpt-4o-mini
+```
+
+**High-accuracy handwriting recognition:**
+```yaml
+output-dir: ~/documents
+ocr-enabled: true
+llm:
+  provider: anthropic
+  model: claude-3-5-sonnet-20241022
+```
+
+**Fast sync without OCR:**
+```yaml
+output-dir: ~/remarkable-backup
+ocr-enabled: false
+sync-interval: 5m
+```
+
+**Background daemon with monitoring:**
+```yaml
+output-dir: ~/legible
+daemon-mode: true
+sync-interval: 10m
+log-level: info
+llm:
+  provider: ollama
+  model: mistral-small3.1
+```
+
+**Multi-language OCR:**
+```yaml
+output-dir: ~/legible
+ocr-enabled: true
+ocr-languages: eng+fra+deu
+llm:
+  provider: google
+  model: gemini-1.5-flash
+```
 
 ## Development
 
