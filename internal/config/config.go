@@ -113,8 +113,18 @@ func Load(configFile string) (*Config, error) {
 
 	// Enable environment variable support
 	v.SetEnvPrefix("LEGIBLE")
-	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	v.SetEnvKeyReplacer(strings.NewReplacer("-", "_", ".", "_"))
 	v.AutomaticEnv()
+
+	// Explicitly bind nested LLM config keys for environment variable support
+	// This is necessary because AutomaticEnv() doesn't handle nested keys perfectly
+	_ = v.BindEnv("llm.provider")
+	_ = v.BindEnv("llm.model")
+	_ = v.BindEnv("llm.endpoint")
+	_ = v.BindEnv("llm.max-retries")
+	_ = v.BindEnv("llm.temperature")
+	_ = v.BindEnv("llm.use-keychain")
+	_ = v.BindEnv("llm.keychain-service-prefix")
 
 	// Build config struct
 	config := &Config{

@@ -323,10 +323,11 @@ output-dir: ` + tmpDir + `
 state-file: ` + filepath.Join(tmpDir, "state.json") + `
 ocr-enabled: true
 ocr-languages: eng
-llm-provider: openai
-llm-model: gpt-4o-mini
-llm-use-keychain: true
-llm-keychain-service-prefix: myapp
+llm:
+  provider: openai
+  model: gpt-4o-mini
+  use-keychain: true
+  keychain-service-prefix: myapp
 `
 
 	if err := os.WriteFile(configFile, []byte(configContent), 0644); err != nil {
@@ -358,6 +359,8 @@ llm-keychain-service-prefix: myapp
 func TestLoad_KeychainDefaults(t *testing.T) {
 	tmpDir := t.TempDir()
 
+	// Isolate from user's config file
+	t.Setenv("HOME", tmpDir)
 	t.Setenv("LEGIBLE_OUTPUT_DIR", tmpDir)
 	t.Setenv("LEGIBLE_STATE_FILE", filepath.Join(tmpDir, "state.json"))
 
