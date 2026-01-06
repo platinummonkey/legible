@@ -126,6 +126,11 @@ func runDaemon(_ *cobra.Command, _ []string) error {
 		log.Fatal("Failed to create client:", err)
 	}
 
+	// Authenticate with the reMarkable API
+	if err := rmClient.Authenticate(); err != nil {
+		return fmt.Errorf("authentication failed: %w. Please run 'legible auth' first", err)
+	}
+
 	// Ensure client cleanup on exit
 	defer func() {
 		if err := rmClient.Close(); err != nil {
