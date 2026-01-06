@@ -63,10 +63,35 @@ func init() {
 	daemonCmd.Flags().Duration("interval", 5*time.Minute, "sync interval (e.g., 5m, 1h)")
 	daemonCmd.Flags().String("health-addr", "", "health check HTTP address (e.g., :8080)")
 	daemonCmd.Flags().String("pid-file", "", "PID file path")
+	daemonCmd.Flags().Bool("monitor-tokens", false, "enable token renewal monitoring and statistics")
+	daemonCmd.Flags().String("token-stats-file", "", "file to save token statistics (requires --monitor-tokens)")
 
 	_ = viper.BindPFlag("daemon.interval", daemonCmd.Flags().Lookup("interval"))
 	_ = viper.BindPFlag("daemon.health_addr", daemonCmd.Flags().Lookup("health-addr"))
 	_ = viper.BindPFlag("daemon.pid_file", daemonCmd.Flags().Lookup("pid-file"))
+	_ = viper.BindPFlag("daemon.monitor_tokens", daemonCmd.Flags().Lookup("monitor-tokens"))
+	_ = viper.BindPFlag("daemon.token_stats_file", daemonCmd.Flags().Lookup("token-stats-file"))
+}
+
+// configureRMClient creates and configures the reMarkable client with monitoring options
+func configureRMClient(log *logger.Logger) (*rmclient.Client, error) {
+	rmClientCfg := &rmclient.Config{
+		Logger: log,
+	}
+
+	// Enable token monitoring if requested
+	if viper.GetBool("daemon.monitor_tokens") {
+		rmClientCfg.EnableTokenMonitoring = true
+
+		// Set stats file if provided
+		if viper.IsSet("daemon.token_stats_file") {
+			rmClientCfg.TokenStatsFile = viper.GetString("daemon.token_stats_file")
+		}
+
+		log.Info("Token monitoring enabled for daemon")
+	}
+
+	return rmclient.NewClient(rmClientCfg)
 }
 
 func runDaemon(_ *cobra.Command, _ []string) error {
@@ -95,13 +120,18 @@ func runDaemon(_ *cobra.Command, _ []string) error {
 		"interval", cfg.SyncInterval,
 	).Info("Starting daemon")
 
-	// Initialize components
-	rmClient, err := rmclient.NewClient(&rmclient.Config{
-		Logger: log,
-	})
+	// Initialize reMarkable client
+	rmClient, err := configureRMClient(log)
 	if err != nil {
 		log.Fatal("Failed to create client:", err)
 	}
+
+	// Ensure client cleanup on exit
+	defer func() {
+		if err := rmClient.Close(); err != nil {
+			log.WithError(err).Error("Failed to close client")
+		}
+	}()
 
 	stateStore, err := state.LoadOrCreate(cfg.StateFile)
 	if err != nil {

@@ -139,10 +139,11 @@ func getTokenExpiration(token string) time.Time {
 
 // Client wraps the reMarkable cloud API for document synchronization
 type Client struct {
-	tokenPath string
-	logger    *logger.Logger
-	token     string
-	apiCtx    api.ApiCtx
+	tokenPath    string
+	logger       *logger.Logger
+	token        string
+	apiCtx       api.ApiCtx
+	tokenMonitor *TokenMonitor
 }
 
 // Config holds configuration for the reMarkable client
@@ -152,6 +153,12 @@ type Config struct {
 
 	// Logger is the logger instance to use
 	Logger *logger.Logger
+
+	// EnableTokenMonitoring enables token renewal tracking
+	EnableTokenMonitoring bool
+
+	// TokenStatsFile is the path to save token statistics (optional)
+	TokenStatsFile string
 }
 
 // jsonTokenStore stores tokens in JSON format
@@ -234,10 +241,18 @@ func NewClient(cfg *Config) (*Client, error) {
 		log = logger.Get()
 	}
 
-	return &Client{
+	client := &Client{
 		tokenPath: tokenPath,
 		logger:    log,
-	}, nil
+	}
+
+	// Initialize token monitor if enabled
+	if cfg.EnableTokenMonitoring {
+		client.tokenMonitor = NewTokenMonitor(log, cfg.TokenStatsFile)
+		log.Info("Token monitoring enabled")
+	}
+
+	return client, nil
 }
 
 // Authenticate authenticates with the reMarkable cloud API
@@ -460,13 +475,19 @@ func (c *Client) initializeAPIClient() error {
 			return fmt.Errorf("failed to renew user token: %w", err)
 		}
 
+		// Record token renewal if monitoring is enabled
+		expTime := getTokenExpiration(userToken)
+		if c.tokenMonitor != nil {
+			validFor := time.Until(expTime)
+			c.tokenMonitor.RecordRenewal("user", validFor)
+		}
+
 		// Save the new user token
 		c.logger.Debug("Saving renewed user token to file")
 		tokens.UserToken = userToken
 		if err := tokenStore.Save(*tokens); err != nil {
 			c.logger.WithError(err).Warn("Failed to save user token to file")
 		} else {
-			expTime := getTokenExpiration(userToken)
 			c.logger.WithFields(
 				"expiration", expTime,
 				"valid_for", time.Until(expTime),
@@ -604,6 +625,13 @@ func (c *Client) ensureValidToken() error {
 		userToken, err := c.renewUserToken(tokens.DeviceToken)
 		if err != nil {
 			return fmt.Errorf("failed to renew user token: %w", err)
+		}
+
+		// Record token renewal if monitoring is enabled
+		if c.tokenMonitor != nil {
+			expTime := getTokenExpiration(userToken)
+			validFor := time.Until(expTime)
+			c.tokenMonitor.RecordRenewal("user", validFor)
 		}
 
 		// Update tokens
@@ -972,8 +1000,17 @@ func isValidFolderName(name string) bool {
 	return !invalidNames[name]
 }
 
+// GetTokenMonitor returns the token monitor if enabled
+func (c *Client) GetTokenMonitor() *TokenMonitor {
+	return c.tokenMonitor
+}
+
 // Close closes the client and cleans up resources
 func (c *Client) Close() error {
-	// No cleanup required for now
+	// Print token monitoring statistics if enabled
+	if c.tokenMonitor != nil {
+		c.tokenMonitor.PrintSummary()
+	}
+
 	return nil
 }
