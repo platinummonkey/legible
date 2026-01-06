@@ -133,14 +133,23 @@ func (o *Orchestrator) Sync(ctx context.Context) (*Result, error) {
 		result.AddSuccess(docResult)
 
 		// Update state incrementally (don't lose progress on failures)
-		docState := &state.DocumentState{
-			ID:             doc.ID,
-			Version:        doc.Version,
-			ModifiedClient: doc.ModifiedClient,
-			LastSynced:     time.Now(),
-			LocalPath:      docResult.OutputPath,
+		// Get existing state or create new one
+		docState := currentState.GetDocument(doc.ID)
+		if docState == nil {
+			docState = state.NewDocumentState(doc.ID, doc.Name, doc.Type, doc.Parent)
+			docState.Labels = doc.Tags
 		}
+
+		// Update sync metadata
+		docState.MarkSynced(doc.Version, doc.ModifiedClient, docResult.OutputPath, "")
 		docState.SetConversionStatus(state.ConversionStatusCompleted)
+
+		// Update document metadata (in case it changed)
+		docState.Name = doc.Name
+		docState.Parent = doc.Parent
+		docState.Type = doc.Type
+		docState.Labels = doc.Tags
+
 		currentState.AddDocument(docState)
 
 		// Save state after each document
@@ -173,8 +182,22 @@ func (o *Orchestrator) identifyDocumentsToSync(docs []rmclient.Document, current
 		// Check if document exists in state
 		docState := currentState.GetDocument(doc.ID)
 
-		// Sync if document is new or version changed
-		if docState == nil || docState.Version != doc.Version {
+		// Sync if document is new
+		if docState == nil {
+			toSync = append(toSync, doc)
+			continue
+		}
+
+		// Use NeedsSync to check if document has changed (version or modification time)
+		if docState.NeedsSync(doc.Version, doc.ModifiedClient) {
+			o.logger.WithFields(
+				"id", doc.ID,
+				"name", doc.Name,
+				"local_version", docState.Version,
+				"remote_version", doc.Version,
+				"local_modified", docState.ModifiedClient,
+				"remote_modified", doc.ModifiedClient,
+			).Info("Document changed, will re-sync")
 			toSync = append(toSync, doc)
 			continue
 		}

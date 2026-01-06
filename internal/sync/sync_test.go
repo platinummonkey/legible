@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/platinummonkey/legible/internal/config"
 	"github.com/platinummonkey/legible/internal/converter"
@@ -119,16 +120,19 @@ func TestIdentifyDocumentsToSync(t *testing.T) {
 
 	// Create state with one existing document
 	currentState := state.NewSyncState()
+	baseTime := time.Now().Add(-2 * time.Hour)
 	currentState.AddDocument(&state.DocumentState{
-		ID:      "1",
-		Version: 1,
+		ID:             "1",
+		Version:        1,
+		LastSynced:     time.Now().Add(-1 * time.Hour),
+		ModifiedClient: baseTime,
 	})
 
 	docs := []rmclient.Document{
-		{ID: "1", Version: 1}, // Unchanged
-		{ID: "2", Version: 1}, // New
-		{ID: "3", Version: 2}, // New
-		{ID: "1", Version: 2}, // Changed (same ID, different version)
+		{ID: "1", Version: 1, ModifiedClient: baseTime},                      // Unchanged
+		{ID: "2", Version: 1, ModifiedClient: baseTime},                      // New
+		{ID: "3", Version: 2, ModifiedClient: baseTime},                      // New
+		{ID: "1", Version: 2, ModifiedClient: baseTime.Add(1 * time.Minute)}, // Changed (same ID, different version)
 	}
 
 	// Note: In real usage, docs wouldn't have duplicate IDs, but this tests the logic
@@ -161,31 +165,38 @@ func TestIdentifyDocumentsToSync_MissingLocalFile(t *testing.T) {
 
 	// Doc 1: Exists in state with valid local file (should NOT sync)
 	currentState.AddDocument(&state.DocumentState{
-		ID:        "doc1",
-		Version:   1,
-		LocalPath: existingFilePath,
+		ID:             "doc1",
+		Version:        1,
+		LocalPath:      existingFilePath,
+		LastSynced:     time.Now().Add(-1 * time.Hour), // Mark as synced
+		ModifiedClient: time.Now().Add(-2 * time.Hour), // Older than LastSynced
 	})
 
 	// Doc 2: Exists in state with missing local file (should sync)
 	missingFilePath := filepath.Join(tmpDir, "missing.pdf")
 	currentState.AddDocument(&state.DocumentState{
-		ID:        "doc2",
-		Version:   1,
-		LocalPath: missingFilePath,
+		ID:             "doc2",
+		Version:        1,
+		LocalPath:      missingFilePath,
+		LastSynced:     time.Now().Add(-1 * time.Hour), // Mark as synced
+		ModifiedClient: time.Now().Add(-2 * time.Hour), // Older than LastSynced
 	})
 
 	// Doc 3: Exists in state with empty LocalPath (should NOT sync)
 	currentState.AddDocument(&state.DocumentState{
-		ID:        "doc3",
-		Version:   1,
-		LocalPath: "",
+		ID:             "doc3",
+		Version:        1,
+		LocalPath:      "",
+		LastSynced:     time.Now().Add(-1 * time.Hour), // Mark as synced
+		ModifiedClient: time.Now().Add(-2 * time.Hour), // Older than LastSynced
 	})
 
-	// API returns these documents
+	// API returns these documents with matching timestamps
+	modifiedTime := time.Now().Add(-2 * time.Hour)
 	docs := []rmclient.Document{
-		{ID: "doc1", Version: 1}, // File exists
-		{ID: "doc2", Version: 1}, // File missing
-		{ID: "doc3", Version: 1}, // No local path
+		{ID: "doc1", Version: 1, ModifiedClient: modifiedTime}, // File exists
+		{ID: "doc2", Version: 1, ModifiedClient: modifiedTime}, // File missing
+		{ID: "doc3", Version: 1, ModifiedClient: modifiedTime}, // No local path
 	}
 
 	toSync := orch.identifyDocumentsToSync(docs, currentState)
@@ -212,15 +223,18 @@ func TestIdentifyDocumentsToSync_MissingFileAndVersionChange(t *testing.T) {
 	// Create state with a document that has both missing file AND version change
 	currentState := state.NewSyncState()
 	missingFilePath := filepath.Join(tmpDir, "missing.pdf")
+	baseTime := time.Now().Add(-2 * time.Hour)
 	currentState.AddDocument(&state.DocumentState{
-		ID:        "doc1",
-		Version:   1,
-		LocalPath: missingFilePath,
+		ID:             "doc1",
+		Version:        1,
+		LocalPath:      missingFilePath,
+		LastSynced:     time.Now().Add(-1 * time.Hour),
+		ModifiedClient: baseTime,
 	})
 
 	// API returns document with newer version
 	docs := []rmclient.Document{
-		{ID: "doc1", Version: 2}, // Both missing file and version changed
+		{ID: "doc1", Version: 2, ModifiedClient: baseTime.Add(1 * time.Hour)}, // Both missing file and version changed
 	}
 
 	toSync := orch.identifyDocumentsToSync(docs, currentState)
