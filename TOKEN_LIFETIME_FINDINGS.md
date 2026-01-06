@@ -133,57 +133,97 @@ The application implements proactive token renewal:
 
 ### Quick Token Check
 
-View current token status without running tests:
+View current token status without running daemon:
 
 ```bash
-./scripts/check-token-info.sh
+legible token info
 ```
 
 Example output:
 ```
-=== Current Token Information ===
+=== Authentication Token Information ===
+
+Token file: /Users/username/.legible/token.json
+Last modified: 2026-01-06 11:37:56
 
 ## Device Token
+
 Device type: mobile-ios
 Device ID: e90a54b4-f949-4e4c-889e-4e6eed4ab48c
-Issued at: 2026-01-06T17:37:56.000Z
-Expiration: No exp claim (may not expire)
+Issued at: 2026-01-06T17:37:56Z
+Expiration: No exp claim (does not expire)
+Status: valid (indefinite)
+Token length: 387 characters
 
 ## User Token
+
 Device type: mobile-ios
-Validity period: 3h 0m (10800s)
-Time remaining: 2h 37m (9454s)
-Status: VALID
+Scopes: docedit screenshare hwcmail:-1 mail:-1 sync:tortoise intgr
+Issued at: 2026-01-06T17:37:56Z
+Expires at: 2026-01-06T20:37:56Z
+Validity period: 3h 0m
+Time remaining: 2h 37m
+Status: valid
+Token length: 945 characters
+
+=== Summary ===
 
 ✓ Device token present
 ✓ User token valid
+
+Ready to use. Run 'legible sync' or 'legible daemon' to start syncing.
 ```
 
 ### Start Monitoring
 
-Begin token lifetime monitoring:
+Run daemon with token monitoring enabled:
 
 ```bash
-# 48-hour test (recommended first step)
-./scripts/monitor-token-lifetime.sh 48
+# Basic monitoring (no stats file)
+legible daemon --monitor-tokens --interval 30m --log-level debug
 
-# 1-week test
-./scripts/monitor-token-lifetime.sh 168
+# With statistics file
+legible daemon \
+  --monitor-tokens \
+  --token-stats-file ~/.legible/token-stats.json \
+  --interval 30m \
+  --log-level info
 
-# 30-day test
-./scripts/monitor-token-lifetime.sh 720
+# Full monitoring setup (48 hours)
+timeout 48h legible daemon \
+  --monitor-tokens \
+  --token-stats-file ~/.legible/token-stats-48h.json \
+  --interval 30m \
+  --log-level debug \
+  --no-ocr
 
-# Custom duration (hours)
-./scripts/monitor-token-lifetime.sh <hours>
+# Press Ctrl+C to stop and see statistics summary
 ```
 
-### Analyze Existing Logs
+### View Statistics
 
-Parse and analyze monitoring logs:
+Token statistics are automatically displayed when the daemon exits:
 
-```bash
-./scripts/analyze-token-logs.sh ~/.legible/monitoring/token-lifetime-YYYYMMDD-HHMMSS.log
 ```
+=== Token Renewal Statistics ===
+
+Total renewals: 16
+First renewal: 2026-01-06T12:00:00Z
+Last renewal: 2026-01-08T12:00:00Z
+Monitoring duration: 2d 0h 0m
+Average interval: 3h 0m
+
+Recent renewals:
+  12. 2026-01-08T09:00:00Z (after 3h 0m )
+  13. 2026-01-08T10:00:00Z (after 3h 0m )
+  14. 2026-01-08T11:00:00Z (after 3h 0m )
+  15. 2026-01-08T12:00:00Z (after 3h 0m )
+  16. 2026-01-08T13:00:00Z (after 3h 0m )
+
+Statistics file: /Users/username/.legible/token-stats-48h.json
+```
+
+Statistics are also saved to the JSON file if `--token-stats-file` is specified.
 
 ---
 
