@@ -165,9 +165,19 @@ func runDaemon(_ *cobra.Command, _ []string) error {
 	// Initialize OCR processor if enabled
 	var ocrProc *ocr.Processor
 	if cfg.OCREnabled {
+		// Convert config.LLMConfig to ocr.VisionClientConfig
+		visionConfig := &ocr.VisionClientConfig{
+			Provider:    ocr.ProviderType(cfg.LLM.Provider),
+			Model:       cfg.LLM.Model,
+			Endpoint:    cfg.LLM.Endpoint,
+			APIKey:      cfg.LLM.APIKey,
+			MaxRetries:  cfg.LLM.MaxRetries,
+			Temperature: cfg.LLM.Temperature,
+		}
+
 		ocrProc, err = ocr.New(&ocr.Config{
-			Logger: log,
-			// Ollama handles language detection automatically via vision models
+			Logger:       log,
+			VisionConfig: visionConfig,
 		})
 		if err != nil {
 			return fmt.Errorf("failed to create OCR processor: %w", err)
