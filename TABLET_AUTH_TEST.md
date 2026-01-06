@@ -1,6 +1,9 @@
-# Tablet Authentication Manual Test Plan
+# iOS Mobile Authentication Manual Test Plan
 
-## Status: Automated Tests Complete ✅
+## Status: Updated to iOS Mobile Approach
+
+**Previous Attempt:** Tablet authentication with "remarkable" failed during testing.
+**Current Approach:** iOS mobile authentication with "mobile-ios" and proper UUID.
 
 ### Completed Automated Verifications
 
@@ -25,12 +28,12 @@ rm -f ~/.legible/token.json
 
 **Expected Output:**
 ```
-INFO	Visit https://my.remarkable.com/device/remarkable?showOtp=true to get a one-time code
+INFO	Visit https://my.remarkable.com/device/mobile-ios?showOtp=true to get a one-time code
 Enter one-time code: _
 ```
 
 #### Step 2: Get OTP Code
-1. Open browser and visit: `https://my.remarkable.com/device/remarkable?showOtp=true`
+1. Open browser and visit: `https://my.remarkable.com/device/mobile-ios?showOtp=true`
 2. Log in with your reMarkable account
 3. Note the 8-character one-time code displayed
 
