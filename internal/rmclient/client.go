@@ -272,7 +272,7 @@ func (c *Client) Authenticate() error {
 	// No token found, need to register device
 	c.logger.Info("=== Starting device registration flow ===")
 	c.logger.Info("No device token found. Starting device registration...")
-	c.logger.Info("Visit https://my.remarkable.com/device/desktop/connect to get a one-time code")
+	c.logger.Info("Visit https://my.remarkable.com/device/apps/connect to get a one-time code")
 
 	// Prompt for one-time code
 	fmt.Print("Enter one-time code: ")
@@ -323,20 +323,20 @@ func (c *Client) Authenticate() error {
 func (c *Client) registerDevice(code string) (string, error) {
 	c.logger.WithFields("code_length", len(code)).Debug("Registering device with reMarkable API")
 
-	// Generate a unique device ID
+	// Generate a unique device ID for mobile iOS registration
 	deviceID := uuid.New().String()
-	c.logger.WithFields("device_id", deviceID).Debug("Generated device ID")
+	c.logger.WithFields("device_id", deviceID).Debug("Generated device ID for mobile iOS registration")
 
 	// Create device registration request
 	req := model.DeviceTokenRequest{
 		Code:       code,
-		DeviceDesc: "desktop-linux",
+		DeviceDesc: "mobile-ios",
 		DeviceId:   deviceID,
 	}
 
 	c.logger.WithFields(
 		"endpoint", config.NewTokenDevice,
-		"device_desc", "desktop-linux",
+		"device_desc", "mobile-ios",
 	).Info("Calling device registration API")
 
 	// Create HTTP context for device registration (no auth required)
