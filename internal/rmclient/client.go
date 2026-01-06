@@ -478,7 +478,7 @@ func (c *Client) initializeAPIClient() error {
 		// Record token renewal if monitoring is enabled
 		expTime := getTokenExpiration(userToken)
 		if c.tokenMonitor != nil {
-			validFor := expTime.Sub(time.Now())
+			validFor := time.Until(expTime)
 			c.tokenMonitor.RecordRenewal("user", validFor)
 		}
 
@@ -630,7 +630,7 @@ func (c *Client) ensureValidToken() error {
 		// Record token renewal if monitoring is enabled
 		if c.tokenMonitor != nil {
 			expTime := getTokenExpiration(userToken)
-			validFor := expTime.Sub(time.Now())
+			validFor := time.Until(expTime)
 			c.tokenMonitor.RecordRenewal("user", validFor)
 		}
 

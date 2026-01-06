@@ -48,17 +48,17 @@ func init() {
 
 // tokenInfo holds decoded token information
 type tokenInfo struct {
-	Type           string    `json:"type"`            // "device" or "user"
-	DeviceDesc     string    `json:"device_desc"`     // e.g., "mobile-ios"
-	DeviceID       string    `json:"device_id"`       // UUID
-	IssuedAt       time.Time `json:"issued_at"`       // iat claim
-	ExpiresAt      time.Time `json:"expires_at"`      // exp claim (zero if not present)
-	ValidFor       string    `json:"valid_for"`       // human-readable validity period
-	TimeRemaining  string    `json:"time_remaining"`  // human-readable time until expiration
-	Status         string    `json:"status"`          // "valid", "expired", "no_expiration"
-	Scopes         string    `json:"scopes,omitempty"` // user token scopes
-	TokenLength    int       `json:"token_length"`    // length of token string
-	HasExpiration  bool      `json:"has_expiration"`  // whether token has exp claim
+	Type          string    `json:"type"`             // "device" or "user"
+	DeviceDesc    string    `json:"device_desc"`      // e.g., "mobile-ios"
+	DeviceID      string    `json:"device_id"`        // UUID
+	IssuedAt      time.Time `json:"issued_at"`        // iat claim
+	ExpiresAt     time.Time `json:"expires_at"`       // exp claim (zero if not present)
+	ValidFor      string    `json:"valid_for"`        // human-readable validity period
+	TimeRemaining string    `json:"time_remaining"`   // human-readable time until expiration
+	Status        string    `json:"status"`           // "valid", "expired", "no_expiration"
+	Scopes        string    `json:"scopes,omitempty"` // user token scopes
+	TokenLength   int       `json:"token_length"`     // length of token string
+	HasExpiration bool      `json:"has_expiration"`   // whether token has exp claim
 }
 
 func runTokenInfo(_ *cobra.Command, _ []string) error {

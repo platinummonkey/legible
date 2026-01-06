@@ -73,6 +73,27 @@ func init() {
 	_ = viper.BindPFlag("daemon.token_stats_file", daemonCmd.Flags().Lookup("token-stats-file"))
 }
 
+// configureRMClient creates and configures the reMarkable client with monitoring options
+func configureRMClient(log *logger.Logger) (*rmclient.Client, error) {
+	rmClientCfg := &rmclient.Config{
+		Logger: log,
+	}
+
+	// Enable token monitoring if requested
+	if viper.GetBool("daemon.monitor_tokens") {
+		rmClientCfg.EnableTokenMonitoring = true
+
+		// Set stats file if provided
+		if viper.IsSet("daemon.token_stats_file") {
+			rmClientCfg.TokenStatsFile = viper.GetString("daemon.token_stats_file")
+		}
+
+		log.Info("Token monitoring enabled for daemon")
+	}
+
+	return rmclient.NewClient(rmClientCfg)
+}
+
 func runDaemon(_ *cobra.Command, _ []string) error {
 	// Load configuration first
 	cfg, err := loadConfig()
@@ -99,30 +120,18 @@ func runDaemon(_ *cobra.Command, _ []string) error {
 		"interval", cfg.SyncInterval,
 	).Info("Starting daemon")
 
-	// Initialize components
-	rmClientCfg := &rmclient.Config{
-		Logger: log,
-	}
-
-	// Enable token monitoring if requested
-	if viper.GetBool("daemon.monitor_tokens") {
-		rmClientCfg.EnableTokenMonitoring = true
-
-		// Set stats file if provided
-		if viper.IsSet("daemon.token_stats_file") {
-			rmClientCfg.TokenStatsFile = viper.GetString("daemon.token_stats_file")
-		}
-
-		log.Info("Token monitoring enabled for daemon")
-	}
-
-	rmClient, err := rmclient.NewClient(rmClientCfg)
+	// Initialize reMarkable client
+	rmClient, err := configureRMClient(log)
 	if err != nil {
 		log.Fatal("Failed to create client:", err)
 	}
 
 	// Ensure client cleanup on exit
-	defer rmClient.Close()
+	defer func() {
+		if err := rmClient.Close(); err != nil {
+			log.WithError(err).Error("Failed to close client")
+		}
+	}()
 
 	stateStore, err := state.LoadOrCreate(cfg.StateFile)
 	if err != nil {

@@ -35,11 +35,11 @@ type TokenRenewalEvent struct {
 
 // TokenStatistics holds aggregated token statistics
 type TokenStatistics struct {
-	StartTime       time.Time             `json:"start_time"`
-	LastUpdate      time.Time             `json:"last_update"`
-	RenewalCount    int                   `json:"renewal_count"`
-	RenewalEvents   []TokenRenewalEvent   `json:"renewal_events"`
-	AverageInterval string                `json:"average_interval,omitempty"`
+	StartTime       time.Time           `json:"start_time"`
+	LastUpdate      time.Time           `json:"last_update"`
+	RenewalCount    int                 `json:"renewal_count"`
+	RenewalEvents   []TokenRenewalEvent `json:"renewal_events"`
+	AverageInterval string              `json:"average_interval,omitempty"`
 }
 
 // NewTokenMonitor creates a new token monitor
@@ -71,9 +71,9 @@ func (tm *TokenMonitor) RecordRenewal(tokenType string, validFor time.Duration) 
 
 	// Log the event
 	fields := map[string]interface{}{
-		"token_type":     tokenType,
-		"renewal_count":  tm.renewalCount,
-		"valid_for":      validFor,
+		"token_type":    tokenType,
+		"renewal_count": tm.renewalCount,
+		"valid_for":     validFor,
 	}
 
 	if timeSinceLast > 0 {
