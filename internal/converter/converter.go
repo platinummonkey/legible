@@ -34,6 +34,9 @@ type Config struct {
 	Logger       *logger.Logger
 	EnableOCR    bool     // Enable OCR text layer (default: true)
 	OCRLanguages []string // Language codes for OCR via Ollama (default: ["eng"])
+	// Optional pre-configured processors (if nil, will create with defaults)
+	OCRProcessor *ocr.Processor
+	PDFEnhancer  *pdfenhancer.PDFEnhancer
 }
 
 // New creates a new converter instance
@@ -61,21 +64,36 @@ func New(cfg *Config) (*Converter, error) {
 		languages = []string{"eng"}
 	}
 
-	// Create OCR processor if enabled
+	// Use provided processors or create new ones if enabled
 	var ocrProc *ocr.Processor
-	var pdfEnhancer *pdfenhancer.PDFEnhancer
+	var pdfEnhancerInst *pdfenhancer.PDFEnhancer
 	if enableOCR {
-		proc, err := ocr.New(&ocr.Config{
-			Logger: log,
-			// Ollama handles language detection automatically via vision models
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create OCR processor: %w", err)
+		// Use pre-configured OCR processor if provided, otherwise create default
+		if cfg.OCRProcessor != nil {
+			ocrProc = cfg.OCRProcessor
+			log.Debug("Using provided OCR processor")
+		} else {
+			proc, err := ocr.New(&ocr.Config{
+				Logger: log,
+				// Ollama handles language detection automatically via vision models
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to create OCR processor: %w", err)
+			}
+			ocrProc = proc
+			log.Debug("Created default OCR processor")
 		}
-		ocrProc = proc
-		pdfEnhancer = pdfenhancer.New(&pdfenhancer.Config{
-			Logger: log,
-		})
+
+		// Use pre-configured PDF enhancer if provided, otherwise create default
+		if cfg.PDFEnhancer != nil {
+			pdfEnhancerInst = cfg.PDFEnhancer
+			log.Debug("Using provided PDF enhancer")
+		} else {
+			pdfEnhancerInst = pdfenhancer.New(&pdfenhancer.Config{
+				Logger: log,
+			})
+			log.Debug("Created default PDF enhancer")
+		}
 	}
 
 	return &Converter{
@@ -83,7 +101,7 @@ func New(cfg *Config) (*Converter, error) {
 		ocrEnabled:   enableOCR,
 		ocrLanguages: languages,
 		ocrProc:      ocrProc,
-		pdfEnhancer:  pdfEnhancer,
+		pdfEnhancer:  pdfEnhancerInst,
 	}, nil
 }
 

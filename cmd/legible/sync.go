@@ -136,23 +136,9 @@ func initSyncComponents(cfg *config.Config, log *logger.Logger) (*sync.Orchestra
 		ocrLangs = []string{cfg.OCRLanguages}
 	}
 
-	// Initialize converter
-	conv, err := converter.New(&converter.Config{
-		Logger:       log,
-		EnableOCR:    cfg.OCREnabled,
-		OCRLanguages: ocrLangs,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create converter: %w", err)
-	}
-
-	// Initialize PDF enhancer
-	pdfEnhancer := pdfenhancer.New(&pdfenhancer.Config{
-		Logger: log,
-	})
-
-	// Initialize OCR processor if enabled
+	// Initialize OCR processor and PDF enhancer if enabled
 	var ocrProc *ocr.Processor
+	var pdfEnhancer *pdfenhancer.PDFEnhancer
 	if cfg.OCREnabled {
 		// Convert config.LLMConfig to ocr.VisionClientConfig
 		visionConfig := &ocr.VisionClientConfig{
@@ -171,6 +157,22 @@ func initSyncComponents(cfg *config.Config, log *logger.Logger) (*sync.Orchestra
 		if err != nil {
 			return nil, fmt.Errorf("failed to create OCR processor: %w", err)
 		}
+
+		pdfEnhancer = pdfenhancer.New(&pdfenhancer.Config{
+			Logger: log,
+		})
+	}
+
+	// Initialize converter with pre-configured processors
+	conv, err := converter.New(&converter.Config{
+		Logger:       log,
+		EnableOCR:    cfg.OCREnabled,
+		OCRLanguages: ocrLangs,
+		OCRProcessor: ocrProc,
+		PDFEnhancer:  pdfEnhancer,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create converter: %w", err)
 	}
 
 	// Create and return sync orchestrator

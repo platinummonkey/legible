@@ -149,21 +149,9 @@ func runDaemon(_ *cobra.Command, _ []string) error {
 		ocrLangs = []string{cfg.OCRLanguages}
 	}
 
-	conv, err := converter.New(&converter.Config{
-		Logger:       log,
-		EnableOCR:    cfg.OCREnabled,
-		OCRLanguages: ocrLangs,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create converter: %w", err)
-	}
-
-	pdfEnhancer := pdfenhancer.New(&pdfenhancer.Config{
-		Logger: log,
-	})
-
-	// Initialize OCR processor if enabled
+	// Initialize OCR processor and PDF enhancer if enabled
 	var ocrProc *ocr.Processor
+	var pdfEnhancer *pdfenhancer.PDFEnhancer
 	if cfg.OCREnabled {
 		// Convert config.LLMConfig to ocr.VisionClientConfig
 		visionConfig := &ocr.VisionClientConfig{
@@ -182,6 +170,22 @@ func runDaemon(_ *cobra.Command, _ []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to create OCR processor: %w", err)
 		}
+
+		pdfEnhancer = pdfenhancer.New(&pdfenhancer.Config{
+			Logger: log,
+		})
+	}
+
+	// Initialize converter with pre-configured processors
+	conv, err := converter.New(&converter.Config{
+		Logger:       log,
+		EnableOCR:    cfg.OCREnabled,
+		OCRLanguages: ocrLangs,
+		OCRProcessor: ocrProc,
+		PDFEnhancer:  pdfEnhancer,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create converter: %w", err)
 	}
 
 	// Create sync orchestrator
