@@ -133,6 +133,11 @@ func runDaemon(_ *cobra.Command, _ []string) error {
 
 	// Ensure client cleanup on exit
 	defer func() {
+		// Print token monitoring statistics if enabled
+		if tokenMonitor := rmClient.GetTokenMonitor(); tokenMonitor != nil {
+			tokenMonitor.PrintSummary()
+		}
+
 		if err := rmClient.Close(); err != nil {
 			log.WithError(err).Error("Failed to close client")
 		}

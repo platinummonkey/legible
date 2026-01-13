@@ -73,11 +73,11 @@ func (tm *TokenMonitor) RecordRenewal(tokenType string, validFor time.Duration) 
 	fields := map[string]interface{}{
 		"token_type":    tokenType,
 		"renewal_count": tm.renewalCount,
-		"valid_for":     validFor,
+		"valid_for":     formatDuration(validFor),
 	}
 
 	if timeSinceLast > 0 {
-		fields["time_since_last"] = timeSinceLast
+		fields["time_since_last"] = formatDuration(timeSinceLast)
 	}
 
 	tm.logger.WithFields(fields).Info("Token renewal tracked")
