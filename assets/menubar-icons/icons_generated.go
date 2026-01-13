@@ -1,15 +1,8 @@
-//go:build darwin
-// +build darwin
-
-package menubar
-
-// Status icon data for menu bar
-// Icons are 22x22 PNG images with transparency, optimized for macOS menu bar
+// Generated icon data - DO NOT EDIT MANUALLY
 // Generated from assets/menubar-icons/*.png
 
-// iconGreen returns a green status icon (idle state).
-// Represents: Daemon idle, sync complete, no errors
-// Color: Apple system green (52, 199, 89)
+// iconGreen returns a green status icon.
+// 22x22 PNG with transparency, optimized for macOS menu bar.
 func iconGreen() []byte {
 	return []byte{
 		0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
@@ -29,9 +22,8 @@ func iconGreen() []byte {
 	}
 }
 
-// iconYellow returns a yellow status icon (syncing state).
-// Represents: Active sync/processing in progress
-// Color: Apple system yellow (255, 204, 0)
+// iconYellow returns a yellow status icon.
+// 22x22 PNG with transparency, optimized for macOS menu bar.
 func iconYellow() []byte {
 	return []byte{
 		0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
@@ -51,9 +43,8 @@ func iconYellow() []byte {
 	}
 }
 
-// iconRed returns a red status icon (error state).
-// Represents: Sync failed, error occurred, or daemon offline
-// Color: Apple system red (255, 59, 48)
+// iconRed returns a red status icon.
+// 22x22 PNG with transparency, optimized for macOS menu bar.
 func iconRed() []byte {
 	return []byte{
 		0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
@@ -72,3 +63,4 @@ func iconRed() []byte {
 		0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
 	}
 }
+
