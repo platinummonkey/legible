@@ -43,9 +43,25 @@ The binary will be created at `dist/legible-menubar`.
 ./dist/legible-menubar --help
 
 Flags:
-  --version            Show version information
-  --config PATH        Path to configuration file
-  --output DIR         Output directory for synced documents
+  --version              Show version information
+  --config PATH          Path to configuration file
+  --output DIR           Output directory for synced documents
+  --daemon-addr URL      Daemon HTTP address (default: http://localhost:8080)
+```
+
+### Running with a daemon
+
+The menu bar app requires the legible daemon to be running with the HTTP API enabled:
+
+```bash
+# Terminal 1: Start the daemon with HTTP API
+legible daemon --health-addr localhost:8080
+
+# Terminal 2 (or just double-click the app): Start menu bar
+./dist/legible-menubar
+
+# Or specify custom daemon address
+./dist/legible-menubar --daemon-addr http://localhost:9090
 ```
 
 ### Configuration
@@ -67,15 +83,17 @@ labels:
 
 ## Current Status
 
-**This is a work in progress.** Current implementation includes:
+Current implementation includes:
 
 - ✅ Menu bar icon display
-- ✅ Basic menu structure
-- ✅ Placeholder status icons (green/yellow/red)
+- ✅ Menu structure with status display
+- ✅ Status icons (green/yellow/red) based on daemon state
 - ✅ Open output directory action
-- ⏳ Daemon communication (coming in remarkable-sync-u9j)
-- ⏳ Real-time status updates
-- ⏳ Start/stop sync actions
+- ✅ **Daemon communication via HTTP API**
+- ✅ **Real-time status updates (polls every 3 seconds)**
+- ✅ **Trigger sync action** (calls daemon API)
+- ✅ **Cancel sync action** (calls daemon API)
+- ✅ **Offline detection** (shows red icon when daemon not running)
 - ⏳ Preferences dialog
 - ⏳ Auto-start on login
 
@@ -118,13 +136,23 @@ See the following issues for planned work:
 
 ## Integration with Daemon
 
-The menu bar app will communicate with the `legible daemon` process via:
+The menu bar app communicates with the `legible daemon` process via HTTP API:
 
-- HTTP API (preferred) or Unix socket
-- Poll for status every 2-5 seconds
-- Send control commands (start/stop sync)
+- **Status polling**: Polls `/status` endpoint every 3 seconds
+- **Icon updates**: Automatically changes based on sync state
+  - 🟢 Green: Daemon idle, last sync successful
+  - 🟡 Yellow: Sync in progress
+  - 🔴 Red: Error or daemon offline
+- **Control commands**:
+  - "Trigger Sync" → `POST /api/sync/trigger`
+  - "Cancel Sync" → `POST /api/sync/cancel`
+- **Status display**: Shows real-time information
+  - Last sync results (docs processed, success/fail counts)
+  - Current sync progress (X/Y documents)
+  - Current document being processed
+  - Error messages
 
-See `remarkable-sync-u9j` for daemon status API design.
+See `docs/daemon-api.md` for complete API documentation.
 
 ## .app Bundle (Future)
 

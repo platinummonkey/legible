@@ -25,6 +25,7 @@ func main() {
 	showVersion := flag.Bool("version", false, "Show version information")
 	configFile := flag.String("config", "", "Path to configuration file")
 	outputDir := flag.String("output", "", "Output directory for synced documents")
+	daemonAddr := flag.String("daemon-addr", "http://localhost:8080", "Daemon HTTP address")
 	flag.Parse()
 
 	if *showVersion {
@@ -59,10 +60,13 @@ func main() {
 	// Determine output directory
 	outDir := determineOutputDir(*outputDir, cfg)
 
-	logger.Info("Configuration loaded", "output_dir", outDir)
+	logger.Info("Configuration loaded", "output_dir", outDir, "daemon_addr", *daemonAddr)
 
 	// Create and run the menu bar app
-	app := menubar.New(outDir)
+	app := menubar.New(&menubar.Config{
+		OutputDir:  outDir,
+		DaemonAddr: *daemonAddr,
+	})
 	app.Run()
 
 	logger.Info("Menu bar application exited")

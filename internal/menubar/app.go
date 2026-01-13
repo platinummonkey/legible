@@ -5,9 +5,11 @@
 package menubar
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"runtime"
+	"time"
 
 	"fyne.io/systray"
 	"github.com/platinummonkey/legible/internal/logger"
@@ -27,17 +29,40 @@ type App struct {
 	isRunning     bool
 	outputDir     string
 	statusText    string
+	daemonAddr    string
+
+	// Daemon communication
+	daemonClient  *DaemonClient
 
 	// Channels for menu actions
 	quitChan      chan struct{}
 }
 
+// Config holds configuration for the menu bar app
+type Config struct {
+	OutputDir  string
+	DaemonAddr string // HTTP address of daemon (e.g., "http://localhost:8080")
+}
+
 // New creates a new menu bar application.
-func New(outputDir string) *App {
+func New(cfg *Config) *App {
+	if cfg == nil {
+		cfg = &Config{
+			OutputDir:  "./output",
+			DaemonAddr: "http://localhost:8080",
+		}
+	}
+
+	if cfg.DaemonAddr == "" {
+		cfg.DaemonAddr = "http://localhost:8080"
+	}
+
 	return &App{
-		outputDir:  outputDir,
-		statusText: "Idle",
-		quitChan:   make(chan struct{}),
+		outputDir:    cfg.OutputDir,
+		daemonAddr:   cfg.DaemonAddr,
+		daemonClient: NewDaemonClient(cfg.DaemonAddr),
+		statusText:   "Starting...",
+		quitChan:     make(chan struct{}),
 	}
 }
 
@@ -50,19 +75,19 @@ func (a *App) Run() {
 func (a *App) onReady() {
 	logger.Info("Menu bar application starting")
 
-	// Set initial icon (green - idle state)
+	// Set initial icon (gray/starting state)
 	systray.SetIcon(iconGreen())
 	systray.SetTitle("Legible")
-	systray.SetTooltip("reMarkable Sync - Idle")
+	systray.SetTooltip("reMarkable Sync - Starting...")
 
 	// Create menu items
-	a.mStatus = systray.AddMenuItem("Status: Idle", "Current sync status")
+	a.mStatus = systray.AddMenuItem("Status: Checking daemon...", "Current sync status")
 	a.mStatus.Disable() // Status is informational only
 
 	systray.AddSeparator()
 
-	a.mStartSync = systray.AddMenuItem("Start Sync", "Begin syncing documents")
-	a.mStopSync = systray.AddMenuItem("Stop Sync", "Stop syncing documents")
+	a.mStartSync = systray.AddMenuItem("Trigger Sync", "Trigger an immediate sync")
+	a.mStopSync = systray.AddMenuItem("Cancel Sync", "Cancel the running sync")
 	a.mStopSync.Disable() // Disabled until sync is running
 
 	systray.AddSeparator()
@@ -74,8 +99,9 @@ func (a *App) onReady() {
 
 	a.mQuit = systray.AddMenuItem("Quit", "Exit the application")
 
-	// Start event loop
+	// Start event loop and status polling
 	go a.handleMenuEvents()
+	go a.pollDaemonStatus()
 }
 
 // onExit is called when the application exits.
@@ -107,29 +133,31 @@ func (a *App) handleMenuEvents() {
 
 // handleStartSync handles the start sync action.
 func (a *App) handleStartSync() {
-	logger.Info("Start sync clicked")
+	logger.Info("Trigger sync clicked")
 
-	// TODO: Connect to daemon and trigger sync
-	// For now, just update UI
-	a.setStatus("Syncing", iconYellow())
-	a.mStartSync.Disable()
-	a.mStopSync.Enable()
+	ctx := context.Background()
+	if err := a.daemonClient.TriggerSync(ctx); err != nil {
+		logger.Error("Failed to trigger sync", "error", err)
+		// Show error to user (could enhance with notification)
+		a.setStatus(fmt.Sprintf("Error: %s", err.Error()), iconRed())
+		return
+	}
 
-	// Placeholder: simulate sync completion after a moment
-	// In real implementation, this will be driven by daemon status
-	logger.Info("Sync started (placeholder implementation)")
+	logger.Info("Sync triggered successfully")
 }
 
 // handleStopSync handles the stop sync action.
 func (a *App) handleStopSync() {
-	logger.Info("Stop sync clicked")
+	logger.Info("Cancel sync clicked")
 
-	// TODO: Connect to daemon and stop sync
-	a.setStatus("Idle", iconGreen())
-	a.mStartSync.Enable()
-	a.mStopSync.Disable()
+	ctx := context.Background()
+	if err := a.daemonClient.CancelSync(ctx); err != nil {
+		logger.Error("Failed to cancel sync", "error", err)
+		a.setStatus(fmt.Sprintf("Error: %s", err.Error()), iconRed())
+		return
+	}
 
-	logger.Info("Sync stopped (placeholder implementation)")
+	logger.Info("Sync cancellation requested")
 }
 
 // handleOpenOutput opens the output directory in Finder.
@@ -184,4 +212,84 @@ func (a *App) SetStatusError(errMsg string) {
 	a.setStatus(status, iconRed())
 	a.mStartSync.Enable()
 	a.mStopSync.Disable()
+}
+
+// pollDaemonStatus polls the daemon for status updates
+func (a *App) pollDaemonStatus() {
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+
+	// Do an immediate check
+	a.updateStatusFromDaemon()
+
+	for {
+		select {
+		case <-ticker.C:
+			a.updateStatusFromDaemon()
+		case <-a.quitChan:
+			return
+		}
+	}
+}
+
+// updateStatusFromDaemon fetches status from daemon and updates UI
+func (a *App) updateStatusFromDaemon() {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	status, err := a.daemonClient.GetStatus(ctx)
+	if err != nil {
+		logger.Error("Failed to get daemon status", "error", err)
+		a.setStatus("Error: Cannot connect to daemon", iconRed())
+		a.mStartSync.Disable()
+		a.mStopSync.Disable()
+		return
+	}
+
+	// Update UI based on daemon state
+	switch status.State {
+	case StateOffline:
+		a.setStatus("Daemon offline", iconRed())
+		a.mStartSync.Disable()
+		a.mStopSync.Disable()
+
+	case StateIdle:
+		// Show last sync info if available
+		statusText := "Idle"
+		if status.LastSyncResult != nil {
+			statusText = fmt.Sprintf("Idle - Last sync: %d docs (%d success, %d failed)",
+				status.LastSyncResult.ProcessedDocuments,
+				status.LastSyncResult.SuccessCount,
+				status.LastSyncResult.FailureCount)
+		}
+		a.setStatus(statusText, iconGreen())
+		a.mStartSync.Enable()
+		a.mStopSync.Disable()
+
+	case StateSyncing:
+		// Show sync progress
+		statusText := "Syncing..."
+		if status.CurrentSync != nil {
+			if status.CurrentSync.DocumentsTotal > 0 {
+				statusText = fmt.Sprintf("Syncing: %d/%d docs",
+					status.CurrentSync.DocumentsProcessed,
+					status.CurrentSync.DocumentsTotal)
+			}
+			if status.CurrentSync.CurrentDocument != "" {
+				statusText += fmt.Sprintf(" (%s)", status.CurrentSync.CurrentDocument)
+			}
+		}
+		a.setStatus(statusText, iconYellow())
+		a.mStartSync.Disable()
+		a.mStopSync.Enable()
+
+	case StateError:
+		errMsg := "Sync failed"
+		if status.ErrorMessage != "" {
+			errMsg = fmt.Sprintf("Error: %s", status.ErrorMessage)
+		}
+		a.setStatus(errMsg, iconRed())
+		a.mStartSync.Enable()
+		a.mStopSync.Disable()
+	}
 }
