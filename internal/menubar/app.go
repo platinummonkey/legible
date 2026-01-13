@@ -31,7 +31,8 @@ type App struct {
 	statusText    string
 	daemonAddr    string
 
-	// Daemon communication
+	// Daemon management
+	daemonManager *DaemonManager
 	daemonClient  *DaemonClient
 
 	// Channels for menu actions
@@ -40,8 +41,9 @@ type App struct {
 
 // Config holds configuration for the menu bar app
 type Config struct {
-	OutputDir  string
-	DaemonAddr string // HTTP address of daemon (e.g., "http://localhost:8080")
+	OutputDir     string
+	DaemonAddr    string         // HTTP address of daemon (e.g., "http://localhost:8080")
+	DaemonManager *DaemonManager // Optional daemon manager (if nil, no auto-launch)
 }
 
 // New creates a new menu bar application.
@@ -58,11 +60,12 @@ func New(cfg *Config) *App {
 	}
 
 	return &App{
-		outputDir:    cfg.OutputDir,
-		daemonAddr:   cfg.DaemonAddr,
-		daemonClient: NewDaemonClient(cfg.DaemonAddr),
-		statusText:   "Starting...",
-		quitChan:     make(chan struct{}),
+		outputDir:     cfg.OutputDir,
+		daemonAddr:    cfg.DaemonAddr,
+		daemonManager: cfg.DaemonManager,
+		daemonClient:  NewDaemonClient(cfg.DaemonAddr),
+		statusText:    "Starting...",
+		quitChan:      make(chan struct{}),
 	}
 }
 
@@ -81,7 +84,7 @@ func (a *App) onReady() {
 	systray.SetTooltip("reMarkable Sync - Starting...")
 
 	// Create menu items
-	a.mStatus = systray.AddMenuItem("Status: Checking daemon...", "Current sync status")
+	a.mStatus = systray.AddMenuItem("Status: Starting daemon...", "Current sync status")
 	a.mStatus.Disable() // Status is informational only
 
 	systray.AddSeparator()
@@ -99,6 +102,17 @@ func (a *App) onReady() {
 
 	a.mQuit = systray.AddMenuItem("Quit", "Exit the application")
 
+	// Start daemon manager if configured
+	if a.daemonManager != nil {
+		logger.Info("Starting daemon manager")
+		if err := a.daemonManager.Start(); err != nil {
+			logger.Error("Failed to start daemon manager", "error", err)
+			a.setStatus("Error: Failed to start daemon", iconRed())
+		} else {
+			logger.Info("Daemon manager started successfully")
+		}
+	}
+
 	// Start event loop and status polling
 	go a.handleMenuEvents()
 	go a.pollDaemonStatus()
@@ -108,6 +122,16 @@ func (a *App) onReady() {
 func (a *App) onExit() {
 	logger.Info("Menu bar application exiting")
 	close(a.quitChan)
+
+	// Stop daemon manager if configured
+	if a.daemonManager != nil {
+		logger.Info("Stopping daemon manager")
+		if err := a.daemonManager.Stop(); err != nil {
+			logger.Error("Error stopping daemon manager", "error", err)
+		} else {
+			logger.Info("Daemon manager stopped successfully")
+		}
+	}
 }
 
 // handleMenuEvents processes menu item clicks.

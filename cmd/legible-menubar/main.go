@@ -26,6 +26,7 @@ func main() {
 	configFile := flag.String("config", "", "Path to configuration file")
 	outputDir := flag.String("output", "", "Output directory for synced documents")
 	daemonAddr := flag.String("daemon-addr", "http://localhost:8080", "Daemon HTTP address")
+	noAutoLaunch := flag.Bool("no-auto-launch", false, "Disable automatic daemon launch")
 	flag.Parse()
 
 	if *showVersion {
@@ -62,10 +63,31 @@ func main() {
 
 	logger.Info("Configuration loaded", "output_dir", outDir, "daemon_addr", *daemonAddr)
 
+	// Create daemon manager (unless auto-launch is disabled)
+	var daemonManager *menubar.DaemonManager
+	if !*noAutoLaunch {
+		dm, err := menubar.NewDaemonManager(&menubar.DaemonManagerConfig{
+			DaemonAddr: *daemonAddr,
+			AutoLaunch: true,
+		})
+		if err != nil {
+			logger.Error("Failed to create daemon manager", "error", err)
+			fmt.Fprintf(os.Stderr, "Warning: Failed to create daemon manager: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Menu bar app will connect to existing daemon if available.\n")
+			// Continue without daemon manager - menu bar app can still work if daemon is running
+		} else {
+			daemonManager = dm
+			logger.Info("Daemon manager configured", "auto_launch", true)
+		}
+	} else {
+		logger.Info("Daemon auto-launch disabled")
+	}
+
 	// Create and run the menu bar app
 	app := menubar.New(&menubar.Config{
-		OutputDir:  outDir,
-		DaemonAddr: *daemonAddr,
+		OutputDir:     outDir,
+		DaemonAddr:    *daemonAddr,
+		DaemonManager: daemonManager,
 	})
 	app.Run()
 
