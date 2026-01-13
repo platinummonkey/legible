@@ -23,11 +23,16 @@ The daemon mode enables hands-free continuous synchronization without manual int
 - Logs sync failures with details
 - Automatic retry on next interval
 
-✅ **Health Check Endpoint** (Optional)
-- HTTP endpoint for monitoring daemon health
-- `/health` - Returns 200 OK if daemon is running
-- `/ready` - Returns 200 OK if daemon is ready
-- Useful for container orchestration (Kubernetes, Docker Swarm)
+✅ **HTTP API** (Optional)
+- Health check endpoints for monitoring
+  - `/health` - Returns 200 OK if daemon is running
+  - `/ready` - Returns 200 OK if daemon is ready
+- Status monitoring endpoint
+  - `/status` - Returns detailed daemon status (JSON)
+- Control endpoints (partial implementation)
+  - `/api/sync/trigger` - Trigger manual sync
+  - `/api/sync/cancel` - Cancel running sync
+- Useful for container orchestration and UI applications
 
 ✅ **PID File Management** (Optional)
 - Writes process ID to configured file
@@ -121,9 +126,25 @@ if err := d.Run(context.Background()); err != nil {
 	panic(err)
 }
 
-// Health check available at:
-// http://localhost:8080/health
-// http://localhost:8080/ready
+// API endpoints available at:
+// http://localhost:8080/health  - Health check
+// http://localhost:8080/ready   - Readiness check
+// http://localhost:8080/status  - Daemon status (JSON)
+// http://localhost:8080/api/sync/trigger - Trigger sync
+// http://localhost:8080/api/sync/cancel  - Cancel sync
+```
+
+### Monitoring Status
+
+```bash
+# Check daemon status
+curl http://localhost:8080/status | jq
+
+# Monitor sync progress (poll every 2 seconds)
+watch -n 2 'curl -s http://localhost:8080/status | jq ".state, .current_sync"'
+
+# Get last sync result
+curl -s http://localhost:8080/status | jq '.last_sync_result'
 ```
 
 ### With PID File

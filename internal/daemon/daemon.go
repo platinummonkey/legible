@@ -16,12 +16,13 @@ import (
 
 // Daemon manages periodic synchronization in the background
 type Daemon struct {
-	orchestrator *sync.Orchestrator
-	logger       *logger.Logger
-	interval     time.Duration
-	healthAddr   string
-	pidFile      string
-	httpServer   *http.Server
+	orchestrator  *sync.Orchestrator
+	logger        *logger.Logger
+	interval      time.Duration
+	healthAddr    string
+	pidFile       string
+	httpServer    *http.Server
+	statusTracker *StatusTracker
 }
 
 // Config holds configuration for the daemon
@@ -56,11 +57,12 @@ func New(cfg *Config) (*Daemon, error) {
 	}
 
 	return &Daemon{
-		orchestrator: cfg.Orchestrator,
-		logger:       log,
-		interval:     interval,
-		healthAddr:   cfg.HealthCheckAddr,
-		pidFile:      cfg.PIDFile,
+		orchestrator:  cfg.Orchestrator,
+		logger:        log,
+		interval:      interval,
+		healthAddr:    cfg.HealthCheckAddr,
+		pidFile:       cfg.PIDFile,
+		statusTracker: NewStatusTracker(),
 	}, nil
 }
 
@@ -100,6 +102,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 	d.logger.Info("Running initial sync")
 	d.runSync(ctx)
 
+	// Schedule next sync
+	d.statusTracker.SetNextSyncTime(time.Now().Add(d.interval))
+
 	// Main loop
 	for {
 		select {
@@ -115,6 +120,8 @@ func (d *Daemon) Run(ctx context.Context) error {
 		case <-ticker.C:
 			d.logger.Info("Sync interval elapsed, triggering sync")
 			d.runSync(ctx)
+			// Schedule next sync
+			d.statusTracker.SetNextSyncTime(time.Now().Add(d.interval))
 		}
 	}
 }
@@ -123,6 +130,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 func (d *Daemon) runSync(ctx context.Context) {
 	d.logger.Info("Starting sync")
 	startTime := time.Now()
+
+	// Mark sync as started (we'll update with actual doc count after listing)
+	d.statusTracker.SyncStarted(0)
 
 	// Run sync with timeout context
 	syncCtx, cancel := context.WithTimeout(ctx, 30*time.Minute)
@@ -134,8 +144,22 @@ func (d *Daemon) runSync(ctx context.Context) {
 	if err != nil {
 		d.logger.WithFields("error", err, "duration", duration).
 			Error("Sync failed")
+		d.statusTracker.SyncFailed(err, duration)
 		return
 	}
+
+	// Record successful sync
+	summary := SyncSummary{
+		StartTime:          startTime,
+		EndTime:            time.Now(),
+		Duration:           duration,
+		TotalDocuments:     result.TotalDocuments,
+		ProcessedDocuments: result.ProcessedDocuments,
+		SuccessCount:       result.SuccessCount,
+		FailureCount:       result.FailureCount,
+		SkippedCount:       result.TotalDocuments - result.ProcessedDocuments,
+	}
+	d.statusTracker.SyncCompleted(summary)
 
 	// Log summary
 	d.logger.WithFields(
@@ -202,6 +226,13 @@ func (d *Daemon) startHealthCheck() error {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("OK\n"))
 	})
+
+	// Status endpoint - returns current daemon status
+	mux.HandleFunc("/status", d.handleStatus)
+
+	// API prefix for control endpoints
+	mux.HandleFunc("/api/sync/trigger", d.handleTriggerSync)
+	mux.HandleFunc("/api/sync/cancel", d.handleCancelSync)
 
 	d.httpServer = &http.Server{
 		Addr:    d.healthAddr,
