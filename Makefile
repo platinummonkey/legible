@@ -34,6 +34,15 @@ build: ## Build the binary (Go-based, single platform)
 	@mkdir -p $(BUILD_DIR)
 	$(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/$(BINARY_NAME)
 
+build-menubar: ## Build the macOS menu bar application (darwin only)
+	@echo "Building $(BINARY_NAME)-menubar..."
+	@mkdir -p $(BUILD_DIR)
+	@if [ "$(shell uname)" != "Darwin" ]; then \
+		echo "Error: Menu bar app can only be built on macOS"; \
+		exit 1; \
+	fi
+	$(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-menubar ./cmd/$(BINARY_NAME)-menubar
+
 build-local: ## Build binary for current platform using goreleaser (recommended)
 	@echo "Building with goreleaser for current platform..."
 	@which goreleaser > /dev/null || (echo "goreleaser not found. Install from https://goreleaser.com/install/" && exit 1)
