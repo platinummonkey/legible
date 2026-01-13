@@ -31,6 +31,7 @@ type DaemonManager struct {
 	restartCount  int
 	maxRestarts   int
 	restartDelay  time.Duration
+	processDied   chan struct{} // Closed when daemon process exits
 
 	// Control
 	ctx           context.Context
@@ -56,6 +57,14 @@ func NewDaemonManager(cfg *DaemonManagerConfig) (*DaemonManager, error) {
 			MaxRestarts:  5,
 			RestartDelay: 5 * time.Second,
 		}
+	}
+
+	// Apply defaults for zero-value fields
+	if cfg.MaxRestarts == 0 {
+		cfg.MaxRestarts = 5
+	}
+	if cfg.RestartDelay == 0 {
+		cfg.RestartDelay = 5 * time.Second
 	}
 
 	// Find daemon binary if not specified
@@ -127,15 +136,15 @@ func (dm *DaemonManager) Start() error {
 func (dm *DaemonManager) Stop() error {
 	logger.Info("Stopping daemon manager")
 
-	// Cancel context
+	// Cancel context (stops monitor loop)
 	dm.cancel()
-	close(dm.stopChan)
 
 	dm.mu.Lock()
-	defer dm.mu.Unlock()
-
+	processDied := dm.processDied // Get channel before unlocking
+	pid := 0
 	if dm.cmd != nil && dm.cmd.Process != nil {
-		logger.Info("Sending SIGTERM to daemon", "pid", dm.cmd.Process.Pid)
+		pid = dm.cmd.Process.Pid
+		logger.Info("Sending SIGTERM to daemon", "pid", pid)
 
 		// Send SIGTERM for graceful shutdown
 		if err := dm.cmd.Process.Signal(os.Interrupt); err != nil {
@@ -143,28 +152,41 @@ func (dm *DaemonManager) Stop() error {
 			// Force kill if graceful shutdown fails
 			dm.cmd.Process.Kill()
 		}
+	}
+	dm.mu.Unlock()
 
-		// Wait for process to exit (with timeout)
-		done := make(chan error, 1)
-		go func() {
-			done <- dm.cmd.Wait()
-		}()
-
+	// Wait for process to exit (with timeout)
+	// The processDied channel will be closed when cmd.Wait() completes
+	if processDied != nil {
 		select {
 		case <-time.After(10 * time.Second):
-			logger.Warn("Daemon did not exit gracefully, killing")
-			dm.cmd.Process.Kill()
-		case err := <-done:
-			if err != nil {
-				logger.Info("Daemon exited", "error", err)
+			dm.mu.Lock()
+			if dm.cmd != nil && dm.cmd.Process != nil {
+				logger.Warn("Daemon did not exit gracefully, force killing", "pid", dm.cmd.Process.Pid)
+				dm.cmd.Process.Kill()
+				dm.mu.Unlock()
+				// Wait a bit more for the kill to take effect
+				select {
+				case <-processDied:
+					logger.Info("Daemon killed")
+				case <-time.After(2 * time.Second):
+					logger.Error("Daemon did not exit after force kill")
+				}
 			} else {
-				logger.Info("Daemon exited gracefully")
+				dm.mu.Unlock()
 			}
+		case <-processDied:
+			logger.Info("Daemon exited gracefully", "pid", pid)
 		}
-
-		dm.isRunning = false
-		dm.cmd = nil
 	}
+
+	// Close stopChan to stop monitor
+	close(dm.stopChan)
+
+	dm.mu.Lock()
+	dm.isRunning = false
+	dm.cmd = nil
+	dm.mu.Unlock()
 
 	return nil
 }
@@ -212,46 +234,44 @@ func (dm *DaemonManager) startDaemon() error {
 
 	dm.cmd = cmd
 	dm.isRunning = true
+	dm.processDied = make(chan struct{})
 
 	logger.Info("Daemon started", "pid", cmd.Process.Pid)
+
+	// Start goroutine to wait for process exit
+	go func() {
+		pid := cmd.Process.Pid
+		err := cmd.Wait() // This blocks until process exits
+		logger.Info("Daemon process exited", "pid", pid, "error", err)
+		close(dm.processDied) // Signal that process died
+	}()
 
 	return nil
 }
 
 // monitor monitors the daemon health and restarts if needed
 func (dm *DaemonManager) monitor() {
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-
 	for {
 		select {
 		case <-dm.stopChan:
 			return
 		case <-dm.ctx.Done():
 			return
-		case <-ticker.C:
-			dm.checkHealth()
-		}
-	}
-}
-
-// checkHealth checks if daemon is healthy and restarts if needed
-func (dm *DaemonManager) checkHealth() {
-	dm.mu.Lock()
-	defer dm.mu.Unlock()
-
-	// Check if process is still running
-	if dm.cmd != nil && dm.cmd.Process != nil {
-		// Try to signal process (signal 0 checks existence)
-		err := dm.cmd.Process.Signal(os.Signal(nil))
-		if err != nil {
-			// Process died
-			logger.Warn("Daemon process died", "error", err)
+		case <-dm.processDied:
+			// Daemon process died - attempt restart
+			dm.mu.Lock()
+			logger.Warn("Daemon process died, attempting restart", "pid", dm.cmd.Process.Pid)
 			dm.isRunning = false
 			dm.cmd = nil
-
-			// Attempt restart
 			dm.attemptRestart()
+			dm.mu.Unlock()
+
+			// If restart succeeded, processDied channel was recreated
+			// If restart failed, we'll exit the loop
+			if dm.cmd == nil {
+				logger.Info("Monitor exiting - daemon not restarted")
+				return
+			}
 		}
 	}
 }
