@@ -95,3 +95,34 @@ jobs:
           name: legible-binaries
           path: dist/legible_*/legible*
           retention-days: 7
+
+  build-macos:
+    name: Build macOS App
+    runs-on: macos-latest
+    needs: [test, lint]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Build macOS app bundle
+        run: make build-menubar-app
+        env:
+          CGO_ENABLED: 1
+
+      - name: Upload macOS app bundle
+        uses: actions/upload-artifact@v6
+        with:
+          name: legible-macos-app
+          path: |
+            dist/Legible.app
+            dist/Legible.zip
+          retention-days: 7

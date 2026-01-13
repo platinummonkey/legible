@@ -43,6 +43,20 @@ build-menubar: ## Build the macOS menu bar application (darwin only)
 	fi
 	$(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-menubar ./cmd/$(BINARY_NAME)-menubar
 
+build-menubar-app: build build-menubar ## Build macOS .app bundle with daemon (darwin only)
+	@echo "Creating macOS app bundle..."
+	@if [ "$(shell uname)" != "Darwin" ]; then \
+		echo "Error: App bundle can only be built on macOS"; \
+		exit 1; \
+	fi
+	@./scripts/package-macos-app.sh $(BUILD_DIR)/$(BINARY_NAME)-menubar $(BUILD_DIR) $(VERSION)
+	@echo "App bundle created: $(BUILD_DIR)/Legible.app"
+	@echo "Daemon binary: $(BUILD_DIR)/$(BINARY_NAME)"
+	@echo ""
+	@echo "To install:"
+	@echo "  1. Copy Legible.app to /Applications/"
+	@echo "  2. Copy legible daemon to /usr/local/bin/ or another location in PATH"
+
 build-local: ## Build binary for current platform using goreleaser (recommended)
 	@echo "Building with goreleaser for current platform..."
 	@which goreleaser > /dev/null || (echo "goreleaser not found. Install from https://goreleaser.com/install/" && exit 1)

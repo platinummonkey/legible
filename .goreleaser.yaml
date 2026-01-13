@@ -52,8 +52,40 @@ builds:
       post:
         - cmd: echo "Built {{.Path}} for {{.Os}}/{{.Arch}}"
 
+  - id: legible-menubar
+    main: ./cmd/legible-menubar
+    binary: legible-menubar
+
+    # macOS only - menu bar application
+    goos:
+      - darwin
+
+    goarch:
+      - amd64
+      - arm64
+
+    # Inject version information
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Version}}
+      - -X main.GitCommit={{.ShortCommit}}
+      - -X main.BuildDate={{.Date}}
+
+    env:
+      - CGO_ENABLED=1  # systray requires CGO on macOS
+
+    # Build flags
+    flags:
+      - -trimpath
+
+    hooks:
+      post:
+        - cmd: bash -c 'if [ "{{.Os}}" = "darwin" ]; then ./scripts/package-macos-app.sh "{{.Path}}" "{{.Dir}}" "{{.Version}}"; fi'
+
 archives:
   - id: default
+    builds:
+      - legible
     name_template: >-
       {{ .ProjectName }}_
       {{- .Version }}_
@@ -73,6 +105,29 @@ archives:
       - examples/**/*
       - src: "docs/**/*"
         dst: docs
+        strip_parent: true
+
+  - id: macos-menubar
+    builds:
+      - legible-menubar
+      - legible
+    name_template: >-
+      {{ .ProjectName }}-menubar_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+
+    format: zip
+
+    # Include the .app bundle and daemon binary
+    files:
+      - LICENSE*
+      - README*
+      - CHANGELOG*
+      - FAQ.md
+      - src: "dist/legible_*/Legible.app"
+        dst: "."
         strip_parent: true
 
 checksum:

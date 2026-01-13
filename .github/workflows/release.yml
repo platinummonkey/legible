@@ -63,8 +63,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
-          # OCR now uses Ollama (HTTP API), so no CGO dependencies needed
-          CGO_ENABLED: "0"
+          # CGO_ENABLED is set per-build in .goreleaser.yaml
+          # - legible: CGO_ENABLED=0 (no dependencies, cross-platform)
+          # - legible-menubar: CGO_ENABLED=1 (systray requires CGO on macOS)
 
       - name: Upload artifacts to workflow
         uses: actions/upload-artifact@v6
