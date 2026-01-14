@@ -1,6 +1,8 @@
 // Generated icon data - DO NOT EDIT MANUALLY
 // Generated from assets/menubar-icons/*.png
 
+package menubaricons
+
 // iconGreen returns a green status icon.
 // 22x22 PNG with transparency, optimized for macOS menu bar.
 func iconGreen() []byte {
