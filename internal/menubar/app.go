@@ -7,7 +7,9 @@ package menubar
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -269,19 +271,99 @@ func (a *App) handleAutoStartToggle() {
 func (a *App) handlePreferences() {
 	logger.Info("Preferences clicked")
 
-	// Log current configuration for now
-	logger.Info("Current configuration",
-		"daemon_config", a.menuBarConfig.DaemonConfigFile,
-		"daemon_addr", a.menuBarConfig.DaemonAddr,
-		"sync_interval", a.menuBarConfig.SyncInterval,
-		"ocr_enabled", a.menuBarConfig.OCREnabled,
-		"auto_start", a.menuBarConfig.AutoStartEnabled,
-	)
+	// Build preferences message
+	ocrStatus := "Enabled"
+	if !a.menuBarConfig.OCREnabled {
+		ocrStatus = "Disabled"
+	}
+	autoStartStatus := "Disabled"
+	if a.menuBarConfig.AutoStartEnabled {
+		autoStartStatus = "Enabled"
+	}
 
-	// TODO: Implement full preferences dialog UI
-	// For now, the configuration can be edited by modifying ~/.legible/menubar-config.yaml
-	logger.Info("To edit preferences, modify ~/.legible/menubar-config.yaml")
-	logger.Info("Available settings: daemon_config_file, daemon_addr, sync_interval, ocr_enabled")
+	message := fmt.Sprintf(`Current Settings:
+
+Daemon Address: %s
+Sync Interval: %s
+OCR: %s
+Auto-start at Login: %s
+Daemon Config File: %s
+
+To change these settings, would you like to open the configuration file?
+
+Config Location: %s`,
+		a.menuBarConfig.DaemonAddr,
+		a.menuBarConfig.SyncInterval,
+		ocrStatus,
+		autoStartStatus,
+		a.menuBarConfig.DaemonConfigFile,
+		a.configPath)
+
+	// Show dialog and ask if user wants to open config file
+	if runtime.GOOS == "darwin" {
+		go a.showPreferencesDialog(message)
+	} else {
+		logger.Info("Preferences", "config_path", a.configPath)
+	}
+}
+
+// showPreferencesDialog displays a native macOS dialog with current preferences
+func (a *App) showPreferencesDialog(message string) {
+	// Use osascript to show a native macOS dialog
+	// The dialog has "Open Config File" and "Cancel" buttons
+	script := fmt.Sprintf(`display dialog %q buttons {"Cancel", "Open Config File"} default button "Open Config File" with title "Legible Preferences" with icon note`,
+		message)
+
+	cmd := exec.Command("osascript", "-e", script)
+	output, err := cmd.CombinedOutput()
+
+	if err != nil {
+		// User clicked Cancel or closed dialog
+		logger.Info("Preferences dialog dismissed")
+		return
+	}
+
+	// Check if user clicked "Open Config File"
+	outputStr := string(output)
+	if len(outputStr) > 0 && (len(outputStr) < 20 || outputStr[:20] != "button returned:Open") {
+		// User clicked Cancel
+		logger.Info("User canceled preferences")
+		return
+	}
+
+	// User wants to open config file - create it if it doesn't exist
+	if _, err := os.Stat(a.configPath); os.IsNotExist(err) {
+		// Create config directory
+		if err := os.MkdirAll(filepath.Dir(a.configPath), 0755); err != nil {
+			logger.Error("Failed to create config directory", "error", err)
+			a.showErrorDialog(fmt.Sprintf("Failed to create config directory: %v", err))
+			return
+		}
+
+		// Save default config
+		if err := SaveMenuBarConfig(a.menuBarConfig, a.configPath); err != nil {
+			logger.Error("Failed to save config file", "error", err)
+			a.showErrorDialog(fmt.Sprintf("Failed to create config file: %v", err))
+			return
+		}
+	}
+
+	// Open config file in default editor
+	cmd = exec.Command("open", a.configPath)
+	if err := cmd.Run(); err != nil {
+		logger.Error("Failed to open config file", "error", err, "path", a.configPath)
+		a.showErrorDialog(fmt.Sprintf("Failed to open config file: %v", err))
+	} else {
+		logger.Info("Opened config file in default editor", "path", a.configPath)
+	}
+}
+
+// showErrorDialog displays an error message in a native macOS dialog
+func (a *App) showErrorDialog(message string) {
+	script := fmt.Sprintf(`display dialog %q buttons {"OK"} default button "OK" with title "Legible Error" with icon stop`,
+		message)
+	cmd := exec.Command("osascript", "-e", script)
+	_ = cmd.Run() // Ignore error
 }
 
 // setStatus updates the status display and icon.
