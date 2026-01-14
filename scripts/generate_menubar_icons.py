@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-Generate menu bar icons for Legible app.
+Generate menu bar icons for Legible app - Dark mode compatible version.
 Design: Tablet with pen/stylus + colored status indicator
+The main icon is template-compatible (black with alpha) for macOS tinting
+Status dots have white halos for dark mode visibility
 """
 from PIL import Image, ImageDraw
 import io
@@ -9,6 +11,8 @@ import io
 def create_icon(status_color):
     """
     Create a 22x22 menu bar icon with tablet+pen design and status dot.
+    Template-compatible: Main icon in black, macOS will tint for light/dark mode
+    Status dot uses color with white halo for visibility in dark mode
 
     Args:
         status_color: Tuple (R, G, B) for the status indicator dot
@@ -21,16 +25,14 @@ def create_icon(status_color):
     img = Image.new('RGBA', size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    # Colors (for template mode, use grayscale for main icon)
-    icon_color = (0, 0, 0, 255)  # Black for template (macOS will tint)
+    # Template color (black - macOS will tint this for light/dark mode)
+    icon_color = (0, 0, 0, 255)
 
     # Draw tablet outline (rounded rectangle)
-    # Tablet body: smaller to leave room for status dot
     tablet_rect = [2, 4, 15, 18]
     draw.rounded_rectangle(tablet_rect, radius=2, outline=icon_color, width=1)
 
     # Draw pen/stylus across the tablet (diagonal line with tip)
-    # Pen body
     pen_coords = [(6, 3), (17, 14)]
     draw.line(pen_coords, fill=icon_color, width=2)
 
@@ -39,12 +41,24 @@ def create_icon(status_color):
     draw.ellipse([tip_pos[0]-1, tip_pos[1]-1, tip_pos[0]+1, tip_pos[1]+1],
                  fill=icon_color)
 
-    # Draw status indicator dot in top-right corner
+    # Draw status indicator dot with white halo for dark mode visibility
     dot_center = (18, 5)
     dot_radius = 3
+
+    # White halo (slightly larger, semi-transparent for blending)
+    halo_radius = dot_radius + 1
+    draw.ellipse([dot_center[0]-halo_radius, dot_center[1]-halo_radius,
+                  dot_center[0]+halo_radius, dot_center[1]+halo_radius],
+                 fill=(255, 255, 255, 180))
+
+    # Colored status dot on top
     draw.ellipse([dot_center[0]-dot_radius, dot_center[1]-dot_radius,
                   dot_center[0]+dot_radius, dot_center[1]+dot_radius],
-                 fill=status_color,
+                 fill=status_color)
+
+    # Thin black outline for definition
+    draw.ellipse([dot_center[0]-dot_radius, dot_center[1]-dot_radius,
+                  dot_center[0]+dot_radius, dot_center[1]+dot_radius],
                  outline=icon_color,
                  width=1)
 
@@ -56,9 +70,6 @@ def create_icon(status_color):
 
 def bytes_to_go_array(png_bytes):
     """Convert PNG bytes to Go byte array format."""
-    hex_bytes = ', '.join(f'0x{b:02X}' for b in png_bytes)
-
-    # Format as Go code with proper wrapping
     lines = []
     line = "\t\t"
     for i, byte in enumerate(png_bytes):
@@ -74,14 +85,14 @@ def bytes_to_go_array(png_bytes):
 
 
 def main():
-    # Color definitions (Apple system colors)
+    # Color definitions (vibrant colors that work in both light and dark mode)
     colors = {
-        'green': (52, 199, 89, 255),    # System green
-        'yellow': (255, 204, 0, 255),   # System yellow
-        'red': (255, 59, 48, 255),      # System red
+        'green': (52, 199, 89, 255),    # Apple system green
+        'yellow': (255, 214, 10, 255),  # Bright yellow (more vibrant)
+        'red': (255, 69, 58, 255),      # Apple system red
     }
 
-    print("Generating menu bar icons...\n")
+    print("Generating dark mode compatible menu bar icons...\n")
 
     for name, color in colors.items():
         png_bytes = create_icon(color)
@@ -95,9 +106,9 @@ def main():
         print("}\n")
 
         # Also save to file for inspection
-        with open(f'/tmp/menubar_icon_{name}.png', 'wb') as f:
+        with open(f'/tmp/menubar_icon_{name}_v2.png', 'wb') as f:
             f.write(png_bytes)
-        print(f"Saved to: /tmp/menubar_icon_{name}.png")
+        print(f"Saved to: /tmp/menubar_icon_{name}_v2.png")
 
 
 if __name__ == '__main__':
