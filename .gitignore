@@ -42,3 +42,4 @@ sync-state.json
 .env
 .env.local
 .env.*.local
+.goreleaser.local.yaml

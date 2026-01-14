@@ -62,13 +62,13 @@ build-menubar-app: build build-menubar ## Build macOS .app bundle with daemon (d
 build-local: ## Build binary for current platform using goreleaser (recommended)
 	@echo "Building with goreleaser for current platform..."
 	@which goreleaser > /dev/null || (echo "goreleaser not found. Install from https://goreleaser.com/install/" && exit 1)
-	goreleaser build --snapshot --clean --single-target
+	goreleaser build --snapshot --clean --single-target --config .goreleaser.local.yaml
 	@echo "Binary available in ${BUILD_DIR}/$(BINARY_NAME)_*/$(BINARY_NAME)"
 
 build-all: ## Build for all platforms using goreleaser
 	@echo "Building for all platforms with goreleaser..."
 	@which goreleaser > /dev/null || (echo "goreleaser not found. Install from https://goreleaser.com/install/" && exit 1)
-	goreleaser build --snapshot --clean
+	goreleaser build --snapshot --clean --config .goreleaser.local.yaml
 	@echo "Binaries available in ${BUILD_DIR}/$(BINARY_NAME)_*/"
 
 build-release: ## Create a release build (requires git tag)
