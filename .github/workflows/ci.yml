@@ -60,7 +60,7 @@ jobs:
           args: --timeout=5m
 
   build:
-    name: Build
+    name: Build CLI
     runs-on: ubuntu-latest
     needs: [test, lint]
 
@@ -76,36 +76,27 @@ jobs:
           go-version: '1.25'
           cache: true
 
-      # Run goreleaser in snapshot mode (build only, no release)
-      # OCR now uses Ollama (HTTP API), so no CGO dependencies needed
-      # Cross-compilation is now simple without CGO
-      # Note: CI uses .goreleaser.local.yaml (no Pro features like DMG)
-      - name: Generate local goreleaser config
-        run: |
-          # Create .goreleaser.local.yaml without Pro-only features (dmg, advanced homebrew cask)
-          awk '/^# DMG installer for macOS/,/^checksum:/ {if (/^checksum:/) print; next} 1' .goreleaser.yaml | \
-          awk '/^  # Menu bar application cask \(using DMG\)/,/^# Announce releases/ {if (/^# Announce releases/) print; next} 1' \
-          > .goreleaser.local.yaml
-
-      - name: Run GoReleaser build
+      # Build CLI binary only (no CGO, cross-platform)
+      # Uses .goreleaser.cli.yaml which builds only the legible CLI
+      - name: Run GoReleaser CLI build
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: latest
-          args: build --snapshot --clean --config .goreleaser.local.yaml
+          args: build --snapshot --clean --config .goreleaser.cli.yaml
         env:
           CGO_ENABLED: 0
 
-      # Upload all built binaries as artifacts
-      - name: Upload build artifacts
+      # Upload CLI binaries as artifacts
+      - name: Upload CLI build artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: legible-binaries
+          name: legible-cli-binaries
           path: dist/legible_*/legible*
           retention-days: 7
 
   build-macos:
-    name: Build macOS App
+    name: Build macOS Menu Bar App
     runs-on: macos-latest
     needs: [test, lint]
 
@@ -121,16 +112,26 @@ jobs:
           go-version: '1.25'
           cache: true
 
-      - name: Build macOS app bundle
-        run: make build-menubar-app
+      # Build menu bar app and daemon using goreleaser
+      # Uses .goreleaser.menubar.yaml which builds both legible and legible-menubar
+      # Requires CGO_ENABLED=1 for systray support
+      - name: Run GoReleaser menu bar build
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: latest
+          args: build --snapshot --clean --config .goreleaser.menubar.yaml
         env:
           CGO_ENABLED: 1
 
-      - name: Upload macOS app bundle
+      # Upload macOS app bundle and archives
+      - name: Upload macOS menu bar artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: legible-macos-app
+          name: legible-macos-menubar
           path: |
-            dist/Legible.app
-            dist/Legible.zip
+            dist/legible_darwin_*/legible
+            dist/legible-menubar_darwin_*/legible-menubar
+            dist/legible_darwin_*/Legible.app
+            dist/*.zip
           retention-days: 7

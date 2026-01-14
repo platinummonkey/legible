@@ -43,15 +43,17 @@ build-menubar: ## Build the macOS menu bar application (darwin only)
 	fi
 	$(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-menubar ./cmd/$(BINARY_NAME)-menubar
 
-build-menubar-app: build build-menubar ## Build macOS .app bundle with daemon (darwin only)
-	@echo "Creating macOS app bundle..."
+build-menubar-app: ## Build macOS .app bundle with daemon using goreleaser (darwin only)
+	@echo "Building macOS menu bar app and daemon..."
 	@if [ "$(shell uname)" != "Darwin" ]; then \
-		echo "Error: App bundle can only be built on macOS"; \
+		echo "Error: Menu bar app can only be built on macOS"; \
 		exit 1; \
 	fi
-	@./scripts/package-macos-app.sh $(BUILD_DIR)/$(BINARY_NAME)-menubar $(BUILD_DIR) $(VERSION)
-	@echo "✓ App bundle created: $(BUILD_DIR)/Legible.app"
-	@echo "✓ Daemon binary: $(BUILD_DIR)/$(BINARY_NAME)"
+	@which goreleaser > /dev/null || (echo "goreleaser not found. Install from https://goreleaser.com/install/" && exit 1)
+	CGO_ENABLED=1 goreleaser build --snapshot --clean --single-target --config .goreleaser.menubar.yaml
+	@echo "✓ App bundle created: $(BUILD_DIR)/legible_darwin_*/Legible.app"
+	@echo "✓ Daemon binary: $(BUILD_DIR)/legible_darwin_*/legible"
+	@echo "✓ Menu bar binary: $(BUILD_DIR)/legible-menubar_darwin_*/legible-menubar"
 	@echo ""
 	@echo "To install:"
 	@echo "  1. Copy Legible.app to /Applications/"
@@ -59,16 +61,16 @@ build-menubar-app: build build-menubar ## Build macOS .app bundle with daemon (d
 	@echo ""
 	@echo "Note: For release builds with DMG installer, use 'goreleaser release'"
 
-build-local: ## Build binary for current platform using goreleaser (recommended)
-	@echo "Building with goreleaser for current platform..."
+build-local: ## Build CLI binary for current platform using goreleaser (recommended)
+	@echo "Building CLI binary with goreleaser for current platform..."
 	@which goreleaser > /dev/null || (echo "goreleaser not found. Install from https://goreleaser.com/install/" && exit 1)
-	goreleaser build --snapshot --clean --single-target --config .goreleaser.local.yaml
+	goreleaser build --snapshot --clean --single-target --config .goreleaser.cli.yaml
 	@echo "Binary available in ${BUILD_DIR}/$(BINARY_NAME)_*/$(BINARY_NAME)"
 
-build-all: ## Build for all platforms using goreleaser
-	@echo "Building for all platforms with goreleaser..."
+build-all: ## Build CLI binaries for all platforms using goreleaser
+	@echo "Building CLI for all platforms with goreleaser..."
 	@which goreleaser > /dev/null || (echo "goreleaser not found. Install from https://goreleaser.com/install/" && exit 1)
-	goreleaser build --snapshot --clean --config .goreleaser.local.yaml
+	goreleaser build --snapshot --clean --config .goreleaser.cli.yaml
 	@echo "Binaries available in ${BUILD_DIR}/$(BINARY_NAME)_*/"
 
 build-release: ## Create a release build (requires git tag)

@@ -1,0 +1,97 @@
+# GoReleaser configuration for CLI-only builds (CI)
+# Used by CI to build the legible CLI binary without CGO dependencies
+# This enables cross-platform builds on Linux runners
+
+version: 2
+
+project_name: legible
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: legible
+    main: ./cmd/legible
+    binary: legible
+
+    # Build for multiple platforms
+    goos:
+      - linux
+      - darwin
+      - windows
+
+    goarch:
+      - amd64
+      - arm64
+
+    # Exclude invalid combinations
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+    # Inject version information
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Version}}
+      - -X main.GitCommit={{.ShortCommit}}
+      - -X main.BuildDate={{.Date}}
+
+    env:
+      - CGO_ENABLED=0  # OCR uses Ollama HTTP API, no CGO needed
+
+    # Build flags
+    flags:
+      - -trimpath
+
+    hooks:
+      post:
+        - cmd: echo "Built {{.Path}} for {{.Os}}/{{.Arch}}"
+
+archives:
+  - id: default
+    builds:
+      - legible
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+
+    # Files to include in archives
+    files:
+      - LICENSE*
+      - README*
+      - CHANGELOG*
+      - FAQ.md
+      - CONTRIBUTING.md
+      - examples/**/*
+      - src: "docs/**/*"
+        dst: docs
+        strip_parent: true
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - 'merge conflict'
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+
+metadata:
+  mod_timestamp: '{{ .CommitTimestamp }}'

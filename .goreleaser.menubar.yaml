@@ -1,0 +1,119 @@
+# GoReleaser configuration for macOS menu bar app builds (CI)
+# Used by CI to build the legible-menubar application with CGO on macOS runners
+# Requires macOS runner with CGO_ENABLED=1 for systray support
+
+version: 2
+
+project_name: legible
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  # CLI daemon binary (needed by menu bar app)
+  - id: legible
+    main: ./cmd/legible
+    binary: legible
+
+    # macOS only - daemon for menu bar app
+    goos:
+      - darwin
+
+    goarch:
+      - amd64
+      - arm64
+
+    # Inject version information
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Version}}
+      - -X main.GitCommit={{.ShortCommit}}
+      - -X main.BuildDate={{.Date}}
+
+    env:
+      - CGO_ENABLED=0  # Daemon doesn't need CGO
+
+    flags:
+      - -trimpath
+
+    hooks:
+      post:
+        - cmd: echo "Built {{.Path}} for {{.Os}}/{{.Arch}}"
+
+  # Menu bar application
+  - id: legible-menubar
+    main: ./cmd/legible-menubar
+    binary: legible-menubar
+
+    # macOS only - menu bar application
+    goos:
+      - darwin
+
+    goarch:
+      - amd64
+      - arm64
+
+    # Inject version information
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.date={{.Date}}
+
+    env:
+      - CGO_ENABLED=1  # systray requires CGO on macOS
+
+    flags:
+      - -trimpath
+
+    hooks:
+      post:
+        - cmd: bash -c 'if [ "{{.Os}}" = "darwin" ]; then OUTPUT_DIR=$(dirname $(dirname "{{.Path}}")); ./scripts/package-macos-app.sh "{{.Path}}" "$OUTPUT_DIR" "{{.Version}}"; fi'
+
+archives:
+  - id: macos-menubar
+    builds:
+      - legible-menubar
+      - legible
+    name_template: >-
+      {{ .ProjectName }}-menubar_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else }}{{ .Arch }}{{ end }}
+
+    format: zip
+
+    # Include the .app bundle and daemon binary
+    files:
+      - LICENSE*
+      - README*
+      - CHANGELOG*
+      - FAQ.md
+      - src: "dist/legible_*/Legible.app"
+        dst: "."
+        strip_parent: true
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - 'merge conflict'
+      - Merge pull request
+      - Merge remote-tracking branch
+      - Merge branch
+
+metadata:
+  mod_timestamp: '{{ .CommitTimestamp }}'
