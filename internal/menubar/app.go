@@ -279,20 +279,21 @@ func (a *App) handlePreferences() {
 
 // showPreferencesWindow shows the native preferences window
 func (a *App) showPreferencesWindow() {
-	saved := a.ShowNativePreferences()
+	a.ShowNativePreferences()
+	// Note: callback will handle save and restart prompt
+}
 
-	if saved {
-		// Show success message and offer to restart
-		script := `display dialog "Settings saved successfully!\n\nTo apply changes, please restart the menu bar app.\n\nWould you like to quit now?" buttons {"Later", "Quit App"} default button "Quit App" with title "Restart Required" with icon note`
-		cmd := exec.Command("osascript", "-e", script)
-		output, err := cmd.CombinedOutput()
+// showRestartPrompt shows a dialog asking user to restart the app
+func (a *App) showRestartPrompt() {
+	script := `display dialog "Settings saved successfully!\n\nTo apply changes, please restart the menu bar app.\n\nWould you like to quit now?" buttons {"Later", "Quit App"} default button "Quit App" with title "Restart Required" with icon note`
+	cmd := exec.Command("osascript", "-e", script)
+	output, err := cmd.CombinedOutput()
 
-		if err == nil && len(output) > 0 {
-			outputStr := string(output)
-			if len(outputStr) > 20 && outputStr[16:24] == "Quit App" {
-				logger.Info("User requested app restart, quitting...")
-				systray.Quit()
-			}
+	if err == nil && len(output) > 0 {
+		outputStr := string(output)
+		if len(outputStr) > 20 && outputStr[16:24] == "Quit App" {
+			logger.Info("User requested app restart, quitting...")
+			systray.Quit()
 		}
 	}
 }

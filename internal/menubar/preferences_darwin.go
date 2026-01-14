@@ -9,33 +9,54 @@ package menubar
 
 #include <stdlib.h>
 
-typedef struct {
-    const char *daemonAddr;
-    const char *syncInterval;
-    int ocrEnabled;
-    const char *daemonConfigFile;
-    int saved;
-} PreferencesResult;
-
 void *createPreferencesController(const char *daemonAddr,
                                   const char *syncInterval,
                                   int ocrEnabled,
-                                  const char *daemonConfigFile);
+                                  const char *daemonConfigFile,
+                                  void *context);
 void showPreferencesWindow(void *controller);
-int isPreferencesWindowVisible(void *controller);
-PreferencesResult getPreferencesResult(void *controller);
 void releasePreferencesController(void *controller);
 */
 import "C"
 import (
-	"time"
+	"sync"
 	"unsafe"
 
 	"github.com/platinummonkey/legible/internal/logger"
 )
 
+var (
+	preferencesCallbacks = make(map[uintptr]func(string, string, bool, string))
+	preferencesCallbackMu sync.Mutex
+	preferencesCallbackID uintptr
+)
+
+//export preferencesGoCallback
+func preferencesGoCallback(cDaemonAddr *C.char, cSyncInterval *C.char, cOCREnabled C.int, cDaemonConfigFile *C.char, context unsafe.Pointer) {
+	contextID := uintptr(context)
+
+	preferencesCallbackMu.Lock()
+	callback, ok := preferencesCallbacks[contextID]
+	delete(preferencesCallbacks, contextID)
+	preferencesCallbackMu.Unlock()
+
+	if !ok {
+		logger.Error("Preferences callback not found", "context_id", contextID)
+		return
+	}
+
+	// Convert C strings to Go (must do before goroutine since C strings may be freed)
+	daemonAddr := C.GoString(cDaemonAddr)
+	syncInterval := C.GoString(cSyncInterval)
+	ocrEnabled := (cOCREnabled != 0)
+	daemonConfigFile := C.GoString(cDaemonConfigFile)
+
+	// Call the Go callback in a goroutine to avoid blocking Objective-C main thread
+	go callback(daemonAddr, syncInterval, ocrEnabled, daemonConfigFile)
+}
+
 // ShowNativePreferences shows the native macOS preferences window
-func (a *App) ShowNativePreferences() bool {
+func (a *App) ShowNativePreferences() {
 	// Convert Go strings to C strings
 	cDaemonAddr := C.CString(a.menuBarConfig.DaemonAddr)
 	cSyncInterval := C.CString(a.menuBarConfig.SyncInterval)
@@ -49,54 +70,52 @@ func (a *App) ShowNativePreferences() bool {
 		cOCREnabled = C.int(1)
 	}
 
-	// Create controller
+	// Create callback context
+	preferencesCallbackMu.Lock()
+	preferencesCallbackID++
+	contextID := preferencesCallbackID
+	preferencesCallbacks[contextID] = func(daemonAddr, syncInterval string, ocrEnabled bool, daemonConfigFile string) {
+		// Update configuration
+		a.menuBarConfig.DaemonAddr = daemonAddr
+		a.menuBarConfig.SyncInterval = syncInterval
+		a.menuBarConfig.OCREnabled = ocrEnabled
+		a.menuBarConfig.DaemonConfigFile = daemonConfigFile
+
+		// Save to file
+		if err := SaveMenuBarConfig(a.menuBarConfig, a.configPath); err != nil {
+			logger.Error("Failed to save configuration", "error", err)
+			a.showErrorDialog("Failed to save settings")
+			return
+		}
+
+		logger.Info("Configuration saved successfully")
+
+		// Show restart prompt
+		a.showRestartPrompt()
+	}
+	preferencesCallbackMu.Unlock()
+
+	// Create controller with callback context
+	// The Objective-C code will call preferencesGoCallback directly with this context
 	controller := C.createPreferencesController(
 		cDaemonAddr,
 		cSyncInterval,
 		cOCREnabled,
 		cDaemonConfigFile,
+		unsafe.Pointer(contextID),
 	)
 	if controller == nil {
 		logger.Error("Failed to create preferences controller")
-		return false
+		preferencesCallbackMu.Lock()
+		delete(preferencesCallbacks, contextID)
+		preferencesCallbackMu.Unlock()
+		return
 	}
-	defer C.releasePreferencesController(controller)
 
-	// Show window (non-blocking)
+	// Show window (non-blocking, callback will be called when saved)
 	C.showPreferencesWindow(controller)
 
-	// Wait for window to close
-	for C.isPreferencesWindowVisible(controller) != 0 {
-		time.Sleep(100 * time.Millisecond)
-	}
-
-	// Get result
-	result := C.getPreferencesResult(controller)
-	defer func() {
-		C.free(unsafe.Pointer(result.daemonAddr))
-		C.free(unsafe.Pointer(result.syncInterval))
-		C.free(unsafe.Pointer(result.daemonConfigFile))
-	}()
-
-	// Check if saved
-	if result.saved == 0 {
-		logger.Info("Preferences canceled by user")
-		return false
-	}
-
-	// Update configuration
-	a.menuBarConfig.DaemonAddr = C.GoString(result.daemonAddr)
-	a.menuBarConfig.SyncInterval = C.GoString(result.syncInterval)
-	a.menuBarConfig.OCREnabled = (result.ocrEnabled != 0)
-	a.menuBarConfig.DaemonConfigFile = C.GoString(result.daemonConfigFile)
-
-	// Save to file
-	if err := SaveMenuBarConfig(a.menuBarConfig, a.configPath); err != nil {
-		logger.Error("Failed to save configuration", "error", err)
-		a.showErrorDialog("Failed to save settings")
-		return false
-	}
-
-	logger.Info("Configuration saved successfully")
-	return true
+	// Note: We don't release the controller immediately because the window is still open
+	// The controller will be released when the window closes naturally
+	// This is safe because the window retains the controller
 }

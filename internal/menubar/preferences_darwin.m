@@ -1,17 +1,24 @@
 #import <Cocoa/Cocoa.h>
 #import <Foundation/Foundation.h>
 
+// Forward declare the Go callback function
+extern void preferencesGoCallback(const char *daemonAddr,
+                                  const char *syncInterval,
+                                  int ocrEnabled,
+                                  const char *daemonConfigFile,
+                                  void *context);
+
 @interface PreferencesController : NSObject <NSWindowDelegate>
 @property (strong, nonatomic) NSWindow *window;
 @property (strong, nonatomic) NSTextField *daemonAddrField;
 @property (strong, nonatomic) NSTextField *syncIntervalField;
 @property (strong, nonatomic) NSButton *ocrCheckbox;
 @property (strong, nonatomic) NSTextField *daemonConfigField;
-@property (nonatomic) BOOL saved;
 @property (copy, nonatomic) NSString *daemonAddr;
 @property (copy, nonatomic) NSString *syncInterval;
 @property (nonatomic) BOOL ocrEnabled;
 @property (copy, nonatomic) NSString *daemonConfigFile;
+@property (nonatomic) void *callbackContext;
 @end
 
 @implementation PreferencesController
@@ -26,7 +33,6 @@
         self.syncInterval = syncInterval;
         self.ocrEnabled = ocrEnabled;
         self.daemonConfigFile = daemonConfigFile;
-        self.saved = NO;
         [self createWindow];
     }
     return self;
@@ -47,6 +53,11 @@
     [self.window setDelegate:self];
     [self.window center];
 
+    // Enable dark mode support
+    if (@available(macOS 10.14, *)) {
+        [self.window setAppearance:nil]; // Use system appearance
+    }
+
     // Create content view
     NSView *contentView = [[NSView alloc] initWithFrame:frame];
     [self.window setContentView:contentView];
@@ -61,7 +72,12 @@
     [warningLabel setStringValue:@"⚠️  Changes require restarting the menu bar app"];
     [warningLabel setBezeled:NO];
     [warningLabel setDrawsBackground:YES];
-    [warningLabel setBackgroundColor:[NSColor colorWithRed:1.0 green:0.95 blue:0.8 alpha:1.0]];
+    if (@available(macOS 10.14, *)) {
+        [warningLabel setBackgroundColor:[NSColor.systemOrangeColor colorWithAlphaComponent:0.2]];
+        [warningLabel setTextColor:[NSColor labelColor]];
+    } else {
+        [warningLabel setBackgroundColor:[NSColor colorWithRed:1.0 green:0.95 blue:0.8 alpha:1.0]];
+    }
     [warningLabel setEditable:NO];
     [warningLabel setAlignment:NSTextAlignmentCenter];
     [contentView addSubview:warningLabel];
@@ -75,6 +91,9 @@
     [daemonAddrLabel setDrawsBackground:NO];
     [daemonAddrLabel setEditable:NO];
     [daemonAddrLabel setSelectable:NO];
+    if (@available(macOS 10.10, *)) {
+        [daemonAddrLabel setTextColor:[NSColor labelColor]];
+    }
     [contentView addSubview:daemonAddrLabel];
 
     self.daemonAddrField = [[NSTextField alloc] initWithFrame:NSMakeRect(160, y, fieldWidth, 24)];
@@ -91,6 +110,9 @@
     [syncIntervalLabel setDrawsBackground:NO];
     [syncIntervalLabel setEditable:NO];
     [syncIntervalLabel setSelectable:NO];
+    if (@available(macOS 10.10, *)) {
+        [syncIntervalLabel setTextColor:[NSColor labelColor]];
+    }
     [contentView addSubview:syncIntervalLabel];
 
     self.syncIntervalField = [[NSTextField alloc] initWithFrame:NSMakeRect(160, y, fieldWidth, 24)];
@@ -107,6 +129,9 @@
     [ocrLabel setDrawsBackground:NO];
     [ocrLabel setEditable:NO];
     [ocrLabel setSelectable:NO];
+    if (@available(macOS 10.10, *)) {
+        [ocrLabel setTextColor:[NSColor labelColor]];
+    }
     [contentView addSubview:ocrLabel];
 
     self.ocrCheckbox = [[NSButton alloc] initWithFrame:NSMakeRect(160, y, fieldWidth, 24)];
@@ -124,6 +149,9 @@
     [configLabel setDrawsBackground:NO];
     [configLabel setEditable:NO];
     [configLabel setSelectable:NO];
+    if (@available(macOS 10.10, *)) {
+        [configLabel setTextColor:[NSColor labelColor]];
+    }
     [contentView addSubview:configLabel];
 
     self.daemonConfigField = [[NSTextField alloc] initWithFrame:NSMakeRect(160, y, fieldWidth, 24)];
@@ -154,87 +182,70 @@
     self.syncInterval = [self.syncIntervalField stringValue];
     self.ocrEnabled = ([self.ocrCheckbox state] == NSControlStateValueOn);
     self.daemonConfigFile = [self.daemonConfigField stringValue];
-    self.saved = YES;
+
+    // Call the Go callback directly
+    preferencesGoCallback(
+        [self.daemonAddr UTF8String],
+        [self.syncInterval UTF8String],
+        self.ocrEnabled ? 1 : 0,
+        [self.daemonConfigFile UTF8String],
+        self.callbackContext
+    );
+
     [self.window close];
 }
 
 - (void)cancelClicked:(id)sender {
-    self.saved = NO;
     [self.window close];
 }
 
 - (void)show {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self.window makeKeyAndOrderFront:nil];
-        [NSApp activateIgnoringOtherApps:YES];
-    });
+    // Already on main thread due to dispatch in showPreferencesWindow
+    [self.window makeKeyAndOrderFront:nil];
+    [NSApp activateIgnoringOtherApps:YES];
 }
 
 @end
 
 // C interface for Go
-typedef struct {
-    const char *daemonAddr;
-    const char *syncInterval;
-    int ocrEnabled;
-    const char *daemonConfigFile;
-    int saved;
-} PreferencesResult;
-
 void *createPreferencesController(const char *daemonAddr,
                                   const char *syncInterval,
                                   int ocrEnabled,
-                                  const char *daemonConfigFile) {
-    @autoreleasepool {
-        NSString *nsAddr = [NSString stringWithUTF8String:daemonAddr];
-        NSString *nsInterval = [NSString stringWithUTF8String:syncInterval];
-        NSString *nsConfig = [NSString stringWithUTF8String:daemonConfigFile];
+                                  const char *daemonConfigFile,
+                                  void *context) {
+    __block void *result = NULL;
 
-        PreferencesController *controller = [[PreferencesController alloc]
-            initWithDaemonAddr:nsAddr
-            syncInterval:nsInterval
-            ocrEnabled:(ocrEnabled != 0)
-            daemonConfigFile:nsConfig];
+    // MUST run on main thread
+    dispatch_sync(dispatch_get_main_queue(), ^{
+        @autoreleasepool {
+            NSString *nsAddr = [NSString stringWithUTF8String:daemonAddr];
+            NSString *nsInterval = [NSString stringWithUTF8String:syncInterval];
+            NSString *nsConfig = [NSString stringWithUTF8String:daemonConfigFile];
 
-        [controller retain];
-        return (__bridge void *)controller;
-    }
+            PreferencesController *controller = [[PreferencesController alloc]
+                initWithDaemonAddr:nsAddr
+                syncInterval:nsInterval
+                ocrEnabled:(ocrEnabled != 0)
+                daemonConfigFile:nsConfig];
+
+            controller.callbackContext = context;
+
+            [controller retain];
+            result = (__bridge void *)controller;
+        }
+    });
+
+    return result;
 }
 
 void showPreferencesWindow(void *controller) {
-    @autoreleasepool {
-        PreferencesController *ctrl = (__bridge PreferencesController *)controller;
-        [ctrl show];
-    }
-}
-
-int isPreferencesWindowVisible(void *controller) {
-    __block int visible = 0;
-    @autoreleasepool {
-        PreferencesController *ctrl = (__bridge PreferencesController *)controller;
-        if ([NSThread isMainThread]) {
-            visible = [[ctrl window] isVisible] ? 1 : 0;
-        } else {
-            dispatch_sync(dispatch_get_main_queue(), ^{
-                visible = [[ctrl window] isVisible] ? 1 : 0;
-            });
+    // MUST run on main thread
+    dispatch_async(dispatch_get_main_queue(), ^{
+        @autoreleasepool {
+            PreferencesController *ctrl = (__bridge PreferencesController *)controller;
+            [ctrl show];
         }
-    }
-    return visible;
-}
-
-PreferencesResult getPreferencesResult(void *controller) {
-    PreferencesResult result;
-    @autoreleasepool {
-        PreferencesController *ctrl = (__bridge PreferencesController *)controller;
-
-        result.daemonAddr = strdup([ctrl.daemonAddr UTF8String]);
-        result.syncInterval = strdup([ctrl.syncInterval UTF8String]);
-        result.ocrEnabled = ctrl.ocrEnabled ? 1 : 0;
-        result.daemonConfigFile = strdup([ctrl.daemonConfigFile UTF8String]);
-        result.saved = ctrl.saved ? 1 : 0;
-    }
-    return result;
+    });
 }
 
 void releasePreferencesController(void *controller) {
