@@ -66,6 +66,7 @@ jobs:
           # CGO_ENABLED is set per-build in .goreleaser.yaml
           # - legible: CGO_ENABLED=0 (no dependencies, cross-platform)
           # - legible-menubar: CGO_ENABLED=1 (systray requires CGO on macOS)
+          # GoReleaser Pro will automatically create DMG installers for macOS
 
       - name: Upload artifacts to workflow
         uses: actions/upload-artifact@v6

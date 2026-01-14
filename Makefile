@@ -50,12 +50,14 @@ build-menubar-app: build build-menubar ## Build macOS .app bundle with daemon (d
 		exit 1; \
 	fi
 	@./scripts/package-macos-app.sh $(BUILD_DIR)/$(BINARY_NAME)-menubar $(BUILD_DIR) $(VERSION)
-	@echo "App bundle created: $(BUILD_DIR)/Legible.app"
-	@echo "Daemon binary: $(BUILD_DIR)/$(BINARY_NAME)"
+	@echo "✓ App bundle created: $(BUILD_DIR)/Legible.app"
+	@echo "✓ Daemon binary: $(BUILD_DIR)/$(BINARY_NAME)"
 	@echo ""
 	@echo "To install:"
 	@echo "  1. Copy Legible.app to /Applications/"
 	@echo "  2. Copy legible daemon to /usr/local/bin/ or another location in PATH"
+	@echo ""
+	@echo "Note: For release builds with DMG installer, use 'goreleaser release'"
 
 build-local: ## Build binary for current platform using goreleaser (recommended)
 	@echo "Building with goreleaser for current platform..."

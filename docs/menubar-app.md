@@ -14,6 +14,14 @@ The Legible menu bar application provides a convenient interface for managing do
 
 ### From Release (Recommended)
 
+**Option 1: DMG Installer** (Easiest)
+1. Download the latest `legible-menubar_VERSION_darwin_ARCH.dmg` from the [releases page](https://github.com/platinummonkey/legible/releases)
+2. Open the DMG file
+3. Drag `Legible.app` to the Applications folder
+4. Install the daemon: `brew install platinummonkey/tap/legible`
+5. Launch `Legible.app` from Applications
+
+**Option 2: ZIP Archive**
 1. Download the latest `legible-menubar_VERSION_darwin_ARCH.zip` from the [releases page](https://github.com/platinummonkey/legible/releases)
 2. Extract the zip file
 3. Copy `Legible.app` to `/Applications/`
