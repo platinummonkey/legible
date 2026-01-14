@@ -1,6 +1,6 @@
+// Package menubaricons provides embedded icon data for the menu bar application.
 // Generated icon data - DO NOT EDIT MANUALLY
 // Generated from assets/menubar-icons/*.png
-
 package menubaricons
 
 // iconGreen returns a green status icon.
@@ -65,4 +65,3 @@ func iconRed() []byte {
 		0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
 	}
 }
-
