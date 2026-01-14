@@ -270,7 +270,8 @@ func (a *App) handlePreferences() {
 	logger.Info("Preferences clicked")
 
 	if runtime.GOOS == "darwin" {
-		go a.showPreferencesWindow()
+		// Don't use goroutine - Cocoa must run on main thread
+		a.showPreferencesWindow()
 	} else {
 		logger.Info("Preferences", "config_path", a.configPath)
 	}

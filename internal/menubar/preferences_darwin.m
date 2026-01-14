@@ -163,9 +163,11 @@
     [self.window close];
 }
 
-- (void)showModal {
-    [self.window makeKeyAndOrderFront:nil];
-    [NSApp activateIgnoringOtherApps:YES];
+- (void)show {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.window makeKeyAndOrderFront:nil];
+        [NSApp activateIgnoringOtherApps:YES];
+    });
 }
 
 @end
@@ -202,19 +204,23 @@ void *createPreferencesController(const char *daemonAddr,
 void showPreferencesWindow(void *controller) {
     @autoreleasepool {
         PreferencesController *ctrl = (__bridge PreferencesController *)controller;
-        [ctrl showModal];
-
-        // Run modal loop
-        NSModalSession session = [NSApp beginModalSessionForWindow:ctrl.window];
-        while ([NSApp runModalSession:session] == NSModalResponseContinue) {
-            [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode
-                                     beforeDate:[NSDate distantFuture]];
-            if (![[ctrl window] isVisible]) {
-                break;
-            }
-        }
-        [NSApp endModalSession:session];
+        [ctrl show];
     }
+}
+
+int isPreferencesWindowVisible(void *controller) {
+    __block int visible = 0;
+    @autoreleasepool {
+        PreferencesController *ctrl = (__bridge PreferencesController *)controller;
+        if ([NSThread isMainThread]) {
+            visible = [[ctrl window] isVisible] ? 1 : 0;
+        } else {
+            dispatch_sync(dispatch_get_main_queue(), ^{
+                visible = [[ctrl window] isVisible] ? 1 : 0;
+            });
+        }
+    }
+    return visible;
 }
 
 PreferencesResult getPreferencesResult(void *controller) {

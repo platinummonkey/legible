@@ -22,11 +22,13 @@ void *createPreferencesController(const char *daemonAddr,
                                   int ocrEnabled,
                                   const char *daemonConfigFile);
 void showPreferencesWindow(void *controller);
+int isPreferencesWindowVisible(void *controller);
 PreferencesResult getPreferencesResult(void *controller);
 void releasePreferencesController(void *controller);
 */
 import "C"
 import (
+	"time"
 	"unsafe"
 
 	"github.com/platinummonkey/legible/internal/logger"
@@ -60,8 +62,13 @@ func (a *App) ShowNativePreferences() bool {
 	}
 	defer C.releasePreferencesController(controller)
 
-	// Show window (blocks until closed)
+	// Show window (non-blocking)
 	C.showPreferencesWindow(controller)
+
+	// Wait for window to close
+	for C.isPreferencesWindowVisible(controller) != 0 {
+		time.Sleep(100 * time.Millisecond)
+	}
 
 	// Get result
 	result := C.getPreferencesResult(controller)
