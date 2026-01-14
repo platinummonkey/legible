@@ -98,7 +98,7 @@ func (a *App) onReady() {
 
 	// Set initial icon (gray/starting state)
 	systray.SetIcon(iconGreen())
-	systray.SetTitle("Legible")
+	systray.SetTitle("") // No text - just icon
 	systray.SetTooltip("reMarkable Sync - Starting...")
 
 	// Create menu items
