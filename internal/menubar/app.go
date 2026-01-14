@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
-	"strings"
 	"time"
 
 	"fyne.io/systray"
@@ -266,233 +265,45 @@ func (a *App) handleAutoStartToggle() {
 	}
 }
 
-// handlePreferences opens the preferences dialog.
+// handlePreferences opens the preferences window.
 func (a *App) handlePreferences() {
 	logger.Info("Preferences clicked")
 
 	if runtime.GOOS == "darwin" {
-		go a.showPreferencesEditor()
+		go a.showPreferencesWindow()
 	} else {
 		logger.Info("Preferences", "config_path", a.configPath)
 	}
 }
 
-// showPreferencesEditor displays an interactive preferences editor
-func (a *App) showPreferencesEditor() {
-	for {
-		// Build current settings display
-		ocrStatus := "✓ Enabled"
-		if !a.menuBarConfig.OCREnabled {
-			ocrStatus = "✗ Disabled"
-		}
-
-		message := fmt.Sprintf(`Choose a setting to edit:
-
-1. Daemon Address: %s
-2. Sync Interval: %s
-3. OCR Processing: %s
-4. Daemon Config File: %s
-
-Select a number (1-4) to edit that setting, or click Done to close.`,
-			a.menuBarConfig.DaemonAddr,
-			a.menuBarConfig.SyncInterval,
-			ocrStatus,
-			a.menuBarConfig.DaemonConfigFile)
-
-		// Show selection dialog
-		script := fmt.Sprintf(`display dialog %q buttons {"Done", "Edit"} default button "Edit" with title "Legible Preferences" default answer "" with icon note`,
-			message)
-
-		cmd := exec.Command("osascript", "-e", script)
-		output, err := cmd.CombinedOutput()
-
-		if err != nil || len(output) == 0 {
-			// User clicked Done or closed dialog
-			logger.Info("Preferences editor closed")
-			return
-		}
-
-		outputStr := string(output)
-
-		// Check if user clicked Done
-		if len(outputStr) > 15 && outputStr[:15] == "button returned" && outputStr[16:20] == "Done" {
-			logger.Info("User finished editing preferences")
-			return
-		}
-
-		// Extract the user's choice from "text returned:X"
-		choice := ""
-		if idx := strings.Index(outputStr, "text returned:"); idx >= 0 {
-			textPart := outputStr[idx+14:]
-			if len(textPart) > 0 {
-				choice = strings.TrimSpace(strings.Split(textPart, ",")[0])
-			}
-		}
-
-		// Handle the user's choice
-		configChanged := false
-		switch choice {
-		case "1":
-			configChanged = a.editDaemonAddress()
-		case "2":
-			configChanged = a.editSyncInterval()
-		case "3":
-			configChanged = a.editOCRSetting()
-		case "4":
-			configChanged = a.editDaemonConfigFile()
-		default:
-			// Invalid choice, show error and continue
-			a.showInfoDialog("Please enter a number between 1 and 4")
-			continue
-		}
-
-		// If config changed, save it
-		if configChanged {
-			if err := SaveMenuBarConfig(a.menuBarConfig, a.configPath); err != nil {
-				logger.Error("Failed to save configuration", "error", err)
-				a.showErrorDialog(fmt.Sprintf("Failed to save settings: %v", err))
-			} else {
-				logger.Info("Configuration saved successfully")
-				// Ask if user wants to restart daemon
-				a.promptDaemonRestart()
-			}
-		}
-	}
-}
-
-// editDaemonAddress allows user to edit the daemon address
-func (a *App) editDaemonAddress() bool {
-	script := fmt.Sprintf(`display dialog "Enter daemon address (e.g., http://localhost:8080):" default answer %q buttons {"Cancel", "Save"} default button "Save" with title "Edit Daemon Address"`,
-		a.menuBarConfig.DaemonAddr)
-
-	cmd := exec.Command("osascript", "-e", script)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return false
-	}
-
-	// Extract new value
-	newValue := a.extractTextInput(string(output))
-	if newValue != "" && newValue != a.menuBarConfig.DaemonAddr {
-		a.menuBarConfig.DaemonAddr = newValue
-		a.daemonAddr = newValue
-		a.daemonClient = NewDaemonClient(newValue)
-		logger.Info("Daemon address updated", "new_addr", newValue)
-		return true
-	}
-	return false
-}
-
-// editSyncInterval allows user to edit the sync interval
-func (a *App) editSyncInterval() bool {
-	script := fmt.Sprintf(`display dialog "Enter sync interval (e.g., 30m, 1h, 2h):" default answer %q buttons {"Cancel", "Save"} default button "Save" with title "Edit Sync Interval"`,
-		a.menuBarConfig.SyncInterval)
-
-	cmd := exec.Command("osascript", "-e", script)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return false
-	}
-
-	// Extract new value
-	newValue := a.extractTextInput(string(output))
-	if newValue != "" && newValue != a.menuBarConfig.SyncInterval {
-		a.menuBarConfig.SyncInterval = newValue
-		logger.Info("Sync interval updated", "new_interval", newValue)
-		return true
-	}
-	return false
-}
-
-// editOCRSetting allows user to toggle OCR on/off
-func (a *App) editOCRSetting() bool {
-	currentStatus := "Enabled"
-	if !a.menuBarConfig.OCREnabled {
-		currentStatus = "Disabled"
-	}
-
-	script := fmt.Sprintf(`display dialog "OCR Processing is currently: %s\n\nDo you want to enable or disable OCR?" buttons {"Cancel", "Disable", "Enable"} default button "Enable" with title "Edit OCR Setting"`,
-		currentStatus)
-
-	cmd := exec.Command("osascript", "-e", script)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return false
-	}
-
-	outputStr := string(output)
-	if strings.Contains(outputStr, "button returned:Enable") {
-		if !a.menuBarConfig.OCREnabled {
-			a.menuBarConfig.OCREnabled = true
-			logger.Info("OCR enabled")
-			return true
-		}
-	} else if strings.Contains(outputStr, "button returned:Disable") {
-		if a.menuBarConfig.OCREnabled {
-			a.menuBarConfig.OCREnabled = false
-			logger.Info("OCR disabled")
-			return true
-		}
-	}
-	return false
-}
-
-// editDaemonConfigFile allows user to edit the daemon config file path
-func (a *App) editDaemonConfigFile() bool {
-	script := fmt.Sprintf(`display dialog "Enter path to daemon config file:" default answer %q buttons {"Cancel", "Save"} default button "Save" with title "Edit Daemon Config File"`,
-		a.menuBarConfig.DaemonConfigFile)
-
-	cmd := exec.Command("osascript", "-e", script)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return false
-	}
-
-	// Extract new value
-	newValue := a.extractTextInput(string(output))
-	if newValue != "" && newValue != a.menuBarConfig.DaemonConfigFile {
-		a.menuBarConfig.DaemonConfigFile = newValue
-		logger.Info("Daemon config file updated", "new_path", newValue)
-		return true
-	}
-	return false
-}
-
-// promptDaemonRestart asks user if they want to restart the app
-func (a *App) promptDaemonRestart() {
-	script := `display dialog "Settings saved successfully.\n\nTo apply changes, please restart the Legible menu bar app. Would you like to quit now?" buttons {"Later", "Quit App"} default button "Quit App" with title "Restart Required"`
-
-	cmd := exec.Command("osascript", "-e", script)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
+// showPreferencesWindow starts a local HTTP server and opens the preferences in a browser
+func (a *App) showPreferencesWindow() {
+	// Create and start preferences server
+	prefsServer := NewPreferencesServer(a)
+	if prefsServer == nil {
+		a.showErrorDialog("Failed to create preferences server")
 		return
 	}
 
-	if strings.Contains(string(output), "button returned:Quit App") {
-		logger.Info("User requested app restart, quitting...")
-		systray.Quit()
+	url, err := prefsServer.Start()
+	if err != nil {
+		logger.Error("Failed to start preferences server", "error", err)
+		a.showErrorDialog(fmt.Sprintf("Failed to start preferences server: %v", err))
+		return
 	}
-}
 
-// extractTextInput extracts text input from osascript output
-func (a *App) extractTextInput(output string) string {
-	if idx := strings.Index(output, "text returned:"); idx >= 0 {
-		textPart := output[idx+14:]
-		// Extract until comma or end
-		if commaIdx := strings.Index(textPart, ","); commaIdx >= 0 {
-			return strings.TrimSpace(textPart[:commaIdx])
-		}
-		return strings.TrimSpace(textPart)
+	logger.Info("Preferences server started", "url", url)
+
+	// Open in default browser
+	cmd := exec.Command("open", url)
+	if err := cmd.Run(); err != nil {
+		logger.Error("Failed to open preferences", "error", err)
+		prefsServer.Stop()
+		a.showErrorDialog(fmt.Sprintf("Failed to open preferences: %v", err))
+		return
 	}
-	return ""
-}
 
-// showInfoDialog displays an informational message
-func (a *App) showInfoDialog(message string) {
-	script := fmt.Sprintf(`display dialog %q buttons {"OK"} default button "OK" with title "Legible" with icon note`,
-		message)
-	cmd := exec.Command("osascript", "-e", script)
-	_ = cmd.Run() // Ignore error
+	logger.Info("Preferences window opened in browser")
 }
 
 // showErrorDialog displays an error message in a native macOS dialog
