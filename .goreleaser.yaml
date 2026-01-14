@@ -80,7 +80,7 @@ builds:
 
     hooks:
       post:
-        - cmd: bash -c 'if [ "{{.Os}}" = "darwin" ]; then ./scripts/package-macos-app.sh "{{.Path}}" "{{.Dir}}" "{{.Version}}"; fi'
+        - cmd: bash -c 'if [ "{{.Os}}" = "darwin" ]; then OUTPUT_DIR=$(dirname $(dirname "{{.Path}}")); ./scripts/package-macos-app.sh "{{.Path}}" "$OUTPUT_DIR" "{{.Version}}"; fi'
 
 archives:
   - id: default
