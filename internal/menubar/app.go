@@ -276,34 +276,24 @@ func (a *App) handlePreferences() {
 	}
 }
 
-// showPreferencesWindow starts a local HTTP server and opens the preferences in a browser
+// showPreferencesWindow shows the native preferences window
 func (a *App) showPreferencesWindow() {
-	// Create and start preferences server
-	prefsServer := NewPreferencesServer(a)
-	if prefsServer == nil {
-		a.showErrorDialog("Failed to create preferences server")
-		return
+	saved := a.ShowNativePreferences()
+
+	if saved {
+		// Show success message and offer to restart
+		script := `display dialog "Settings saved successfully!\n\nTo apply changes, please restart the menu bar app.\n\nWould you like to quit now?" buttons {"Later", "Quit App"} default button "Quit App" with title "Restart Required" with icon note`
+		cmd := exec.Command("osascript", "-e", script)
+		output, err := cmd.CombinedOutput()
+
+		if err == nil && len(output) > 0 {
+			outputStr := string(output)
+			if len(outputStr) > 20 && outputStr[16:24] == "Quit App" {
+				logger.Info("User requested app restart, quitting...")
+				systray.Quit()
+			}
+		}
 	}
-
-	url, err := prefsServer.Start()
-	if err != nil {
-		logger.Error("Failed to start preferences server", "error", err)
-		a.showErrorDialog(fmt.Sprintf("Failed to start preferences server: %v", err))
-		return
-	}
-
-	logger.Info("Preferences server started", "url", url)
-
-	// Open in default browser
-	cmd := exec.Command("open", url)
-	if err := cmd.Run(); err != nil {
-		logger.Error("Failed to open preferences", "error", err)
-		prefsServer.Stop()
-		a.showErrorDialog(fmt.Sprintf("Failed to open preferences: %v", err))
-		return
-	}
-
-	logger.Info("Preferences window opened in browser")
 }
 
 // showErrorDialog displays an error message in a native macOS dialog
