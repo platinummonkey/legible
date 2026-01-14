@@ -18,13 +18,16 @@ import (
 // App represents the menu bar application.
 type App struct {
 	// Menu items
-	mStatus      *systray.MenuItem
-	mStartSync   *systray.MenuItem
-	mStopSync    *systray.MenuItem
-	mOpenOutput  *systray.MenuItem
-	mAutoStart   *systray.MenuItem
-	mPreferences *systray.MenuItem
-	mQuit        *systray.MenuItem
+	mStatus        *systray.MenuItem
+	mStartSync     *systray.MenuItem
+	mStopSync      *systray.MenuItem
+	mOpenOutput    *systray.MenuItem
+	mStartDaemon   *systray.MenuItem
+	mRestartDaemon *systray.MenuItem
+	mStopDaemon    *systray.MenuItem
+	mAutoStart     *systray.MenuItem
+	mPreferences   *systray.MenuItem
+	mQuit          *systray.MenuItem
 
 	// Application state
 	isRunning  bool
@@ -114,6 +117,17 @@ func (a *App) onReady() {
 
 	systray.AddSeparator()
 
+	// Daemon control menu items
+	a.mStartDaemon = systray.AddMenuItem("Start Daemon", "Start the sync daemon")
+	a.mRestartDaemon = systray.AddMenuItem("Restart Daemon", "Restart the sync daemon")
+	a.mStopDaemon = systray.AddMenuItem("Stop Daemon", "Stop the sync daemon")
+	// Initially hide all daemon controls - will be shown based on state
+	a.mStartDaemon.Hide()
+	a.mRestartDaemon.Hide()
+	a.mStopDaemon.Hide()
+
+	systray.AddSeparator()
+
 	// Auto-start menu item with checkbox
 	a.mAutoStart = systray.AddMenuItemCheckbox("Start at Login", "Launch automatically when you log in", false)
 	// Set initial checkbox state
@@ -170,6 +184,12 @@ func (a *App) handleMenuEvents() {
 			a.handleStopSync()
 		case <-a.mOpenOutput.ClickedCh:
 			a.handleOpenOutput()
+		case <-a.mStartDaemon.ClickedCh:
+			a.handleStartDaemon()
+		case <-a.mRestartDaemon.ClickedCh:
+			a.handleRestartDaemon()
+		case <-a.mStopDaemon.ClickedCh:
+			a.handleStopDaemon()
 		case <-a.mAutoStart.ClickedCh:
 			a.handleAutoStartToggle()
 		case <-a.mPreferences.ClickedCh:
@@ -263,6 +283,82 @@ func (a *App) handleAutoStartToggle() {
 	if err := SaveMenuBarConfig(a.menuBarConfig, a.configPath); err != nil {
 		logger.Error("Failed to save configuration", "error", err)
 	}
+}
+
+// handleStartDaemon handles starting the daemon.
+func (a *App) handleStartDaemon() {
+	logger.Info("Start daemon clicked")
+
+	if a.daemonManager == nil {
+		logger.Error("Daemon manager not configured")
+		a.setStatus("Error: Daemon manager not available", iconRed())
+		return
+	}
+
+	a.setStatus("Starting daemon...", iconYellow())
+
+	if err := a.daemonManager.Start(); err != nil {
+		logger.Error("Failed to start daemon", "error", err)
+		a.setStatus(fmt.Sprintf("Error: %s", err.Error()), iconRed())
+		return
+	}
+
+	logger.Info("Daemon started successfully")
+	// Status will be updated by polling
+}
+
+// handleRestartDaemon handles restarting the daemon.
+func (a *App) handleRestartDaemon() {
+	logger.Info("Restart daemon clicked")
+
+	if a.daemonManager == nil {
+		logger.Error("Daemon manager not configured")
+		a.setStatus("Error: Daemon manager not available", iconRed())
+		return
+	}
+
+	a.setStatus("Restarting daemon...", iconYellow())
+
+	// Stop first
+	if err := a.daemonManager.Stop(); err != nil {
+		logger.Error("Failed to stop daemon during restart", "error", err)
+		// Continue anyway and try to start
+	}
+
+	// Wait a moment for clean shutdown
+	time.Sleep(500 * time.Millisecond)
+
+	// Start again
+	if err := a.daemonManager.Start(); err != nil {
+		logger.Error("Failed to start daemon after restart", "error", err)
+		a.setStatus(fmt.Sprintf("Error: %s", err.Error()), iconRed())
+		return
+	}
+
+	logger.Info("Daemon restarted successfully")
+	// Status will be updated by polling
+}
+
+// handleStopDaemon handles stopping the daemon.
+func (a *App) handleStopDaemon() {
+	logger.Info("Stop daemon clicked")
+
+	if a.daemonManager == nil {
+		logger.Error("Daemon manager not configured")
+		a.setStatus("Error: Daemon manager not available", iconRed())
+		return
+	}
+
+	a.setStatus("Stopping daemon...", iconYellow())
+
+	if err := a.daemonManager.Stop(); err != nil {
+		logger.Error("Failed to stop daemon", "error", err)
+		a.setStatus(fmt.Sprintf("Error: %s", err.Error()), iconRed())
+		return
+	}
+
+	logger.Info("Daemon stopped successfully")
+	a.setStatus("Daemon stopped", iconRed())
 }
 
 // handlePreferences opens the preferences window.
@@ -365,6 +461,14 @@ func (a *App) updateStatusFromDaemon() {
 		a.setStatus("Error: Cannot connect to daemon", iconRed())
 		a.mStartSync.Disable()
 		a.mStopSync.Disable()
+
+		// Show start daemon option when daemon is unreachable
+		if a.daemonManager != nil {
+			a.mStartDaemon.Show()
+			a.mStartDaemon.Enable()
+			a.mRestartDaemon.Hide()
+			a.mStopDaemon.Hide()
+		}
 		return
 	}
 
@@ -374,6 +478,14 @@ func (a *App) updateStatusFromDaemon() {
 		a.setStatus("Daemon offline", iconRed())
 		a.mStartSync.Disable()
 		a.mStopSync.Disable()
+
+		// Show start daemon option when daemon is offline
+		if a.daemonManager != nil {
+			a.mStartDaemon.Show()
+			a.mStartDaemon.Enable()
+			a.mRestartDaemon.Hide()
+			a.mStopDaemon.Hide()
+		}
 
 	case StateIdle:
 		// Show last sync info if available
@@ -387,6 +499,15 @@ func (a *App) updateStatusFromDaemon() {
 		a.setStatus(statusText, iconGreen())
 		a.mStartSync.Enable()
 		a.mStopSync.Disable()
+
+		// Show restart/stop options when daemon is running
+		if a.daemonManager != nil {
+			a.mStartDaemon.Hide()
+			a.mRestartDaemon.Show()
+			a.mRestartDaemon.Enable()
+			a.mStopDaemon.Show()
+			a.mStopDaemon.Enable()
+		}
 
 	case StateSyncing:
 		// Show sync progress
@@ -405,6 +526,15 @@ func (a *App) updateStatusFromDaemon() {
 		a.mStartSync.Disable()
 		a.mStopSync.Enable()
 
+		// Show restart/stop options when daemon is running
+		if a.daemonManager != nil {
+			a.mStartDaemon.Hide()
+			a.mRestartDaemon.Show()
+			a.mRestartDaemon.Enable()
+			a.mStopDaemon.Show()
+			a.mStopDaemon.Enable()
+		}
+
 	case StateError:
 		errMsg := "Sync failed"
 		if status.ErrorMessage != "" {
@@ -413,5 +543,14 @@ func (a *App) updateStatusFromDaemon() {
 		a.setStatus(errMsg, iconRed())
 		a.mStartSync.Enable()
 		a.mStopSync.Disable()
+
+		// Show restart/stop options when daemon is running
+		if a.daemonManager != nil {
+			a.mStartDaemon.Hide()
+			a.mRestartDaemon.Show()
+			a.mRestartDaemon.Enable()
+			a.mStopDaemon.Show()
+			a.mStopDaemon.Enable()
+		}
 	}
 }
