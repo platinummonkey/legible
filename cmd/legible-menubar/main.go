@@ -10,8 +10,11 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 
+	"fyne.io/systray"
 	"github.com/platinummonkey/legible/internal/config"
 	"github.com/platinummonkey/legible/internal/logger"
 	"github.com/platinummonkey/legible/internal/menubar"
@@ -108,12 +111,34 @@ func main() {
 		logger.Info("Daemon auto-launch disabled")
 	}
 
-	// Create and run the menu bar app
+	// Create the menu bar app
 	app := menubar.New(&menubar.Config{
 		OutputDir:     outDir,
 		DaemonAddr:    *daemonAddr,
 		DaemonManager: daemonManager,
 	})
+
+	// Set up signal handler to ensure clean shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigChan
+		logger.Info("Received signal, stopping daemon and quitting", "signal", sig)
+
+		// Stop daemon before quitting to ensure clean shutdown
+		if daemonManager != nil {
+			logger.Info("Stopping daemon from signal handler")
+			if err := daemonManager.Stop(); err != nil {
+				logger.Error("Error stopping daemon from signal handler", "error", err)
+			} else {
+				logger.Info("Daemon stopped successfully from signal handler")
+			}
+		}
+
+		systray.Quit()
+	}()
+
+	// Run the menu bar app
 	app.Run()
 
 	logger.Info("Menu bar application exited")

@@ -28,6 +28,7 @@ type DaemonManager struct {
 	// Process management
 	cmd           *exec.Cmd
 	isRunning     bool
+	stopping      bool          // Set to true when Stop() is called
 	restartCount  int
 	maxRestarts   int
 	restartDelay  time.Duration
@@ -119,6 +120,21 @@ func (dm *DaemonManager) Start() error {
 		return nil
 	}
 
+	// Don't start if already running
+	if dm.isRunning {
+		logger.Info("Daemon already running")
+		return nil
+	}
+
+	// Reset stopping flag in case we're restarting after a stop
+	dm.stopping = false
+
+	// Recreate context if it was cancelled
+	if dm.ctx.Err() != nil {
+		dm.ctx, dm.cancel = context.WithCancel(context.Background())
+		dm.stopChan = make(chan struct{})
+	}
+
 	logger.Info("Starting daemon manager", "daemon_path", dm.daemonPath)
 
 	// Start daemon process
@@ -135,6 +151,11 @@ func (dm *DaemonManager) Start() error {
 // Stop stops the daemon gracefully
 func (dm *DaemonManager) Stop() error {
 	logger.Info("Stopping daemon manager")
+
+	// Set stopping flag to prevent monitor from restarting
+	dm.mu.Lock()
+	dm.stopping = true
+	dm.mu.Unlock()
 
 	// Cancel context (stops monitor loop)
 	dm.cancel()
@@ -258,8 +279,19 @@ func (dm *DaemonManager) monitor() {
 		case <-dm.ctx.Done():
 			return
 		case <-dm.processDied:
-			// Daemon process died - attempt restart
+			// Daemon process died
 			dm.mu.Lock()
+
+			// Don't restart if we're stopping
+			if dm.stopping {
+				logger.Info("Daemon process exited during shutdown")
+				dm.isRunning = false
+				dm.cmd = nil
+				dm.mu.Unlock()
+				return
+			}
+
+			// Attempt restart
 			logger.Warn("Daemon process died, attempting restart", "pid", dm.cmd.Process.Pid)
 			dm.isRunning = false
 			dm.cmd = nil
