@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/platinummonkey/legible/internal/config"
 	"github.com/platinummonkey/legible/internal/converter"
 	"github.com/platinummonkey/legible/internal/daemon"
 	"github.com/platinummonkey/legible/internal/logger"
@@ -94,6 +95,96 @@ func configureRMClient(log *logger.Logger) (*rmclient.Client, error) {
 	return rmclient.NewClient(rmClientCfg)
 }
 
+// initializeOCR sets up OCR processor and PDF enhancer if enabled in config
+func initializeOCR(cfg *config.Config, log *logger.Logger) (*ocr.Processor, *pdfenhancer.PDFEnhancer, error) {
+	// Initialize OCR processor and PDF enhancer if enabled
+	var ocrProc *ocr.Processor
+	var pdfEnhancer *pdfenhancer.PDFEnhancer
+
+	if cfg.OCREnabled {
+		// Convert config.LLMConfig to ocr.VisionClientConfig
+		visionConfig := &ocr.VisionClientConfig{
+			Provider:    ocr.ProviderType(cfg.LLM.Provider),
+			Model:       cfg.LLM.Model,
+			Endpoint:    cfg.LLM.Endpoint,
+			APIKey:      cfg.LLM.APIKey,
+			MaxRetries:  cfg.LLM.MaxRetries,
+			Temperature: cfg.LLM.Temperature,
+		}
+
+		var err error
+		ocrProc, err = ocr.New(&ocr.Config{
+			Logger:       log,
+			VisionConfig: visionConfig,
+		})
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create OCR processor: %w", err)
+		}
+
+		pdfEnhancer = pdfenhancer.New(&pdfenhancer.Config{
+			Logger: log,
+		})
+	}
+
+	return ocrProc, pdfEnhancer, nil
+}
+
+// createDaemonWithComponents initializes converter, orchestrator, and daemon
+func createDaemonWithComponents(
+	cfg *config.Config,
+	log *logger.Logger,
+	rmClient *rmclient.Client,
+	stateStore *state.Manager,
+	ocrProc *ocr.Processor,
+	pdfEnhancer *pdfenhancer.PDFEnhancer,
+) (*daemon.Daemon, error) {
+	// Parse OCR languages
+	ocrLangs := []string{"eng"}
+	if cfg.OCRLanguages != "" {
+		ocrLangs = []string{cfg.OCRLanguages}
+	}
+
+	// Initialize converter with pre-configured processors
+	conv, err := converter.New(&converter.Config{
+		Logger:       log,
+		EnableOCR:    cfg.OCREnabled,
+		OCRLanguages: ocrLangs,
+		OCRProcessor: ocrProc,
+		PDFEnhancer:  pdfEnhancer,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create converter: %w", err)
+	}
+
+	// Create sync orchestrator
+	orch, err := sync.New(&sync.Config{
+		Config:       cfg,
+		Logger:       log,
+		RMClient:     rmClient,
+		StateStore:   stateStore,
+		Converter:    conv,
+		OCRProcessor: ocrProc,
+		PDFEnhancer:  pdfEnhancer,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create orchestrator: %w", err)
+	}
+
+	// Create daemon
+	d, err := daemon.New(&daemon.Config{
+		Orchestrator:    orch,
+		Logger:          log,
+		SyncInterval:    cfg.SyncInterval,
+		HealthCheckAddr: viper.GetString("daemon.health_addr"),
+		PIDFile:         viper.GetString("daemon.pid_file"),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create daemon: %w", err)
+	}
+
+	return d, nil
+}
+
 func runDaemon(_ *cobra.Command, _ []string) error {
 	// Load configuration first
 	cfg, err := loadConfig()
@@ -148,75 +239,16 @@ func runDaemon(_ *cobra.Command, _ []string) error {
 		log.Fatal("Failed to initialize state:", err)
 	}
 
-	// Parse OCR languages from config (comma or plus separated)
-	ocrLangs := []string{"eng"}
-	if cfg.OCRLanguages != "" {
-		ocrLangs = []string{cfg.OCRLanguages}
-	}
-
-	// Initialize OCR processor and PDF enhancer if enabled
-	var ocrProc *ocr.Processor
-	var pdfEnhancer *pdfenhancer.PDFEnhancer
-	if cfg.OCREnabled {
-		// Convert config.LLMConfig to ocr.VisionClientConfig
-		visionConfig := &ocr.VisionClientConfig{
-			Provider:    ocr.ProviderType(cfg.LLM.Provider),
-			Model:       cfg.LLM.Model,
-			Endpoint:    cfg.LLM.Endpoint,
-			APIKey:      cfg.LLM.APIKey,
-			MaxRetries:  cfg.LLM.MaxRetries,
-			Temperature: cfg.LLM.Temperature,
-		}
-
-		ocrProc, err = ocr.New(&ocr.Config{
-			Logger:       log,
-			VisionConfig: visionConfig,
-		})
-		if err != nil {
-			return fmt.Errorf("failed to create OCR processor: %w", err)
-		}
-
-		pdfEnhancer = pdfenhancer.New(&pdfenhancer.Config{
-			Logger: log,
-		})
-	}
-
-	// Initialize converter with pre-configured processors
-	conv, err := converter.New(&converter.Config{
-		Logger:       log,
-		EnableOCR:    cfg.OCREnabled,
-		OCRLanguages: ocrLangs,
-		OCRProcessor: ocrProc,
-		PDFEnhancer:  pdfEnhancer,
-	})
+	// Initialize OCR components if enabled
+	ocrProc, pdfEnhancer, err := initializeOCR(cfg, log)
 	if err != nil {
-		return fmt.Errorf("failed to create converter: %w", err)
+		return err
 	}
 
-	// Create sync orchestrator
-	orch, err := sync.New(&sync.Config{
-		Config:       cfg,
-		Logger:       log,
-		RMClient:     rmClient,
-		StateStore:   stateStore,
-		Converter:    conv,
-		OCRProcessor: ocrProc,
-		PDFEnhancer:  pdfEnhancer,
-	})
+	// Create daemon with all components
+	d, err := createDaemonWithComponents(cfg, log, rmClient, stateStore, ocrProc, pdfEnhancer)
 	if err != nil {
-		return fmt.Errorf("failed to create orchestrator: %w", err)
-	}
-
-	// Create daemon
-	d, err := daemon.New(&daemon.Config{
-		Orchestrator:    orch,
-		Logger:          log,
-		SyncInterval:    cfg.SyncInterval,
-		HealthCheckAddr: viper.GetString("daemon.health_addr"),
-		PIDFile:         viper.GetString("daemon.pid_file"),
-	})
-	if err != nil {
-		return fmt.Errorf("failed to create daemon: %w", err)
+		return err
 	}
 
 	// Run daemon (blocks until shutdown signal)
