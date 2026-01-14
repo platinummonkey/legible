@@ -1,6 +1,9 @@
 //go:build darwin
 // +build darwin
 
+// Package main implements the macOS menu bar application for Legible.
+// This application provides a system tray interface for managing the Legible daemon
+// and triggering document synchronization from reMarkable tablets.
 package main
 
 import (
@@ -63,11 +66,33 @@ func main() {
 
 	logger.Info("Configuration loaded", "output_dir", outDir, "daemon_addr", *daemonAddr)
 
+	// Load menu bar configuration
+	menuBarCfg, err := menubar.LoadMenuBarConfig("")
+	if err != nil {
+		logger.Warn("Failed to load menu bar config, using defaults", "error", err)
+		menuBarCfg = menubar.DefaultMenuBarConfig()
+	}
+
+	// Build daemon args from menu bar config
+	daemonArgs := []string{"daemon"}
+	if menuBarCfg.DaemonConfigFile != "" {
+		daemonArgs = append(daemonArgs, "--config", menuBarCfg.DaemonConfigFile)
+	}
+	if menuBarCfg.SyncInterval != "" {
+		daemonArgs = append(daemonArgs, "--interval", menuBarCfg.SyncInterval)
+	}
+	if !menuBarCfg.OCREnabled {
+		daemonArgs = append(daemonArgs, "--no-ocr")
+	}
+
+	logger.Info("Daemon arguments configured", "args", daemonArgs)
+
 	// Create daemon manager (unless auto-launch is disabled)
 	var daemonManager *menubar.DaemonManager
 	if !*noAutoLaunch {
 		dm, err := menubar.NewDaemonManager(&menubar.DaemonManagerConfig{
 			DaemonAddr: *daemonAddr,
+			DaemonArgs: daemonArgs,
 			AutoLaunch: true,
 		})
 		if err != nil {

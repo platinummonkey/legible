@@ -18,25 +18,30 @@ import (
 // App represents the menu bar application.
 type App struct {
 	// Menu items
-	mStatus       *systray.MenuItem
-	mStartSync    *systray.MenuItem
-	mStopSync     *systray.MenuItem
-	mOpenOutput   *systray.MenuItem
-	mPreferences  *systray.MenuItem
-	mQuit         *systray.MenuItem
+	mStatus      *systray.MenuItem
+	mStartSync   *systray.MenuItem
+	mStopSync    *systray.MenuItem
+	mOpenOutput  *systray.MenuItem
+	mAutoStart   *systray.MenuItem
+	mPreferences *systray.MenuItem
+	mQuit        *systray.MenuItem
 
 	// Application state
-	isRunning     bool
-	outputDir     string
-	statusText    string
-	daemonAddr    string
+	isRunning  bool
+	outputDir  string
+	statusText string
+	daemonAddr string
+
+	// Configuration
+	menuBarConfig *MenuBarConfig
+	configPath    string
 
 	// Daemon management
 	daemonManager *DaemonManager
 	daemonClient  *DaemonClient
 
 	// Channels for menu actions
-	quitChan      chan struct{}
+	quitChan chan struct{}
 }
 
 // Config holds configuration for the menu bar app
@@ -59,9 +64,19 @@ func New(cfg *Config) *App {
 		cfg.DaemonAddr = "http://localhost:8080"
 	}
 
+	// Load menu bar configuration
+	configPath, _ := GetConfigPath()
+	menuBarCfg, err := LoadMenuBarConfig("")
+	if err != nil {
+		logger.Warn("Failed to load menu bar config, using defaults", "error", err)
+		menuBarCfg = DefaultMenuBarConfig()
+	}
+
 	return &App{
 		outputDir:     cfg.OutputDir,
 		daemonAddr:    cfg.DaemonAddr,
+		menuBarConfig: menuBarCfg,
+		configPath:    configPath,
 		daemonManager: cfg.DaemonManager,
 		daemonClient:  NewDaemonClient(cfg.DaemonAddr),
 		statusText:    "Starting...",
@@ -96,6 +111,17 @@ func (a *App) onReady() {
 	systray.AddSeparator()
 
 	a.mOpenOutput = systray.AddMenuItem("Open Output Folder", "Open the output directory in Finder")
+
+	systray.AddSeparator()
+
+	// Auto-start menu item with checkbox
+	a.mAutoStart = systray.AddMenuItemCheckbox("Start at Login", "Launch automatically when you log in", false)
+	// Set initial checkbox state
+	if enabled, err := IsAutoStartEnabled(); err == nil && enabled {
+		a.mAutoStart.Check()
+		a.menuBarConfig.AutoStartEnabled = true
+	}
+
 	a.mPreferences = systray.AddMenuItem("Preferences...", "Configure settings")
 
 	systray.AddSeparator()
@@ -144,6 +170,8 @@ func (a *App) handleMenuEvents() {
 			a.handleStopSync()
 		case <-a.mOpenOutput.ClickedCh:
 			a.handleOpenOutput()
+		case <-a.mAutoStart.ClickedCh:
+			a.handleAutoStartToggle()
 		case <-a.mPreferences.ClickedCh:
 			a.handlePreferences()
 		case <-a.mQuit.ClickedCh:
@@ -199,13 +227,61 @@ func (a *App) handleOpenOutput() {
 	}
 }
 
+// handleAutoStartToggle handles toggling the auto-start feature.
+func (a *App) handleAutoStartToggle() {
+	logger.Info("Auto-start toggle clicked")
+
+	// Check current state
+	enabled, err := IsAutoStartEnabled()
+	if err != nil {
+		logger.Error("Failed to check auto-start status", "error", err)
+		return
+	}
+
+	// Toggle the state
+	if enabled {
+		// Disable auto-start
+		if err := DisableAutoStart(); err != nil {
+			logger.Error("Failed to disable auto-start", "error", err)
+			return
+		}
+		a.mAutoStart.Uncheck()
+		a.menuBarConfig.AutoStartEnabled = false
+		logger.Info("Auto-start disabled")
+	} else {
+		// Enable auto-start
+		if err := EnableAutoStart(); err != nil {
+			logger.Error("Failed to enable auto-start", "error", err)
+			return
+		}
+		a.mAutoStart.Check()
+		a.menuBarConfig.AutoStartEnabled = true
+		logger.Info("Auto-start enabled")
+	}
+
+	// Save configuration
+	if err := SaveMenuBarConfig(a.menuBarConfig, a.configPath); err != nil {
+		logger.Error("Failed to save configuration", "error", err)
+	}
+}
+
 // handlePreferences opens the preferences dialog.
 func (a *App) handlePreferences() {
 	logger.Info("Preferences clicked")
 
-	// TODO: Implement preferences dialog
-	// For now, just log
-	logger.Info("Preferences (not yet implemented)")
+	// Log current configuration for now
+	logger.Info("Current configuration",
+		"daemon_config", a.menuBarConfig.DaemonConfigFile,
+		"daemon_addr", a.menuBarConfig.DaemonAddr,
+		"sync_interval", a.menuBarConfig.SyncInterval,
+		"ocr_enabled", a.menuBarConfig.OCREnabled,
+		"auto_start", a.menuBarConfig.AutoStartEnabled,
+	)
+
+	// TODO: Implement full preferences dialog UI
+	// For now, the configuration can be edited by modifying ~/.legible/menubar-config.yaml
+	logger.Info("To edit preferences, modify ~/.legible/menubar-config.yaml")
+	logger.Info("Available settings: daemon_config_file, daemon_addr, sync_interval, ocr_enabled")
 }
 
 // setStatus updates the status display and icon.
