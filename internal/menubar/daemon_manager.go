@@ -20,33 +20,33 @@ type DaemonManager struct {
 	mu sync.Mutex
 
 	// Configuration
-	daemonPath    string   // Path to legible binary
-	daemonAddr    string   // Daemon HTTP address
-	daemonArgs    []string // Additional daemon arguments
-	autoLaunch    bool     // Whether to auto-launch daemon
+	daemonPath string   // Path to legible binary
+	daemonAddr string   // Daemon HTTP address
+	daemonArgs []string // Additional daemon arguments
+	autoLaunch bool     // Whether to auto-launch daemon
 
 	// Process management
-	cmd           *exec.Cmd
-	isRunning     bool
-	stopping      bool          // Set to true when Stop() is called
-	restartCount  int
-	maxRestarts   int
-	restartDelay  time.Duration
-	processDied   chan struct{} // Closed when daemon process exits
+	cmd          *exec.Cmd
+	isRunning    bool
+	stopping     bool // Set to true when Stop() is called
+	restartCount int
+	maxRestarts  int
+	restartDelay time.Duration
+	processDied  chan struct{} // Closed when daemon process exits
 
 	// Control
-	ctx           context.Context
-	cancel        context.CancelFunc
-	stopChan      chan struct{}
+	ctx      context.Context
+	cancel   context.CancelFunc
+	stopChan chan struct{}
 }
 
 // DaemonManagerConfig holds configuration for the daemon manager
 type DaemonManagerConfig struct {
-	DaemonPath   string   // Path to legible binary (default: find in PATH)
-	DaemonAddr   string   // HTTP address for daemon (e.g., "localhost:8080")
-	DaemonArgs   []string // Additional arguments to pass to daemon
-	AutoLaunch   bool     // Whether to auto-launch daemon (default: true)
-	MaxRestarts  int      // Max restart attempts (default: 5)
+	DaemonPath   string        // Path to legible binary (default: find in PATH)
+	DaemonAddr   string        // HTTP address for daemon (e.g., "localhost:8080")
+	DaemonArgs   []string      // Additional arguments to pass to daemon
+	AutoLaunch   bool          // Whether to auto-launch daemon (default: true)
+	MaxRestarts  int           // Max restart attempts (default: 5)
 	RestartDelay time.Duration // Delay between restarts (default: 5s)
 }
 
@@ -129,7 +129,7 @@ func (dm *DaemonManager) Start() error {
 	// Reset stopping flag in case we're restarting after a stop
 	dm.stopping = false
 
-	// Recreate context if it was cancelled
+	// Recreate context if it was canceled
 	if dm.ctx.Err() != nil {
 		dm.ctx, dm.cancel = context.WithCancel(context.Background())
 		dm.stopChan = make(chan struct{})
@@ -171,7 +171,7 @@ func (dm *DaemonManager) Stop() error {
 		if err := dm.cmd.Process.Signal(os.Interrupt); err != nil {
 			logger.Warn("Failed to send SIGTERM", "error", err)
 			// Force kill if graceful shutdown fails
-			dm.cmd.Process.Kill()
+			_ = dm.cmd.Process.Kill()
 		}
 	}
 	dm.mu.Unlock()
@@ -184,7 +184,7 @@ func (dm *DaemonManager) Stop() error {
 			dm.mu.Lock()
 			if dm.cmd != nil && dm.cmd.Process != nil {
 				logger.Warn("Daemon did not exit gracefully, force killing", "pid", dm.cmd.Process.Pid)
-				dm.cmd.Process.Kill()
+				_ = dm.cmd.Process.Kill()
 				dm.mu.Unlock()
 				// Wait a bit more for the kill to take effect
 				select {

@@ -25,7 +25,7 @@ func TestDaemonClient_GetStatus_Success(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(status)
+		_ = json.NewEncoder(w).Encode(status)
 	}))
 	defer server.Close()
 
@@ -63,7 +63,7 @@ func TestDaemonClient_GetStatus_Offline(t *testing.T) {
 
 func TestDaemonClient_GetStatus_WithSyncProgress(t *testing.T) {
 	now := time.Now()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		status := Status{
 			State: StateSyncing,
 			CurrentSync: &SyncProgress{
@@ -77,7 +77,7 @@ func TestDaemonClient_GetStatus_WithSyncProgress(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(status)
+		_ = json.NewEncoder(w).Encode(status)
 	}))
 	defer server.Close()
 
@@ -117,7 +117,7 @@ func TestDaemonClient_TriggerSync_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusAccepted)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"success": true,
 			"message": "Sync triggered",
 		})
@@ -134,7 +134,7 @@ func TestDaemonClient_TriggerSync_Success(t *testing.T) {
 }
 
 func TestDaemonClient_TriggerSync_Conflict(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusConflict)
 	}))
 	defer server.Close()
@@ -158,7 +158,7 @@ func TestDaemonClient_IsHealthy(t *testing.T) {
 			t.Errorf("Expected /health, got %s", r.URL.Path)
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK\n"))
+		_, _ = w.Write([]byte("OK\n"))
 	}))
 	defer server.Close()
 

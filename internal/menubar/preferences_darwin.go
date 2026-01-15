@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	preferencesCallbacks = make(map[uintptr]func(string, string, bool, string))
+	preferencesCallbacks  = make(map[uintptr]func(string, string, bool, string))
 	preferencesCallbackMu sync.Mutex
 	preferencesCallbackID uintptr
 )
@@ -97,6 +97,7 @@ func (a *App) ShowNativePreferences() {
 
 	// Create controller with callback context
 	// The Objective-C code will call preferencesGoCallback directly with this context
+	//nolint:govet // unsafe.Pointer required for C interop
 	controller := C.createPreferencesController(
 		cDaemonAddr,
 		cSyncInterval,

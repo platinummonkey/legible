@@ -30,11 +30,12 @@ func NewDaemonClient(baseURL string) *DaemonClient {
 // SyncState represents the daemon's sync state
 type SyncState string
 
+// Daemon sync states
 const (
-	StateIdle     SyncState = "idle"
-	StateSyncing  SyncState = "syncing"
-	StateError    SyncState = "error"
-	StateOffline  SyncState = "offline" // Daemon not reachable
+	StateIdle    SyncState = "idle"    // StateIdle indicates daemon is idle
+	StateSyncing SyncState = "syncing" // StateSyncing indicates sync in progress
+	StateError   SyncState = "error"   // StateError indicates an error occurred
+	StateOffline SyncState = "offline" // StateOffline indicates daemon not reachable
 )
 
 // Status represents the daemon status response
@@ -84,7 +85,7 @@ func (c *DaemonClient) GetStatus(ctx context.Context) (*Status, error) {
 		// Return offline status if daemon is not reachable
 		return &Status{State: StateOffline}, nil
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -111,7 +112,7 @@ func (c *DaemonClient) TriggerSync(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to trigger sync: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusConflict {
 		return fmt.Errorf("sync already in progress")
@@ -137,7 +138,7 @@ func (c *DaemonClient) CancelSync(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to cancel sync: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusConflict {
 		return fmt.Errorf("no sync in progress")
@@ -167,7 +168,7 @@ func (c *DaemonClient) IsHealthy(ctx context.Context) bool {
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	return resp.StatusCode == http.StatusOK
 }

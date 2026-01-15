@@ -36,7 +36,7 @@ func TestSaveAndLoadMenuBarConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	testPath := filepath.Join(tmpDir, "test-config.yaml")
 
@@ -147,7 +147,7 @@ func TestSaveMenuBarConfigCreatesDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	// Path with non-existent subdirectory
 	testPath := filepath.Join(tmpDir, "subdir", "config.yaml")

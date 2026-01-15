@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   release:
-    name: Release with GoReleaser Pro
+    name: Release
     runs-on: ubuntu-latest
 
     steps:

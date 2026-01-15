@@ -12,6 +12,8 @@ import (
 )
 
 // MenuBarConfig holds menu bar application-specific configuration.
+//
+//nolint:revive // MenuBarConfig is intentionally descriptive
 type MenuBarConfig struct {
 	// Daemon configuration file path to pass to the daemon
 	DaemonConfigFile string `yaml:"daemon_config_file"`
