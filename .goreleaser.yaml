@@ -136,7 +136,7 @@ release:
     name: legible
 
   # Create release draft for review
-  draft: false
+  draft: true
 
   # Mark as prerelease for v0.x versions
   prerelease: auto

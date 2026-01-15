@@ -114,6 +114,20 @@ checksum:
   name_template: 'checksums.txt'
   algorithm: sha256
 
+release:
+  github:
+    owner: platinummonkey
+    name: legible
+
+  # Keep as draft - will be published in final stage
+  draft: true
+
+  # Mark as prerelease for v0.x versions
+  prerelease: auto
+
+  # Don't fail if release already exists (it will be created by stage 1)
+  mode: append
+
 # Homebrew tap - automatically updates platinummonkey/homebrew-tap
 # Using homebrew_casks (not brews) since we distribute pre-compiled binaries
 homebrew_casks:
