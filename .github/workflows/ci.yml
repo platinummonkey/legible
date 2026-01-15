@@ -112,13 +112,15 @@ jobs:
       # Build menu bar app and daemon using goreleaser
       # Uses .goreleaser.menubar.yaml which builds both legible and legible-menubar
       # Requires CGO_ENABLED=1 for systray support
+      # Note: Uses goreleaser-pro for DMG support (Pro feature)
       - name: Run GoReleaser menu bar build
         uses: goreleaser/goreleaser-action@v6
         with:
-          distribution: goreleaser
-          version: latest
+          distribution: goreleaser-pro
+          version: '~> v2'
           args: build --snapshot --clean --config .goreleaser.menubar.yaml
         env:
+          GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
           CGO_ENABLED: 1
 
       # Upload macOS app bundle and archives
