@@ -13,7 +13,7 @@ permissions:
 jobs:
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
 
     steps:
       - name: Checkout code
@@ -38,7 +38,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
 
     steps:
       - name: Checkout code
@@ -58,7 +58,7 @@ jobs:
 
   build:
     name: Build CLI
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     needs: [test, lint]
 
     steps:
