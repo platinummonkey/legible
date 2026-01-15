@@ -10,7 +10,8 @@ RUN apk add --no-cache \
     ca-certificates \
     tzdata \
     curl \
-    bash
+    bash \
+    zstd
 
 # Install Ollama
 RUN curl -fsSL https://ollama.ai/install.sh | sh
