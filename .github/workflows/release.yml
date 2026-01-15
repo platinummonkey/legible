@@ -11,9 +11,10 @@ permissions:
   id-token: write  # Required for sigstore cosign OIDC keyless signing
 
 jobs:
-  release:
-    name: Release
-    runs-on: macos-latest
+  # Stage 1: Build main CLI binaries and Docker images on Ubuntu
+  release-cli:
+    name: Release CLI & Docker
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -53,7 +54,7 @@ jobs:
       - name: Install syft
         uses: anchore/sbom-action/download-syft@v0
 
-      - name: Build and Release
+      - name: Build and Release CLI
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser-pro
@@ -63,14 +64,60 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
           HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
-          # CGO_ENABLED is set per-build in .goreleaser.yaml
-          # - legible: CGO_ENABLED=0 (no dependencies, cross-platform)
-          # - legible-menubar: CGO_ENABLED=1 (systray requires CGO on macOS)
-          # GoReleaser Pro will automatically create DMG installers for macOS
 
-      - name: Upload artifacts to workflow
+      - name: Upload CLI artifacts
         uses: actions/upload-artifact@v6
         with:
-          name: release-artifacts
+          name: cli-artifacts
+          path: dist/
+          retention-days: 7
+
+  # Stage 2: Build macOS menu bar app on macOS runner
+  release-menubar:
+    name: Release macOS Menu Bar App
+    runs-on: macos-latest
+    needs: release-cli
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Fetch all tags
+        run: git fetch --force --tags
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v4.0.0
+        with:
+          cosign-release: 'v2.4.1'
+
+      - name: Install syft
+        uses: anchore/sbom-action/download-syft@v0
+
+      - name: Build Menu Bar App
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser-pro
+          version: '~> v2'
+          args: release --clean --config=.goreleaser.menubar.yaml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
+          CGO_ENABLED: 1
+
+      - name: Upload menu bar artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: menubar-artifacts
           path: dist/
           retention-days: 7
