@@ -52,36 +52,6 @@ builds:
       post:
         - cmd: echo "Built {{.Path}} for {{.Os}}/{{.Arch}}"
 
-  - id: legible-menubar
-    main: ./cmd/legible-menubar
-    binary: legible-menubar
-
-    # macOS only - menu bar application
-    goos:
-      - darwin
-
-    goarch:
-      - amd64
-      - arm64
-
-    # Inject version information
-    ldflags:
-      - -s -w
-      - -X main.Version={{.Version}}
-      - -X main.GitCommit={{.ShortCommit}}
-      - -X main.BuildDate={{.Date}}
-
-    env:
-      - CGO_ENABLED=1  # systray requires CGO on macOS
-
-    # Build flags
-    flags:
-      - -trimpath
-
-    hooks:
-      post:
-        - cmd: bash -c 'if [ "{{.Os}}" = "darwin" ]; then OUTPUT_DIR=$(dirname $(dirname "{{.Path}}")); ./scripts/package-macos-app.sh "{{.Path}}" "$OUTPUT_DIR" "{{.Version}}"; fi'
-
 archives:
   - id: default
     builds:
@@ -106,44 +76,6 @@ archives:
       - src: "docs/**/*"
         dst: docs
         strip_parent: true
-
-  - id: macos-menubar
-    builds:
-      - legible-menubar
-      - legible
-    name_template: >-
-      {{ .ProjectName }}-menubar_
-      {{- .Version }}_
-      {{- .Os }}_
-      {{- if eq .Arch "amd64" }}x86_64
-      {{- else }}{{ .Arch }}{{ end }}
-
-    format: zip
-
-    # Include the .app bundle and daemon binary
-    files:
-      - LICENSE*
-      - README*
-      - CHANGELOG*
-      - FAQ.md
-      - src: "dist/legible_*/Legible.app"
-        dst: "."
-        strip_parent: true
-
-# DMG installer for macOS (GoReleaser Pro only)
-# Note: This section requires GoReleaser Pro and will not work with the open-source version
-# The CI/CD pipeline uses GoReleaser Pro for releases
-dmg:
-  - id: legible-menubar-dmg
-    # Use the .app bundle created by the post-hook
-    use: appbundle
-
-    # Only create DMG for darwin builds
-    ids:
-      - legible-menubar
-
-    # DMG filename
-    name: "legible-menubar_{{.Version}}_{{.Os}}_{{.Arch}}"
 
 checksum:
   name_template: 'checksums.txt'
@@ -314,39 +246,6 @@ homebrew_casks:
         2. Sync documents: legible sync
 
       Documentation: https://github.com/platinummonkey/legible
-
-  # Menu bar application cask (using DMG)
-  - name: legible-menubar
-    repository:
-      owner: platinummonkey
-      name: homebrew-tap
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-
-    directory: Casks
-
-    # Use DMG artifacts
-    ids:
-      - legible-menubar-dmg
-
-    homepage: "https://github.com/platinummonkey/legible"
-    description: "macOS menu bar application for syncing documents from reMarkable tablet"
-
-    caveats: |
-      Legible menu bar app has been installed to /Applications/Legible.app
-
-      The 'legible' daemon is also required. Install it with:
-        brew install platinummonkey/tap/legible
-
-      First-time setup:
-        1. Authenticate: legible auth
-        2. Launch Legible.app from /Applications/
-        3. The menu bar icon will appear and manage syncing automatically
-
-      Optional: Install Ollama for OCR text layer generation (searchable PDFs):
-        brew install ollama
-        ollama pull llava
-
-      Documentation: https://github.com/platinummonkey/legible/blob/main/docs/menubar-app.md
 
 # Announce releases (optional - uncomment to enable)
 # announce:

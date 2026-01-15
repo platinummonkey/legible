@@ -95,9 +95,60 @@ archives:
         dst: "."
         strip_parent: true
 
+# DMG installer for macOS (GoReleaser Pro only)
+# Note: This section requires GoReleaser Pro and will not work with the open-source version
+# The CI/CD pipeline uses GoReleaser Pro for releases
+dmg:
+  - id: legible-menubar-dmg
+    # Use the .app bundle created by the post-hook
+    use: appbundle
+
+    # Only create DMG for darwin builds
+    ids:
+      - legible-menubar
+
+    # DMG filename
+    name: "legible-menubar_{{.Version}}_{{.Os}}_{{.Arch}}"
+
 checksum:
   name_template: 'checksums.txt'
   algorithm: sha256
+
+# Homebrew tap - automatically updates platinummonkey/homebrew-tap
+# Using homebrew_casks (not brews) since we distribute pre-compiled binaries
+homebrew_casks:
+  # Menu bar application cask (using DMG)
+  - name: legible-menubar
+    repository:
+      owner: platinummonkey
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+
+    directory: Casks
+
+    # Use DMG artifacts
+    ids:
+      - legible-menubar-dmg
+
+    homepage: "https://github.com/platinummonkey/legible"
+    description: "macOS menu bar application for syncing documents from reMarkable tablet"
+
+    caveats: |
+      Legible menu bar app has been installed to /Applications/Legible.app
+
+      The 'legible' daemon is also required. Install it with:
+        brew install platinummonkey/tap/legible
+
+      First-time setup:
+        1. Authenticate: legible auth
+        2. Launch Legible.app from /Applications/
+        3. The menu bar icon will appear and manage syncing automatically
+
+      Optional: Install Ollama for OCR text layer generation (searchable PDFs):
+        brew install ollama
+        ollama pull llava
+
+      Documentation: https://github.com/platinummonkey/legible/blob/main/docs/menubar-app.md
 
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
