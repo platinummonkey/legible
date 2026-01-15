@@ -35,10 +35,7 @@ jobs:
 
       # Set up Docker Buildx for multi-platform builds
       - name: Set up Docker Buildx
-        run: |
-          brew install docker colima
-          colima start
-          docker buildx install
+        uses: docker/setup-buildx-action@v3
 
       # Log in to GitHub Container Registry for publishing container images
       - name: Log in to GitHub Container Registry
