@@ -109,7 +109,7 @@ jobs:
         with:
           distribution: goreleaser-pro
           version: '~> v2'
-          args: release --clean --config=.goreleaser.menubar.yaml --skip=announce,homebrew
+          args: release --clean --config=.goreleaser.menubar.yaml --skip=announce,homebrew,publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
@@ -123,7 +123,7 @@ jobs:
           path: dist/
           retention-days: 7
 
-  # Stage 3: Publish the release after all artifacts are built
+  # Stage 3: Upload menubar artifacts and publish the release
   publish-release:
     name: Publish Release
     runs-on: ubuntu-latest
@@ -132,6 +132,32 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+
+      - name: Download menubar artifacts
+        uses: actions/download-artifact@v6
+        with:
+          name: menubar-artifacts
+          path: menubar-dist/
+
+      - name: Upload menubar artifacts to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get the tag from the ref
+          TAG=${GITHUB_REF#refs/tags/}
+          echo "Uploading menubar artifacts to release: $TAG"
+
+          # Upload all artifacts from the menubar build
+          # This includes .app bundles, DMG files, archives, and checksums
+          find menubar-dist -type f \( \
+            -name "*.dmg" -o \
+            -name "*.zip" -o \
+            -name "*.tar.gz" -o \
+            -name "checksums.txt" -o \
+            -name "*.sbom.spdx.json" \
+          \) -exec gh release upload "$TAG" {} \; || true
+
+          echo "Menubar artifacts uploaded successfully!"
 
       - name: Publish GitHub Release
         env:
