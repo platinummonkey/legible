@@ -76,7 +76,7 @@ jobs:
       # Build CLI binary only (no CGO, cross-platform)
       # Uses .goreleaser.cli.yaml which builds only the legible CLI
       - name: Run GoReleaser CLI build
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
           version: latest
@@ -114,7 +114,7 @@ jobs:
       # Requires CGO_ENABLED=1 for systray support
       # Note: Uses goreleaser-pro for DMG support (Pro feature)
       - name: Run GoReleaser menu bar build
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser-pro
           version: '~> v2'
