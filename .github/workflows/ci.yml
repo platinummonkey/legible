@@ -76,7 +76,7 @@ jobs:
       # Build CLI binary only (no CGO, cross-platform)
       # Uses .goreleaser.cli.yaml which builds only the legible CLI
       - name: Run GoReleaser CLI build
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser
           version: latest
@@ -86,7 +86,7 @@ jobs:
 
       # Upload CLI binaries as artifacts
       - name: Upload CLI build artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: legible-cli-binaries
           path: dist/legible_*/legible*
@@ -114,7 +114,7 @@ jobs:
       # Requires CGO_ENABLED=1 for systray support
       # Note: Uses goreleaser-pro for DMG support (Pro feature)
       - name: Run GoReleaser menu bar build
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         with:
           distribution: goreleaser-pro
           version: '~> v2'
@@ -125,7 +125,7 @@ jobs:
 
       # Upload macOS app bundle and archives
       - name: Upload macOS menu bar artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: legible-macos-menubar
           path: |
