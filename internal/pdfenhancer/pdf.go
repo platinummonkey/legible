@@ -207,7 +207,7 @@ func (pe *PDFEnhancer) createTextContentStream(pageOCR *ocr.PageOCR, pdfPageWidt
 		}
 
 		// Set font with calculated size
-		buf.WriteString(fmt.Sprintf("/Helvetica %.2f Tf\n", fontSize))
+		fmt.Fprintf(&buf, "/Helvetica %.2f Tf\n", fontSize)
 
 		// Escape text for PDF string
 		escapedText := pe.escapePDFString(word.Text)
@@ -234,10 +234,10 @@ func (pe *PDFEnhancer) createTextContentStream(pageOCR *ocr.PageOCR, pdfPageWidt
 		//   d = vertical scaling
 		//   e = x position
 		//   f = y position
-		buf.WriteString(fmt.Sprintf("%.3f 0 0 1 %.2f %.2f Tm\n", horizontalScale, pdfX, pdfY))
+		fmt.Fprintf(&buf, "%.3f 0 0 1 %.2f %.2f Tm\n", horizontalScale, pdfX, pdfY)
 
 		// Show text using Tj operator
-		buf.WriteString(fmt.Sprintf("(%s) Tj\n", escapedText))
+		fmt.Fprintf(&buf, "(%s) Tj\n", escapedText)
 	}
 
 	// End text object
