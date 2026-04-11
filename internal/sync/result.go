@@ -69,17 +69,17 @@ func (sr *Result) Summary() string {
 	var sb strings.Builder
 
 	sb.WriteString("Sync Summary:\n")
-	sb.WriteString(fmt.Sprintf("  Total Documents: %d\n", sr.TotalDocuments))
-	sb.WriteString(fmt.Sprintf("  Processed: %d\n", sr.ProcessedDocuments))
-	sb.WriteString(fmt.Sprintf("  Successful: %d\n", sr.SuccessCount))
-	sb.WriteString(fmt.Sprintf("  Failed: %d\n", sr.FailureCount))
-	sb.WriteString(fmt.Sprintf("  Duration: %v\n", sr.Duration))
+	fmt.Fprintf(&sb, "  Total Documents: %d\n", sr.TotalDocuments)
+	fmt.Fprintf(&sb, "  Processed: %d\n", sr.ProcessedDocuments)
+	fmt.Fprintf(&sb, "  Successful: %d\n", sr.SuccessCount)
+	fmt.Fprintf(&sb, "  Failed: %d\n", sr.FailureCount)
+	fmt.Fprintf(&sb, "  Duration: %v\n", sr.Duration)
 
 	if sr.HasFailures() {
 		sb.WriteString("\nFailures:\n")
 		for _, failure := range sr.Failures {
-			sb.WriteString(fmt.Sprintf("  - %s (%s): %v\n",
-				failure.Title, failure.DocumentID, failure.Error))
+			fmt.Fprintf(&sb, "  - %s (%s): %v\n",
+				failure.Title, failure.DocumentID, failure.Error)
 		}
 	}
 
