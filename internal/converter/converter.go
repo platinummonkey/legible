@@ -622,10 +622,12 @@ func (c *Converter) addOCRTextLayer(pdfPath string, pageCount int, result *Conve
 
 // addPDFMetadata adds metadata to the PDF file using pdfcpu
 func (c *Converter) addPDFMetadata(pdfPath string, metadata *DocumentMetadata, tags []string) error {
-	// Prepare metadata properties
+	// pdfcpu v0.13+ rejects reserved info-dict keys via AddPropertiesFile:
+	// Keywords, Producer, CreationDate, ModDate, Trapped. Passing any of those
+	// fails the entire write, so Title/Subject/Creator never land. Only send
+	// keys the properties API allows.
 	properties := map[string]string{
-		"Creator":  "legible",
-		"Producer": "legible",
+		"Creator": "legible",
 	}
 
 	// Add title
@@ -636,13 +638,6 @@ func (c *Converter) addPDFMetadata(pdfPath string, metadata *DocumentMetadata, t
 	// Add subject (tags)
 	if len(tags) > 0 {
 		properties["Subject"] = strings.Join(tags, ", ")
-	}
-
-	// Add creation date
-	if metadata.CreatedTime != "" {
-		if createdTime := parseTimestamp(metadata.CreatedTime); !createdTime.IsZero() {
-			properties["CreationDate"] = createdTime.Format("D:20060102150405")
-		}
 	}
 
 	// Create temp file for output

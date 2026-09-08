@@ -449,8 +449,48 @@ func TestReadContent_WithTags(t *testing.T) {
 	}
 }
 
+func TestAddPDFMetadata(t *testing.T) {
+	converter, err := New(&Config{EnableOCR: false, OCRLanguages: []string{}})
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	pdfPath := filepath.Join(tmpDir, "meta.pdf")
+	if err := converter.createPlaceholderPDF(pdfPath, 1); err != nil {
+		t.Fatalf("createPlaceholderPDF() error: %v", err)
+	}
+
+	err = converter.addPDFMetadata(pdfPath, &DocumentMetadata{VisibleName: "Test"}, []string{"test"})
+	if err != nil {
+		t.Fatalf("addPDFMetadata() error: %v", err)
+	}
+
+	pdfFile, err := os.Open(pdfPath)
+	if err != nil {
+		t.Fatalf("failed to open PDF: %v", err)
+	}
+	defer func() { _ = pdfFile.Close() }()
+
+	pdfInfo, err := api.PDFInfo(pdfFile, pdfPath, nil, false, model.NewDefaultConfiguration())
+	if err != nil {
+		t.Fatalf("failed to read PDF info: %v", err)
+	}
+
+	if pdfInfo.Title != "Test" {
+		t.Errorf("expected Title 'Test', got '%s'", pdfInfo.Title)
+	}
+	if !strings.Contains(pdfInfo.Subject, "test") {
+		t.Errorf("expected Subject to contain 'test', got '%s'", pdfInfo.Subject)
+	}
+	if pdfInfo.Creator != "legible" {
+		t.Errorf("expected Creator 'legible', got '%s'", pdfInfo.Creator)
+	}
+}
+
 func TestConvertRmdoc_PDFMetadata(t *testing.T) {
-	converter, err := New(&Config{})
+	// Disable OCR so this test only covers conversion + metadata (no Ollama).
+	converter, err := New(&Config{EnableOCR: false, OCRLanguages: []string{}})
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
 	}
