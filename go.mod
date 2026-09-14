@@ -1,10 +1,10 @@
 module github.com/platinummonkey/legible
 
-go 1.25.0
+go 1.26.0
 
 require (
 	fyne.io/systray v1.12.2
-	github.com/anthropics/anthropic-sdk-go v1.68.0
+	github.com/anthropics/anthropic-sdk-go v1.72.0
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/google/generative-ai-go v0.20.1
 	github.com/google/uuid v1.6.0
@@ -16,7 +16,7 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/unidoc/unipdf/v3 v3.69.0
 	go.uber.org/zap v1.28.0
-	google.golang.org/api v0.294.0
+	google.golang.org/api v0.297.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
