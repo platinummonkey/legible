@@ -1,6 +1,7 @@
 package converter
 
 import (
+	"context"
 	"fmt"
 	"image"
 	"image/png"
@@ -89,7 +90,7 @@ func (c *Converter) renderAllPagesToImages(pdfPath string, dpi int) ([]image.Ima
 	c.logger.WithFields("pdf", pdfPath, "dpi", dpi).Debug("Rendering all PDF pages to images")
 
 	// Get page count using pdfcpu (lightweight check)
-	ctx, err := api.ReadContextFile(pdfPath)
+	ctx, err := api.ReadContextFile(context.Background(), pdfPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read PDF: %w", err)
 	}
@@ -142,7 +143,7 @@ func (c *Converter) validatePDFWithPdfcpu(pdfPath string) error {
 	conf := model.NewDefaultConfiguration()
 	conf.ValidationMode = model.ValidationRelaxed
 
-	if err := api.ValidateFile(pdfPath, conf); err != nil {
+	if err := api.ValidateFile(context.Background(), pdfPath, conf, nil); err != nil {
 		return fmt.Errorf("PDF validation failed: %w", err)
 	}
 
