@@ -3,6 +3,7 @@ package converter
 
 import (
 	"archive/zip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -464,7 +465,7 @@ startxref
 	}
 
 	// Use pdfcpu to merge pages
-	if err := api.MergeCreateFile(inFiles, outputPath, false, conf); err != nil {
+	if err := api.MergeCreateFile(context.Background(), inFiles, outputPath, false, conf); err != nil {
 		return fmt.Errorf("failed to merge pages: %w", err)
 	}
 
@@ -651,7 +652,7 @@ func (c *Converter) addPDFMetadata(pdfPath string, metadata *DocumentMetadata, t
 
 	// Add properties
 	conf := model.NewDefaultConfiguration()
-	if err := api.AddPropertiesFile(pdfPath, tmpPath, properties, conf); err != nil {
+	if err := api.AddPropertiesFile(context.Background(), pdfPath, tmpPath, properties, conf); err != nil {
 		return fmt.Errorf("failed to add properties: %w", err)
 	}
 
