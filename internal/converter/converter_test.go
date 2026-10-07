@@ -1,6 +1,7 @@
 package converter
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -472,7 +473,7 @@ func TestAddPDFMetadata(t *testing.T) {
 	}
 	defer func() { _ = pdfFile.Close() }()
 
-	pdfInfo, err := api.PDFInfo(pdfFile, pdfPath, nil, false, model.NewDefaultConfiguration())
+	pdfInfo, err := api.PDFInfo(context.Background(), pdfFile, pdfPath, nil, false, model.NewDefaultConfiguration())
 	if err != nil {
 		t.Fatalf("failed to read PDF info: %v", err)
 	}
@@ -519,7 +520,7 @@ func TestConvertRmdoc_PDFMetadata(t *testing.T) {
 	}
 	defer func() { _ = pdfFile.Close() }()
 
-	pdfInfo, err := api.PDFInfo(pdfFile, outputPath, nil, false, model.NewDefaultConfiguration())
+	pdfInfo, err := api.PDFInfo(context.Background(), pdfFile, outputPath, nil, false, model.NewDefaultConfiguration())
 	if err != nil {
 		t.Fatalf("failed to read PDF info: %v", err)
 	}
