@@ -3,6 +3,7 @@ package pdfenhancer
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -41,7 +42,7 @@ func (pe *PDFEnhancer) GetPageCount(pdfPath string) (int, error) {
 	pe.logger.WithFields("pdf_path", pdfPath).Debug("Getting page count")
 
 	// Read PDF context
-	ctx, err := api.ReadContextFile(pdfPath)
+	ctx, err := api.ReadContextFile(context.Background(), pdfPath)
 	if err != nil {
 		return 0, fmt.Errorf("failed to read PDF: %w", err)
 	}
@@ -62,7 +63,7 @@ func (pe *PDFEnhancer) ValidatePDF(pdfPath string) error {
 	}
 
 	// Try to read the PDF
-	_, err := api.ReadContextFile(pdfPath)
+	_, err := api.ReadContextFile(context.Background(), pdfPath)
 	if err != nil {
 		return fmt.Errorf("invalid PDF file: %w", err)
 	}
@@ -81,7 +82,7 @@ func (pe *PDFEnhancer) AddTextLayer(inputPath, outputPath string, ocrResults *oc
 	}
 
 	// Read the input PDF
-	ctx, err := api.ReadContextFile(inputPath)
+	ctx, err := api.ReadContextFile(context.Background(), inputPath)
 	if err != nil {
 		return fmt.Errorf("failed to read input PDF: %w", err)
 	}
@@ -103,7 +104,7 @@ func (pe *PDFEnhancer) AddTextLayer(inputPath, outputPath string, ocrResults *oc
 	}
 
 	// Write the enhanced PDF
-	if err := api.WriteContextFile(ctx, outputPath); err != nil {
+	if err := api.WriteContextFile(context.Background(), ctx, outputPath); err != nil {
 		return fmt.Errorf("failed to write output PDF: %w", err)
 	}
 
@@ -114,7 +115,7 @@ func (pe *PDFEnhancer) AddTextLayer(inputPath, outputPath string, ocrResults *oc
 // addTextToPage adds OCR text to a specific page
 func (pe *PDFEnhancer) addTextToPage(ctx *model.Context, pageNum int, pageOCR *ocr.PageOCR) error {
 	// Get the page dictionary and inherited attributes
-	pageDict, _, inheritedAttrs, err := ctx.PageDict(pageNum, false)
+	pageDict, _, inheritedAttrs, err := ctx.PageDict(context.Background(), pageNum, false)
 	if err != nil {
 		return fmt.Errorf("failed to get page dictionary: %w", err)
 	}
@@ -320,7 +321,7 @@ func (pe *PDFEnhancer) OptimizePDF(inputPath, outputPath string) error {
 	conf := model.NewDefaultConfiguration()
 	conf.ValidationMode = model.ValidationRelaxed
 
-	if err := api.OptimizeFile(inputPath, outputPath, conf); err != nil {
+	if err := api.OptimizeFile(context.Background(), inputPath, outputPath, conf, nil); err != nil {
 		return fmt.Errorf("failed to optimize PDF: %w", err)
 	}
 
@@ -332,7 +333,7 @@ func (pe *PDFEnhancer) OptimizePDF(inputPath, outputPath string) error {
 func (pe *PDFEnhancer) ExtractPageInfo(pdfPath string, pageNum int) (*PageInfo, error) {
 	pe.logger.WithFields("pdf_path", pdfPath, "page", pageNum).Debug("Extracting page info")
 
-	ctx, err := api.ReadContextFile(pdfPath)
+	ctx, err := api.ReadContextFile(context.Background(), pdfPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read PDF: %w", err)
 	}
@@ -342,7 +343,7 @@ func (pe *PDFEnhancer) ExtractPageInfo(pdfPath string, pageNum int) (*PageInfo, 
 	}
 
 	// Get page dictionary and inherited attributes
-	_, _, inheritedAttrs, err := ctx.PageDict(pageNum, false)
+	_, _, inheritedAttrs, err := ctx.PageDict(context.Background(), pageNum, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get page dictionary: %w", err)
 	}
@@ -379,7 +380,7 @@ func (pe *PDFEnhancer) MergePDFs(inputPaths []string, outputPath string) error {
 	pe.logger.WithFields("input_count", len(inputPaths), "output", outputPath).Info("Merging PDFs")
 
 	conf := model.NewDefaultConfiguration()
-	if err := api.MergeCreateFile(inputPaths, outputPath, false, conf); err != nil {
+	if err := api.MergeCreateFile(context.Background(), inputPaths, outputPath, false, conf); err != nil {
 		return fmt.Errorf("failed to merge PDFs: %w", err)
 	}
 
@@ -412,7 +413,7 @@ func (pe *PDFEnhancer) SplitPDF(inputPath, outputDir string) error {
 		pages[i-1] = fmt.Sprintf("%d", i)
 	}
 
-	if err := api.ExtractPagesFile(inputPath, outputDir, pages, conf); err != nil {
+	if err := api.ExtractPagesFile(context.Background(), inputPath, outputDir, pages, conf); err != nil {
 		return fmt.Errorf("failed to extract pages: %w", err)
 	}
 
@@ -424,7 +425,7 @@ func (pe *PDFEnhancer) SplitPDF(inputPath, outputDir string) error {
 func (pe *PDFEnhancer) GetPDFInfo(pdfPath string) (*PDFInfo, error) {
 	pe.logger.WithFields("pdf_path", pdfPath).Debug("Getting PDF info")
 
-	ctx, err := api.ReadContextFile(pdfPath)
+	ctx, err := api.ReadContextFile(context.Background(), pdfPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read PDF: %w", err)
 	}
